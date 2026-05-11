@@ -8,6 +8,9 @@ dist-ssr
 # Vercel
 .vercel
 
+# TypeScript
+*.tsbuildinfo
+
 # Logs
 *.log
 
