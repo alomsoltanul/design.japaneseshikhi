@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Japanese Shikhi — Poster Studio</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#E63946">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JS Posters">
+<link rel="apple-touch-icon" href="/assets/favicon.png">
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Bengali:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/html-to-image@1.11.11/dist/html-to-image.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body,#root{height:100%}
+body{font-family:'Inter',sans-serif;background:#0b0d14;color:#e5e7eb;overflow:hidden}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#252940;border-radius:3px}
+
+@keyframes orb1{0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(40px,-30px) scale(1.08)}}
+@keyframes orb2{0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-35px,45px) scale(0.94)}}
+@keyframes orb3{0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(30px,40px) scale(1.12)}}
+@keyframes petal{0%{transform:translateY(-60px) rotate(0deg);opacity:0} 10%{opacity:.7} 90%{opacity:.4} 100%{transform:translateY(2000px) translateX(40px) rotate(360deg);opacity:0}}
+.petal{position:absolute;border-radius:150% 0 150% 0;pointer-events:none;animation:petal linear infinite;background:linear-gradient(135deg,rgba(255,182,197,.78),rgba(255,140,165,.60))}
+@media(prefers-reduced-motion:reduce){.petal{animation:none}}
+
+/* Layout */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:370px;flex-shrink:0;background:#111320;border-right:1px solid #1e2235;display:flex;flex-direction:column;overflow:hidden}
+.sidebar-head{padding:16px 20px 12px;border-bottom:1px solid #1e2235;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.sidebar-logo{height:18px}
+.sidebar-badge{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#4b5563}
+.tabs{display:flex;border-bottom:1px solid #1e2235;flex-shrink:0}
+.tab{flex:1;padding:10px 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border:none;background:transparent;color:#4b5563;cursor:pointer;transition:color .15s;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:#9ca3af}.tab.on{color:#E63946;border-bottom-color:#E63946}
+.scroll{flex:1;overflow-y:auto;padding:14px 18px 20px}
+
+/* Template picker */
+.tpl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px}
+.tpl-btn{background:#1a1d2c;border:1px solid #252940;border-radius:10px;padding:9px 4px 7px;cursor:pointer;text-align:center;transition:all .15s}
+.tpl-btn:hover{border-color:#374151}.tpl-btn.on{background:rgba(230,57,70,.1);border-color:rgba(230,57,70,.4)}
+.tpl-jp{font-size:19px;line-height:1;margin-bottom:4px;color:#e5e7eb}
+.tpl-en{font-size:9px;font-weight:700;letter-spacing:.04em;color:#6b7280;text-transform:uppercase}
+.tpl-btn.on .tpl-en{color:#E63946}
+
+/* Format selector */
+.fmt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:14px}
+.fmt-btn{background:#1a1d2c;border:1px solid #252940;border-radius:9px;padding:9px 10px 8px;cursor:pointer;text-align:left;transition:all .15s;display:flex;flex-direction:column;gap:2px}
+.fmt-btn:hover{border-color:#374151}.fmt-btn.on{background:rgba(230,57,70,.08);border-color:rgba(230,57,70,.4)}
+.fmt-name{font-size:12px;font-weight:700;color:#e5e7eb;display:flex;align-items:center;gap:6px}
+.fmt-btn.on .fmt-name{color:#E63946}
+.fmt-dims{font-size:9px;font-weight:600;color:#4b5563;letter-spacing:.03em}
+.fmt-icon{font-size:10px;opacity:.7}
+
+/* Swatches */
+.swatch-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:transform .15s,border-color .15s;flex-shrink:0}
+.swatch:hover{transform:scale(1.15)}.swatch.on{border-color:#fff;transform:scale(1.12);box-shadow:0 0 0 2px rgba(255,255,255,.15)}
+
+/* Image upload */
+.img-drop{border:2px dashed #252940;border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:8px}
+.img-drop:hover,.img-drop.drag{border-color:#E63946;background:rgba(230,57,70,.05)}
+.img-drop.has{border-style:solid;border-color:rgba(42,157,143,.5);background:rgba(42,157,143,.05)}
+.img-drop-icon{font-size:22px;margin-bottom:5px}
+.img-drop-txt{font-size:11px;font-weight:600;color:#6b7280;line-height:1.4}
+.img-thumb{width:100%;height:72px;object-fit:cover;border-radius:7px;margin-top:8px;display:block}
+.img-clear{background:none;border:1px solid #374151;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;color:#9ca3af;cursor:pointer;margin-top:7px;width:100%;transition:all .15s}
+.img-clear:hover{border-color:#E63946;color:#E63946}
+
+/* Fields */
+.sec-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#4b5563;margin:14px 0 7px}
+.field{margin-bottom:9px}
+.field label{display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b7280;margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%;background:#1a1d2c;border:1px solid #252940;border-radius:8px;padding:8px 10px;font-size:13px;color:#e5e7eb;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;resize:none}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:#E63946}
+.field textarea{min-height:52px;line-height:1.5}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.word-slot{background:#1a1d2c;border:1px solid #252940;border-radius:10px;padding:10px;margin-bottom:7px}
+.word-slot-head{font-size:10px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.word-slot .field{margin-bottom:5px}.word-slot .field:last-child{margin-bottom:0}
+
+/* Sliders */
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.slider-row label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;flex:0 0 72px}
+.slider-row input[type=range]{flex:1;accent-color:#E63946;height:4px}
+.slider-val{font-size:11px;font-weight:600;color:#9ca3af;flex:0 0 34px;text-align:right}
+
+/* Toggles */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.toggle-label{font-size:12px;color:#9ca3af;font-weight:500}
+.toggle-btn{width:38px;height:22px;background:#252940;border-radius:11px;cursor:pointer;position:relative;transition:background .2s;border:none;flex-shrink:0}
+.toggle-btn.on{background:#E63946}
+.toggle-btn::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.toggle-btn.on::after{left:19px}
+
+/* Download */
+.dl-wrap{padding:0 18px 18px;flex-shrink:0}
+.dl-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(90deg,#E63946,#6B21A8);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s,transform .15s;letter-spacing:.04em}
+.dl-btn:hover{opacity:.9}.dl-btn:active{transform:translateY(1px)}.dl-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Preview area */
+.preview-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b0d14;overflow:hidden;gap:12px}
+.preview-wrap{box-shadow:0 24px 80px rgba(0,0,0,.75);border-radius:3px;overflow:hidden;flex-shrink:0}
+.preview-label{font-size:11px;color:#374151;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+
+/* Poster base — dimensions set via inline style per format */
+.poster{position:relative;overflow:hidden;font-family:'Inter',sans-serif;user-select:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+/* ══ BRAND ═══════════════════════════════════════════════════ */
+const ACCENTS = [
+  { id:'red',    p:'#E63946', s:'#6B21A8', bg:'linear-gradient(150deg,#0a0c18 0%,#0f0d1f 55%,#13102a 100%)', dark:true  },
+  { id:'navy',   p:'#1D4ED8', s:'#2A9D8F', bg:'linear-gradient(135deg,#0d1b2a 0%,#122238 55%,#0d1b2a 100%)', dark:true  },
+  { id:'teal',   p:'#2A9D8F', s:'#1D3557', bg:'linear-gradient(150deg,#051614 0%,#0b2320 55%,#051614 100%)', dark:true  },
+  { id:'purple', p:'#6B21A8', s:'#E63946', bg:'linear-gradient(150deg,#0c0618 0%,#150c28 55%,#0c0618 100%)', dark:true  },
+  { id:'amber',  p:'#F4A261', s:'#E63946', bg:'linear-gradient(150deg,#180e02 0%,#251404 55%,#180e02 100%)', dark:true  },
+  { id:'light',  p:'#E63946', s:'#1D3557', bg:'#FFFFFF',                                                    dark:false },
+];
+
+const FORMATS = [
+  { id:'square',   icon:'■', label:'Square',    dims:'1080 × 1080', sub:'Facebook · Instagram', w:1080, h:1080 },
+  { id:'portrait', icon:'▮', label:'Portrait',  dims:'1080 × 1350', sub:'Instagram 4:5',        w:1080, h:1350 },
+  { id:'story',    icon:'▯', label:'Story',     dims:'1080 × 1920', sub:'Stories · Reels',      w:1080, h:1920 },
+  { id:'twitter',  icon:'▬', label:'Twitter/X', dims:'1600 × 900',  sub:'Twitter · LinkedIn',   w:1600, h:900  },
+];
+
+const TAG_COLORS = { Verb:'#E63946', Adj:'#6B21A8', Noun:'#2A9D8F', Adv:'#F4A261', Other:'#374151' };
+
+const TEMPLATES = [
+  { id:'grammar',  jp:'文法',  en:'Grammar'  },
+  { id:'kanji',    jp:'漢字',  en:'Kanji'    },
+  { id:'vocab',    jp:'語彙',  en:'Vocab'    },
+  { id:'word',     jp:'単語',  en:'Word'     },
+  { id:'challenge',jp:'問題',  en:'Challenge'},
+  { id:'promo',    jp:'広告',  en:'Promo'    },
+  { id:'tip',      jp:'ヒント',en:'Tip'       },
+  { id:'announce', jp:'告知',  en:'Announce' },
+  { id:'imgbg',    jp:'写真',  en:'Photo BG' },
+  { id:'imgcard',  jp:'画像',  en:'Img Card' },
+  { id:'newstxt',  jp:'速報',  en:'News Txt' },
+  { id:'newswire', jp:'見出し',en:'Wire'      },
+  { id:'newsflash',jp:'速写',  en:'Img Flash'},
+  { id:'newspanel',jp:'面板',  en:'Img Panel'},
+];
+
+const DEFAULTS = {
+  grammar: {
+    level:'N5', pattern:'〜は〜です', parts:'Noun, は, Noun, です',
+    ex1jp:'私は学生です。', ex1bn:'আমি একজন ছাত্র।',
+    ex2jp:'彼は先生です。', ex2bn:'তিনি একজন শিক্ষক।', ptSize:96, exSize:30,
+  },
+  kanji: {
+    level:'N5', kanji:'山', kun:'やま', on:'サン',
+    meaningEn:'Mountain', meaningBn:'পাহাড়',
+    exJp:'富士山', exRomaji:'Fujisan', exBn:'ফুজি পর্বত', strokes:'3', kanjiSize:220,
+  },
+  vocab: {
+    level:'N5', headline:'আজকের Vocabulary', sub:'৬টি গুরুত্বপূর্ণ শব্দ — আজই শিখুন',
+    words:[
+      {jp:'食べる',romaji:'Taberu',bn:'খাওয়া',  tag:'Verb'},
+      {jp:'飲む',  romaji:'Nomu',  bn:'পান করা',tag:'Verb'},
+      {jp:'学校',  romaji:'Gakkō', bn:'স্কুল',  tag:'Noun'},
+      {jp:'先生',  romaji:'Sensei',bn:'শিক্ষক', tag:'Noun'},
+      {jp:'大きい',romaji:'Ōkii',  bn:'বড়',     tag:'Adj' },
+      {jp:'速い',  romaji:'Hayai', bn:'দ্রুত',  tag:'Adj' },
+    ], hlSize:52, jpSize:36,
+  },
+  word: {
+    level:'N4', jp:'旅行', romaji:'Ryokō', bn:'ভ্রমণ / ট্রিপ',
+    exJp:'来年、日本に旅行します。', exBn:'আগামী বছর জাপান ভ্রমণ করব।',
+    tip:'মনে রাখুন: 旅 (tabi) = journey  行 (iku) = to go', jpSize:160, bnSize:44,
+  },
+  challenge: {
+    level:'N5', qBn:'শূন্যস্থানে কোনটি সঠিক?', q:'私___学生です。',
+    opts:'が, は, を, に', answer:'1',
+    exBn:'「は」টি subject marker — তাই এখানে 「は」 সঠিক।', qSize:72,
+  },
+  promo: {
+    h1:'বাংলায় শিখুন', h2:'জাপানি ভাষা',
+    body:'N5 থেকে N1 — সম্পূর্ণ বাংলায়। AI টিউটর, SRS ফ্ল্যাশকার্ড ও মক পরীক্ষা।',
+    bullets:'AI বাংলা টিউটর\nSRS ফ্ল্যাশকার্ড\nJLPT মক পরীক্ষা',
+    cta:'বিনামূল্যে শুরু করুন', h1Size:80, h2Size:90,
+  },
+  tip: {
+    category:'পড়াশোনার টিপস',
+    tip:'প্রতিদিন মাত্র ১৫ মিনিট রিভিউ করলেই JLPT-তে সফল হওয়া সম্ভব।',
+    sub:'SRS পদ্ধতিতে শিখলে কম সময়ে বেশি শব্দ মনে থাকে।', tipSize:58,
+  },
+  announce: {
+    badge:'🎉 নতুন ব্যাচ শুরু', h1:'N5 কোর্স', h2:'চালু হচ্ছে',
+    price:'৳৩,৫৯৯', sub:'সম্পূর্ণ বাংলায় JLPT N5 প্রস্তুতি',
+    detail:'ভর্তি চলছে · সীমিত আসন', cta:'এখনই ভর্তি হন', h1Size:88, h2Size:88,
+  },
+  imgbg: {
+    eyebrow:'JLPT Preparation', h1:'বাংলায় শিখুন', h2:'জাপানি ভাষা',
+    body:'N5 থেকে N1 — সম্পূর্ণ বাংলায়।', cta:'বিনামূল্যে শুরু করুন',
+    overlayDark:70, h1Size:80, h2Size:90, bodySize:26,
+  },
+  imgcard: {
+    level:'N5', eyebrow:'আজকের Grammar',
+    h1:'〜は〜です', h2:'Noun + は + Noun + です',
+    body:'এটি সবচেয়ে মৌলিক বাক্য গঠন।', h1Size:80, bodySize:26,
+  },
+  newstxt: {
+    channel:'Japanese Shikhi', handle:'@japaneseshikhi', initials:'JS',
+    website:'japaneseshikhi.com', category:'LEARNING UPDATE',
+    headline:'NEW N5 GRAMMAR MODULE NOW AVAILABLE FOR ALL LEARNERS',
+    body:'', date:'May 10, 2026', source:'Japanese Shikhi', hlSize:64,
+  },
+  newswire: {
+    channel:'Japanese Shikhi', handle:'@japaneseshikhi',
+    website:'japaneseshikhi.com', date:'May 10, 2026',
+    headline:"TODAY'S HIGHLIGHTS",
+    story1:'New N5 Grammar module with 40+ example sentences now live on the platform',
+    story2:'JLPT mock exam scores improved 35% for learners using SRS flashcards daily',
+    story3:'Bengali learners now the fastest growing group — community hits 10,000 members',
+    source:'Japanese Shikhi', hlSize:44,
+  },
+  newsflash: {
+    channel:'Japanese Shikhi', handle:'@japaneseshikhi', initials:'JS',
+    website:'japaneseshikhi.com', category:'EXCLUSIVE',
+    headline:'NEW N5 GRAMMAR MODULE NOW AVAILABLE FOR ALL LEARNERS',
+    date:'May 10, 2026', source:'Japanese Shikhi', overlayDark:65, hlSize:68,
+  },
+  newspanel: {
+    channel:'Japanese Shikhi', handle:'@japaneseshikhi', initials:'JS',
+    website:'japaneseshikhi.com', category:'EDUCATION',
+    headline:'NEW N5 GRAMMAR MODULE NOW AVAILABLE FOR ALL LEARNERS',
+    date:'May 10, 2026', source:'Japanese Shikhi', hlSize:52,
+  },
+};
+
+/* ══ SHARED DECORATIVE ══════════════════════════════════════ */
+function Petals({ count = 10 }) {
+  return Array.from({ length: count }, (_, i) => (
+    <div key={i} className="petal" style={{
+      left:`${4 + i * (96/count)}%`, top:0,
+      animationDelay:`${(i * 1.13).toFixed(1)}s`,
+      animationDuration:`${9 + (i % 4) * 1.5}s`,
+      width: i%3===0?13:9, height: i%3===0?18:13,
+    }} />
+  ));
+}
+
+function Orbs({ c1='#E63946', c2='#6B21A8', c3='#F4A261' }) {
+  return (
+    <div style={{position:'absolute',inset:0,overflow:'hidden',pointerEvents:'none'}}>
+      {[
+        [c1,'-8%','-5%',null,null,500,500,'orb1 18s ease-in-out infinite'],
+        [c2,null,null,'-5%','-8%',460,460,'orb2 22s ease-in-out infinite'],
+        [c3,'40%',null,null,'18%',340,340,'orb3 16s ease-in-out infinite'],
+      ].map(([c,t,l,b,r,w,h,anim],i) => (
+        <div key={i} style={{position:'absolute',borderRadius:'50%',top:t,left:l,bottom:b,right:r,width:w,height:h,
+          background:`radial-gradient(circle,${c}22 0%,transparent 70%)`,animation:anim}} />
+      ))}
+    </div>
+  );
+}
+
+function LogoPill({ dark=true }) {
+  return (
+    <div style={{display:'inline-flex',alignItems:'center',gap:8,
+      background:dark?'rgba(255,255,255,0.10)':'rgba(29,53,87,0.08)',
+      border:`1px solid ${dark?'rgba(255,255,255,0.14)':'rgba(29,53,87,0.14)'}`,
+      borderRadius:999,padding:'8px 18px'}}>
+      <img src="assets/logo-light.webp" style={{height:22,filter:dark?'brightness(0) invert(1)':'none'}} alt="" />
+    </div>
+  );
+}
+
+function DomainPill({ accent }) {
+  return (
+    <div style={{background:`linear-gradient(90deg,${accent.p},${accent.s})`,borderRadius:999,
+      padding:'10px 26px',fontSize:16,fontWeight:700,color:'#fff',whiteSpace:'nowrap'}}>
+      japaneseshikhi.com
+    </div>
+  );
+}
+
+function PosterShell({ accent, fx, bgOverride, gridLines, children, fmt={w:1080,h:1080} }) {
+  const bg = bgOverride || accent.bg;
+  const isLandscape = fmt.w > fmt.h;
+  const padV = fmt.h >= 1800 ? 100 : isLandscape ? 60 : 72;
+  const padH = isLandscape ? 96 : 80;
+  return (
+    <div className="poster" style={{width:fmt.w,height:fmt.h,background:bg}}>
+      {fx.orbs  && <Orbs c1={accent.p} c2={accent.s} />}
+      {fx.petals && <Petals count={fmt.h>=1800?14:10} />}
+      {gridLines && <div style={{position:'absolute',inset:0,pointerEvents:'none',zIndex:1,
+        backgroundImage:'linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)',
+        backgroundSize:'80px 80px'}} />}
+      <div style={{position:'relative',zIndex:2,height:'100%',display:'flex',flexDirection:'column',padding:`${padV}px ${padH}px`}}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ══ POSTER TEMPLATES ════════════════════════════════════════ */
+
+function GrammarPoster({ data, accent, fx, fmt }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.45)':'rgba(29,53,87,0.45)';
+  const cardBg=dk?'rgba(255,255,255,0.05)':'rgba(29,53,87,0.05)';
+  const cardBdr=dk?'rgba(255,255,255,0.10)':'rgba(29,53,87,0.10)';
+  const parts=(data.parts||'').split(',').map(p=>p.trim()).filter(Boolean);
+  return (
+    <PosterShell accent={accent} fx={fx} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <LogoPill dark={dk}/>
+        <span style={{fontSize:13,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(244,162,97,0.9)',whiteSpace:'nowrap'}}>{data.level} Grammar</span>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:32}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:36,height:3,background:accent.p,borderRadius:2,flexShrink:0}}/>
+          <span style={{fontSize:13,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:muted,whiteSpace:'nowrap'}}>{data.level} Grammar · বাংলায় শিখুন</span>
+        </div>
+        <div style={{background:cardBg,border:`1px solid ${cardBdr}`,borderRadius:20,padding:'38px 46px'}}>
+          <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.ptSize||96,fontWeight:400,color:txt,lineHeight:1.05,letterSpacing:'-.02em',marginBottom:22,whiteSpace:'nowrap'}}>{data.pattern}</div>
+          {parts.length>0&&<div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            {parts.map((p,i)=>(
+              <div key={i} style={{background:i%2===1?`${accent.p}33`:dk?'rgba(255,255,255,0.08)':'rgba(29,53,87,0.08)',border:`1px solid ${i%2===1?accent.p+'55':cardBdr}`,borderRadius:8,padding:'7px 16px',fontSize:15,fontWeight:600,whiteSpace:'nowrap',color:i%2===1?'#F4A261':muted}}>{p}</div>
+            ))}
+          </div>}
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:18}}>
+          {[[data.ex1jp,data.ex1bn,accent.p,accent.s,'rgba(244,162,97,0.9)'],[data.ex2jp,data.ex2bn,'#2A9D8F','#1D3557','rgba(42,157,143,0.9)']].filter(([jp])=>jp).map(([jp,bn,ca,cb,bnColor],i)=>(
+            <div key={i} style={{display:'flex',alignItems:'stretch',gap:18}}>
+              <div style={{width:4,background:`linear-gradient(180deg,${ca},${cb})`,borderRadius:4,flexShrink:0}}/>
+              <div>
+                <div style={{fontSize:data.exSize||30,fontWeight:700,color:txt,lineHeight:1.35,whiteSpace:'nowrap'}}>{jp}</div>
+                {bn&&<div style={{fontSize:19,color:bnColor,fontWeight:500,marginTop:6,fontFamily:'Noto Sans Bengali,Inter,sans-serif',whiteSpace:'nowrap'}}>{bn}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:17,color:muted,fontWeight:500,whiteSpace:'nowrap'}}>বাংলায় জাপানি ব্যাকরণ শিখুন</span>
+        <DomainPill accent={accent}/>
+      </div>
+    </PosterShell>
+  );
+}
+
+function KanjiPoster({ data, accent, fx, fmt }) {
+  const bg=accent.id==='light'?'#FFFFFF':'linear-gradient(135deg,#1D3557 0%,#0f1e35 50%,#0a1525 100%)';
+  const dk=accent.id!=='light', txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.45)':'rgba(29,53,87,0.45)';
+  const cardBg=dk?'rgba(255,255,255,0.06)':'rgba(29,53,87,0.06)';
+  const cardBdr=dk?'rgba(255,255,255,0.10)':'rgba(29,53,87,0.10)';
+  return (
+    <PosterShell accent={accent} fx={fx} bgOverride={bg} gridLines={true} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <LogoPill dark={dk}/>
+        <span style={{fontSize:13,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(244,162,97,0.9)',whiteSpace:'nowrap'}}>{data.level} · 漢字カード</span>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28}}>
+        <div style={{position:'relative'}}>
+          <div style={{fontSize:data.kanjiSize||220,fontWeight:700,color:txt,lineHeight:1,textAlign:'center'}}>{data.kanji}</div>
+          {data.strokes&&<div style={{position:'absolute',top:-8,right:-44,background:`${accent.p}22`,border:`1px solid ${accent.p}44`,borderRadius:8,padding:'5px 11px',fontSize:14,fontWeight:700,color:accent.p,whiteSpace:'nowrap'}}>{data.strokes} 画</div>}
+        </div>
+        <div style={{display:'flex',gap:16}}>
+          {[['くん',data.kun],['おん',data.on]].map(([label,val],i)=>(
+            <div key={i} style={{textAlign:'center',background:cardBg,border:`1px solid ${cardBdr}`,borderRadius:14,padding:'16px 32px'}}>
+              <div style={{fontSize:12,fontWeight:700,letterSpacing:'.1em',color:accent.p,marginBottom:7,whiteSpace:'nowrap'}}>{label}</div>
+              <div style={{fontSize:34,fontWeight:700,color:txt,whiteSpace:'nowrap'}}>{val}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{textAlign:'center'}}>
+          <div style={{fontSize:44,fontWeight:700,color:txt,whiteSpace:'nowrap'}}>{data.meaningEn}</div>
+          <div style={{fontSize:34,fontFamily:'Noto Sans Bengali,Inter,sans-serif',color:'rgba(244,162,97,0.9)',fontWeight:600,marginTop:8,whiteSpace:'nowrap'}}>{data.meaningBn}</div>
+        </div>
+        {data.exJp&&<div style={{textAlign:'center',background:cardBg,border:`1px solid ${cardBdr}`,borderRadius:14,padding:'18px 36px'}}>
+          <div style={{fontSize:30,fontWeight:700,color:txt,whiteSpace:'nowrap'}}>{data.exJp}</div>
+          {data.exRomaji&&<div style={{fontSize:17,color:muted,fontWeight:500,marginTop:5,whiteSpace:'nowrap'}}>{data.exRomaji}</div>}
+          {data.exBn&&<div style={{fontSize:20,fontFamily:'Noto Sans Bengali,Inter,sans-serif',color:'rgba(42,157,143,0.9)',fontWeight:500,marginTop:5,whiteSpace:'nowrap'}}>{data.exBn}</div>}
+        </div>}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}><DomainPill accent={accent}/></div>
+    </PosterShell>
+  );
+}
+
+function VocabPoster({ data, accent, fx, fmt }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.45)':'rgba(29,53,87,0.45)';
+  const words=data.words||[];
+  return (
+    <PosterShell accent={accent} fx={fx} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+        <LogoPill dark={dk}/>
+        <span style={{fontSize:13,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(244,162,97,0.9)',whiteSpace:'nowrap'}}>{data.level} · Vocabulary</span>
+      </div>
+      <div style={{marginBottom:22}}>
+        <div style={{fontSize:data.hlSize||52,fontWeight:800,color:txt,lineHeight:1.1,whiteSpace:'nowrap'}}>{data.headline}</div>
+        {data.sub&&<div style={{fontSize:21,fontFamily:'Noto Sans Bengali,Inter,sans-serif',color:muted,fontWeight:500,marginTop:7,whiteSpace:'nowrap'}}>{data.sub}</div>}
+      </div>
+      <div style={{flex:1,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14}}>
+        {words.slice(0,6).map((w,i)=>{
+          const color=TAG_COLORS[w.tag]||accent.p;
+          return (
+            <div key={i} style={{background:dk?'rgba(255,255,255,0.05)':'rgba(29,53,87,0.05)',border:`1px solid ${color}33`,borderRadius:16,padding:'20px 18px',display:'flex',flexDirection:'column',gap:5}}>
+              <div style={{fontSize:data.jpSize||36,fontWeight:700,color:txt,lineHeight:1}}>{w.jp}</div>
+              <div style={{fontSize:14,fontWeight:500,color:muted}}>{w.romaji}</div>
+              <div style={{fontSize:17,fontFamily:'Noto Sans Bengali,Inter,sans-serif',color:txt,fontWeight:600}}>{w.bn}</div>
+              <div style={{marginTop:'auto',paddingTop:8,alignSelf:'flex-start',background:`${color}22`,border:`1px solid ${color}44`,borderRadius:6,padding:'3px 10px',fontSize:12,fontWeight:700,color,whiteSpace:'nowrap'}}>{w.tag}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}><DomainPill accent={accent}/></div>
+    </PosterShell>
+  );
+}
+
+function WordPoster({ data, accent, fx, fmt }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.45)':'rgba(29,53,87,0.45)';
+  const cardBg=dk?'rgba(255,255,255,0.05)':'rgba(29,53,87,0.05)';
+  const cardBdr=dk?'rgba(255,255,255,0.10)':'rgba(29,53,87,0.10)';
+  return (
+    <PosterShell accent={accent} fx={fx} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <LogoPill dark={dk}/>
+        <span style={{fontSize:13,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(244,162,97,0.9)',whiteSpace:'nowrap'}}>{data.level} · আজকের শব্দ</span>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:28}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:36,height:3,background:accent.p,borderRadius:2}}/>
+          <span style={{fontSize:13,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:muted,whiteSpace:'nowrap'}}>Word of the Day</span>
+        </div>
+        <div style={{background:cardBg,border:`1px solid ${cardBdr}`,borderRadius:20,padding:'40px 50px'}}>
+          <div style={{fontSize:17,fontFamily:'Noto Sans Bengali,Inter,sans-serif',color:muted,fontWeight:500,marginBottom:10,whiteSpace:'nowrap'}}>{data.romaji}</div>
+          <div style={{fontSize:data.jpSize||160,fontWeight:700,color:txt,lineHeight:1,marginBottom:14,whiteSpace:'nowrap'}}>{data.jp}</div>
+          <div style={{fontSize:data.bnSize||44,fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontWeight:700,color:'#F4A261',whiteSpace:'nowrap'}}>{data.bn}</div>
+        </div>
+        {data.exJp&&<div style={{display:'flex',gap:18,alignItems:'stretch'}}>
+          <div style={{width:4,background:`linear-gradient(180deg,${accent.p},${accent.s})`,borderRadius:4,flexShrink:0}}/>
+          <div>
+            <div style={{fontSize:27,fontWeight:700,color:txt,lineHeight:1.4,whiteSpace:'nowrap'}}>{data.exJp}</div>
+            {data.exBn&&<div style={{fontSize:19,fontFamily:'Noto Sans Bengali,Inter,sans-serif',color:'rgba(42,157,143,0.9)',fontWeight:500,marginTop:7,whiteSpace:'nowrap'}}>{data.exBn}</div>}
+          </div>
+        </div>}
+        {data.tip&&<div style={{display:'flex',gap:12,alignItems:'flex-start',background:cardBg,borderRadius:14,padding:'16px 20px',border:`1px solid ${cardBdr}`}}>
+          <span style={{fontSize:22,flexShrink:0}}>💡</span>
+          <div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:18,color:muted,fontWeight:500,lineHeight:1.55}}>{data.tip}</div>
+        </div>}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}><DomainPill accent={accent}/></div>
+    </PosterShell>
+  );
+}
+
+function ChallengePoster({ data, accent, fx, fmt }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.45)':'rgba(29,53,87,0.45)';
+  const cardBg=dk?'rgba(255,255,255,0.05)':'rgba(29,53,87,0.05)';
+  const cardBdr=dk?'rgba(255,255,255,0.10)':'rgba(29,53,87,0.10)';
+  const opts=(data.opts||'').split(',').map(o=>o.trim()).filter(Boolean);
+  const ansIdx=parseInt(data.answer||'0');
+  return (
+    <PosterShell accent={accent} fx={fx} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <LogoPill dark={dk}/>
+        <span style={{fontSize:13,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(244,162,97,0.9)',whiteSpace:'nowrap'}}>{data.level} · আজকের চ্যালেঞ্জ</span>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:28}}>
+        <div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:26,color:muted,fontWeight:600}}>{data.qBn}</div>
+        <div style={{background:cardBg,border:`1px solid ${cardBdr}`,borderRadius:20,padding:'36px 46px'}}>
+          <div style={{fontSize:data.qSize||72,fontWeight:700,color:txt,lineHeight:1.3}}>{data.q}</div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+          {opts.map((opt,i)=>{const isAns=i===ansIdx;return(
+            <div key={i} style={{background:isAns?`${accent.p}20`:cardBg,border:`2px solid ${isAns?accent.p:cardBdr}`,borderRadius:14,padding:'16px 24px',display:'flex',gap:14,alignItems:'center'}}>
+              <span style={{fontSize:17,fontWeight:700,color:isAns?accent.p:muted,flexShrink:0}}>{String.fromCharCode(65+i)}</span>
+              <span style={{fontSize:34,fontWeight:700,color:isAns?txt:muted,whiteSpace:'nowrap'}}>{opt}</span>
+              {isAns&&<span style={{marginLeft:'auto',color:'#2A9D8F',fontSize:22,flexShrink:0}}>✓</span>}
+            </div>
+          );})}
+        </div>
+        {data.exBn&&<div style={{background:`${accent.p}12`,border:`1px solid ${accent.p}30`,borderRadius:14,padding:'18px 26px'}}>
+          <div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:21,color:dk?'rgba(244,162,97,0.9)':accent.p,fontWeight:600,lineHeight:1.5}}>💡 {data.exBn}</div>
+        </div>}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}><DomainPill accent={accent}/></div>
+    </PosterShell>
+  );
+}
+
+function PromoPoster({ data, accent, fx, fmt }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.55)':'rgba(29,53,87,0.55)';
+  const bullets=(data.bullets||'').split('\n').filter(Boolean);
+  return (
+    <PosterShell accent={accent} fx={fx} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <LogoPill dark={dk}/><span style={{fontSize:36}}>🎌</span>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:22}}>
+        <div>
+          <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.h1Size||80,fontWeight:400,color:txt,lineHeight:1.08,whiteSpace:'nowrap'}}>{data.h1}</div>
+          <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.h2Size||90,fontWeight:400,color:'#F4A261',lineHeight:1.08,whiteSpace:'nowrap'}}>{data.h2}</div>
+        </div>
+        {data.body&&<div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:24,color:muted,fontWeight:500,lineHeight:1.6,maxWidth:720}}>{data.body}</div>}
+        {bullets.length>0&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {bullets.map((b,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:14}}>
+              <div style={{width:24,height:24,borderRadius:7,background:`${accent.p}22`,border:`1px solid ${accent.p}55`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{fontSize:13,color:accent.p,fontWeight:700}}>✓</span></div>
+              <span style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:23,color:txt,fontWeight:600,whiteSpace:'nowrap'}}>{b}</span>
+            </div>
+          ))}
+        </div>}
+        {data.cta&&<div style={{display:'inline-flex',alignSelf:'flex-start',marginTop:6}}>
+          <div style={{background:`linear-gradient(90deg,${accent.p},${accent.s})`,borderRadius:14,padding:'18px 46px',fontSize:26,fontWeight:700,color:'#fff',fontFamily:'Noto Sans Bengali,Inter,sans-serif',whiteSpace:'nowrap'}}>{data.cta}</div>
+        </div>}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}><DomainPill accent={accent}/></div>
+    </PosterShell>
+  );
+}
+
+function TipPoster({ data, accent, fx, fmt }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.45)':'rgba(29,53,87,0.45)';
+  return (
+    <PosterShell accent={accent} fx={fx} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <LogoPill dark={dk}/>
+        <span style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:15,fontWeight:700,letterSpacing:'.06em',color:'rgba(244,162,97,0.9)',whiteSpace:'nowrap'}}>{data.category}</span>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',gap:28,padding:'0 30px'}}>
+        <div style={{fontSize:130,fontFamily:'DM Serif Display,Georgia,serif',fontWeight:400,color:`${accent.p}38`,lineHeight:.7,alignSelf:'flex-start',marginLeft:10}}>❝</div>
+        <div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:data.tipSize||58,fontWeight:700,color:txt,lineHeight:1.4,marginTop:-50}}>{data.tip}</div>
+        <div style={{width:60,height:3,background:`linear-gradient(90deg,${accent.p},${accent.s})`,borderRadius:2}}/>
+        {data.sub&&<div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:25,color:muted,fontWeight:500,lineHeight:1.5}}>{data.sub}</div>}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}><DomainPill accent={accent}/></div>
+    </PosterShell>
+  );
+}
+
+function AnnouncePoster({ data, accent, fx, fmt }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.55)':'rgba(29,53,87,0.55)';
+  return (
+    <PosterShell accent={accent} fx={fx} fmt={fmt}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><LogoPill dark={dk}/></div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:22}}>
+        {data.badge&&<div style={{alignSelf:'flex-start',background:`${accent.p}20`,border:`1px solid ${accent.p}40`,borderRadius:999,padding:'10px 26px',fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:21,fontWeight:700,color:accent.p,whiteSpace:'nowrap'}}>{data.badge}</div>}
+        <div>
+          <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.h1Size||88,fontWeight:400,color:txt,lineHeight:1.05,whiteSpace:'nowrap'}}>{data.h1}</div>
+          <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.h2Size||88,fontWeight:400,color:'#F4A261',lineHeight:1.05,whiteSpace:'nowrap'}}>{data.h2}</div>
+        </div>
+        {data.price&&<div style={{fontSize:56,fontWeight:800,color:accent.p,whiteSpace:'nowrap',letterSpacing:'-.01em'}}>{data.price}</div>}
+        <div>
+          {data.sub&&<div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:27,color:muted,fontWeight:500,marginBottom:8,whiteSpace:'nowrap'}}>{data.sub}</div>}
+          {data.detail&&<div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:21,color:muted,fontWeight:500,whiteSpace:'nowrap'}}>{data.detail}</div>}
+        </div>
+        {data.cta&&<div style={{display:'inline-flex',alignSelf:'flex-start',marginTop:6}}>
+          <div style={{background:`linear-gradient(90deg,${accent.p},${accent.s})`,borderRadius:14,padding:'18px 46px',fontSize:26,fontWeight:700,color:'#fff',fontFamily:'Noto Sans Bengali,Inter,sans-serif',whiteSpace:'nowrap'}}>{data.cta}</div>
+        </div>}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}><DomainPill accent={accent}/></div>
+    </PosterShell>
+  );
+}
+
+/* ── Photo BG: full-bleed image with gradient overlay ── */
+function ImgBGPoster({ data, accent, fx, fmt, bgImage }) {
+  const overlay = `rgba(0,0,0,${(data.overlayDark||70)/100})`;
+  const hasImg = !!bgImage;
+  return (
+    <div className="poster" style={{width:fmt.w,height:fmt.h,background:hasImg?'#000':accent.bg,position:'relative',overflow:'hidden'}}>
+      {/* Background image */}
+      {hasImg && <img src={bgImage} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',zIndex:0}} alt="" />}
+      {/* Gradient overlay */}
+      {hasImg
+        ? <div style={{position:'absolute',inset:0,background:`linear-gradient(180deg, ${overlay} 0%, rgba(0,0,0,0.3) 35%, ${overlay} 100%)`,zIndex:1}}/>
+        : (fx.orbs && <Orbs c1={accent.p} c2={accent.s}/>)
+      }
+      {fx.petals && <Petals count={10}/>}
+      {!hasImg && <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',zIndex:1,pointerEvents:'none'}}>
+        <div style={{fontSize:120,opacity:.08}}>🖼</div>
+      </div>}
+      {/* Content */}
+      <div style={{position:'relative',zIndex:2,height:'100%',display:'flex',flexDirection:'column',padding:fmt.w>1200?'60px 96px':'72px 80px'}}>
+        {/* Header */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <LogoPill dark={true}/>
+          {data.eyebrow&&<span style={{fontSize:12,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(244,162,97,0.9)',whiteSpace:'nowrap'}}>{data.eyebrow}</span>}
+        </div>
+        {/* Center — pushed to bottom 2/3 */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'flex-end',paddingBottom:20,gap:18}}>
+          <div>
+            <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.h1Size||80,fontWeight:400,color:'#fff',lineHeight:1.08,whiteSpace:'nowrap',textShadow:'0 2px 20px rgba(0,0,0,0.5)'}}>{data.h1}</div>
+            <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.h2Size||90,fontWeight:400,color:'#F4A261',lineHeight:1.08,whiteSpace:'nowrap',textShadow:'0 2px 20px rgba(0,0,0,0.5)'}}>{data.h2}</div>
+          </div>
+          {data.body&&<div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:data.bodySize||26,color:'rgba(255,255,255,0.85)',fontWeight:500,lineHeight:1.6,maxWidth:700}}>{data.body}</div>}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
+            {data.cta&&<div style={{background:`linear-gradient(90deg,${accent.p},${accent.s})`,borderRadius:14,padding:'16px 40px',fontSize:24,fontWeight:700,color:'#fff',fontFamily:'Noto Sans Bengali,Inter,sans-serif',whiteSpace:'nowrap'}}>{data.cta}</div>}
+            <DomainPill accent={accent}/>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Img Card: photo top, branded content bottom (like FB samples) ── */
+function ImgCardPoster({ data, accent, fx, fmt, bgImage }) {
+  const dk=accent.dark, txt=dk?'#fff':'#1D3557';
+  const muted=dk?'rgba(255,255,255,0.55)':'rgba(29,53,87,0.55)';
+  const isLandscape=fmt.w>fmt.h;
+  const imgFrac = isLandscape ? 0.52 : 0.44;
+  const imgH = Math.round(fmt.h * imgFrac);
+  const hasImg = !!bgImage;
+  const padH = isLandscape ? 80 : 64;
+
+  return (
+    <div className="poster" style={{width:fmt.w,height:fmt.h,background:accent.bg,position:'relative',overflow:'hidden'}}>
+      {/* Top image section */}
+      <div style={{position:'absolute',top:0,left:0,right:0,height:imgH,zIndex:1}}>
+        {hasImg
+          ? <img src={bgImage} style={{width:'100%',height:'100%',objectFit:'cover'}} alt="" />
+          : <div style={{width:'100%',height:'100%',background:dk?'rgba(255,255,255,0.04)':'rgba(29,53,87,0.04)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12}}>
+              <div style={{fontSize:64,opacity:.15}}>🖼</div>
+              <div style={{fontSize:16,color:muted,fontWeight:600}}>Drag an image here</div>
+            </div>
+        }
+        {/* Fade gradient into content */}
+        <div style={{position:'absolute',bottom:0,left:0,right:0,height:imgH*0.35,background:`linear-gradient(180deg,transparent,${accent.bg})`}}/>
+      </div>
+      {/* Color orbs behind content area */}
+      {fx.orbs&&<div style={{position:'absolute',top:imgH,left:0,right:0,bottom:0,overflow:'hidden',zIndex:0}}>
+        <Orbs c1={accent.p} c2={accent.s}/>
+      </div>}
+      {fx.petals&&<Petals count={8}/>}
+      {/* Content section */}
+      <div style={{position:'absolute',top:imgH,left:0,right:0,bottom:0,zIndex:2,display:'flex',flexDirection:'column',padding:`28px ${padH}px 52px`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+          <LogoPill dark={dk}/>
+          {data.level&&<div style={{background:`${accent.p}22`,border:`1px solid ${accent.p}44`,borderRadius:999,padding:'6px 18px',fontSize:14,fontWeight:700,color:accent.p,whiteSpace:'nowrap'}}>{data.level} · {data.eyebrow}</div>}
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:16}}>
+          <div style={{fontFamily:'DM Serif Display,Georgia,serif',fontSize:data.h1Size||80,fontWeight:400,color:txt,lineHeight:1.05,whiteSpace:'nowrap'}}>{data.h1}</div>
+          {data.h2&&<div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:data.h2Size||32,fontWeight:600,color:muted,lineHeight:1.4,whiteSpace:'nowrap'}}>{data.h2}</div>}
+          {data.body&&<div style={{fontFamily:'Noto Sans Bengali,Inter,sans-serif',fontSize:data.bodySize||26,color:muted,fontWeight:500,lineHeight:1.6}}>{data.body}</div>}
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}><DomainPill accent={accent}/></div>
+      </div>
+    </div>
+  );
+}
+
+/* ── News Text: text-only breaking news card ── */
+function NewsTxtPoster({ data, accent, fx, fmt }) {
+  const dk = accent.id !== 'light';
+  const bg = dk ? '#080b14' : '#F8F9FA';
+  const txt = dk ? '#ffffff' : '#0d111c';
+  const muted = dk ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)';
+  const lineC = dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)';
+  const isLandscape = fmt.w > fmt.h;
+  const padH = isLandscape ? 88 : 72;
+  const padV = isLandscape ? 60 : 76;
+  return (
+    <div className="poster" style={{width:fmt.w,height:fmt.h,background:bg,position:'relative',overflow:'hidden'}}>
+      <div style={{position:'absolute',inset:0,backgroundImage:`radial-gradient(circle,${dk?'rgba(255,255,255,0.035)':'rgba(0,0,0,0.035)'} 1px,transparent 1px)`,backgroundSize:'44px 44px',pointerEvents:'none',zIndex:0}}/>
+      <div style={{position:'absolute',left:0,top:0,bottom:0,width:10,background:`linear-gradient(180deg,${accent.p},${accent.s})`,zIndex:2}}/>
+      <div style={{position:'relative',zIndex:3,height:'100%',display:'flex',flexDirection:'column',padding:`${padV}px ${padH}px`,paddingLeft:padH+20}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:36}}>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <div style={{width:54,height:54,background:`linear-gradient(135deg,${accent.p},${accent.s})`,borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <span style={{fontSize:17,fontWeight:900,color:'#fff',letterSpacing:'-.01em'}}>{(data.initials||'JS').toUpperCase()}</span>
+            </div>
+            <div>
+              <div style={{fontSize:18,fontWeight:800,color:txt,letterSpacing:'.01em',lineHeight:1.1}}>{data.channel}</div>
+              <div style={{fontSize:13,color:muted,fontWeight:500,marginTop:3}}>{data.handle}</div>
+            </div>
+          </div>
+          {data.website&&<div style={{fontSize:12,fontWeight:600,color:muted,border:`1px solid ${lineC}`,borderRadius:6,padding:'6px 14px',whiteSpace:'nowrap'}}>{data.website}</div>}
+        </div>
+        {data.category&&(
+          <div style={{alignSelf:'flex-start',marginBottom:28}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,background:accent.p,borderRadius:5,padding:'8px 20px'}}>
+              <div style={{width:8,height:8,borderRadius:'50%',background:'rgba(255,255,255,0.9)',flexShrink:0}}/>
+              <span style={{fontSize:13,fontWeight:900,color:'#fff',letterSpacing:'.18em',textTransform:'uppercase'}}>{data.category}</span>
+            </div>
+          </div>
+        )}
+        <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:22}}>
+          <div style={{fontSize:data.hlSize||64,fontWeight:900,color:txt,lineHeight:1.1,letterSpacing:'-.01em',textTransform:'uppercase',fontFamily:'Inter,sans-serif'}}>{data.headline}</div>
+          {data.body&&<div style={{fontSize:22,color:muted,fontWeight:500,lineHeight:1.65}}>{data.body}</div>}
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingTop:22,borderTop:`1px solid ${lineC}`}}>
+          <div style={{display:'flex',gap:20,alignItems:'center'}}>
+            {data.date&&<span style={{fontSize:15,fontWeight:700,color:muted,whiteSpace:'nowrap'}}>{data.date}</span>}
+            {data.source&&<React.Fragment><span style={{color:lineC,fontSize:18}}>|</span><span style={{fontSize:14,fontWeight:700,color:accent.p,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>Source: {data.source}</span></React.Fragment>}
+          </div>
+          <LogoPill dark={dk}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── News Wire: multi-story digest format ── */
+function NewsWirePoster({ data, accent, fx, fmt }) {
+  const dk = accent.id !== 'light';
+  const bg = dk ? '#06080f' : '#FFFFFF';
+  const txt = dk ? '#ffffff' : '#0d111c';
+  const muted = dk ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)';
+  const lineC = dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+  const stories = [data.story1,data.story2,data.story3].filter(Boolean);
+  const initials = (data.channel||'JS').substring(0,2).toUpperCase();
+  const isLandscape = fmt.w > fmt.h;
+  const padH = isLandscape ? 88 : 72;
+  const padV = isLandscape ? 60 : 76;
+  return (
+    <div className="poster" style={{width:fmt.w,height:fmt.h,background:bg,position:'relative',overflow:'hidden'}}>
+      {fx.orbs&&<Orbs c1={accent.p} c2={accent.s}/>}
+      <div style={{position:'relative',zIndex:2,height:'100%',display:'flex',flexDirection:'column',padding:`${padV}px ${padH}px`}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:22,borderBottom:`2px solid ${accent.p}`,marginBottom:34}}>
+          <div style={{display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:46,height:46,background:`linear-gradient(135deg,${accent.p},${accent.s})`,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <span style={{fontSize:15,fontWeight:900,color:'#fff'}}>{initials}</span>
+            </div>
+            <div style={{fontSize:20,fontWeight:800,color:txt,letterSpacing:'.01em'}}>{data.channel}</div>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+            <span style={{fontSize:13,fontWeight:600,color:muted,whiteSpace:'nowrap'}}>{data.handle}</span>
+            <span style={{fontSize:12,fontWeight:500,color:muted,whiteSpace:'nowrap'}}>{data.date}</span>
+          </div>
+        </div>
+        <div style={{marginBottom:32}}>
+          <div style={{fontSize:data.hlSize||44,fontWeight:900,color:txt,letterSpacing:'-.02em',lineHeight:1,textTransform:'uppercase'}}>{data.headline}</div>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:0}}>
+          {stories.map((s,i)=>(
+            <div key={i} style={{display:'flex',gap:24,alignItems:'flex-start',padding:'24px 0',borderBottom:i<stories.length-1?`1px solid ${lineC}`:'none'}}>
+              <div style={{width:46,height:46,borderRadius:9,background:`${accent.p}18`,border:`1px solid ${accent.p}35`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}>
+                <span style={{fontSize:22,fontWeight:900,color:accent.p}}>{i+1}</span>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:26,fontWeight:700,color:txt,lineHeight:1.38}}>{s}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingTop:22,borderTop:`1px solid ${lineC}`}}>
+          <span style={{fontSize:14,fontWeight:700,color:muted,whiteSpace:'nowrap'}}>{data.website}</span>
+          <LogoPill dark={dk}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── News Flash: full-bleed image with news overlay (like captured element) ── */
+function NewsFlashPoster({ data, accent, fx, fmt, bgImage }) {
+  const hasImg = !!bgImage;
+  const isLandscape = fmt.w > fmt.h;
+  const padH = isLandscape ? 88 : 72;
+  const padV = isLandscape ? 60 : 76;
+  const darkVal = (data.overlayDark||65)/100;
+  return (
+    <div className="poster" style={{width:fmt.w,height:fmt.h,position:'relative',overflow:'hidden',background:'#06080f'}}>
+      {hasImg&&<img src={bgImage} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',zIndex:0}} alt=""/>}
+      <div style={{position:'absolute',inset:0,zIndex:1,background:hasImg
+        ?`linear-gradient(180deg,rgba(0,0,0,0.55) 0%,rgba(0,0,0,0.18) 38%,rgba(0,0,0,${darkVal}) 100%)`
+        :`linear-gradient(150deg,#0a0c18,#0f0d1f,#13102a)`}}/>
+      {!hasImg&&fx.orbs&&<div style={{position:'absolute',inset:0,zIndex:0}}><Orbs c1={accent.p} c2={accent.s}/></div>}
+      {!hasImg&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',zIndex:1,opacity:.05,pointerEvents:'none'}}>
+        <div style={{fontSize:200,lineHeight:1}}>🖼</div>
+      </div>}
+      <div style={{position:'relative',zIndex:3,height:'100%',display:'flex',flexDirection:'column',padding:`${padV}px ${padH}px`}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:14,background:'rgba(0,0,0,0.52)',backdropFilter:'blur(10px)',borderRadius:12,padding:'10px 18px',border:'1px solid rgba(255,255,255,0.1)'}}>
+            <div style={{width:38,height:38,background:`linear-gradient(135deg,${accent.p},${accent.s})`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <span style={{fontSize:12,fontWeight:900,color:'#fff'}}>{(data.initials||'JS').toUpperCase()}</span>
+            </div>
+            <div>
+              <div style={{fontSize:15,fontWeight:800,color:'#fff',lineHeight:1}}>{data.channel}</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',marginTop:2}}>{data.handle}</div>
+            </div>
+          </div>
+          {data.website&&<div style={{fontSize:12,fontWeight:600,color:'rgba(255,255,255,0.7)',background:'rgba(0,0,0,0.45)',backdropFilter:'blur(6px)',borderRadius:6,padding:'6px 14px',border:'1px solid rgba(255,255,255,0.1)',whiteSpace:'nowrap'}}>{data.website}</div>}
+        </div>
+        <div style={{flex:1}}/>
+        <div style={{display:'flex',flexDirection:'column',gap:18}}>
+          {data.category&&(
+            <div style={{alignSelf:'flex-start',background:accent.p,borderRadius:4,padding:'7px 18px',display:'flex',alignItems:'center',gap:9}}>
+              <div style={{width:7,height:7,borderRadius:'50%',background:'rgba(255,255,255,0.9)',flexShrink:0}}/>
+              <span style={{fontSize:12,fontWeight:900,color:'#fff',letterSpacing:'.16em',textTransform:'uppercase'}}>{data.category}</span>
+            </div>
+          )}
+          <div style={{fontSize:data.hlSize||68,fontWeight:900,color:'#fff',lineHeight:1.08,letterSpacing:'-.01em',textTransform:'uppercase',textShadow:'0 2px 24px rgba(0,0,0,0.65)'}}>{data.headline}</div>
+          <div style={{display:'flex',alignItems:'center',gap:18,paddingTop:16,borderTop:'1px solid rgba(255,255,255,0.14)'}}>
+            {data.date&&<span style={{fontSize:15,fontWeight:700,color:'rgba(255,255,255,0.7)',whiteSpace:'nowrap'}}>{data.date}</span>}
+            {data.source&&<React.Fragment><span style={{color:'rgba(255,255,255,0.2)',fontSize:18}}>|</span><span style={{fontSize:14,fontWeight:700,color:accent.p,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>Source: {data.source}</span></React.Fragment>}
+            <div style={{marginLeft:'auto'}}><LogoPill dark={true}/></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── News Panel: image top + branded info panel bottom ── */
+function NewsPanelPoster({ data, accent, fx, fmt, bgImage }) {
+  const dk = accent.id !== 'light';
+  const panelBg = dk ? '#080b14' : '#FFFFFF';
+  const txt = dk ? '#ffffff' : '#0d111c';
+  const muted = dk ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+  const lineC = dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const hasImg = !!bgImage;
+  const isLandscape = fmt.w > fmt.h;
+  const imgFrac = isLandscape ? 0.50 : 0.46;
+  const imgH = Math.round(fmt.h * imgFrac);
+  const padH = isLandscape ? 80 : 64;
+  return (
+    <div className="poster" style={{width:fmt.w,height:fmt.h,background:panelBg,position:'relative',overflow:'hidden'}}>
+      <div style={{position:'absolute',top:0,left:0,right:0,height:imgH,zIndex:1}}>
+        {hasImg
+          ?<img src={bgImage} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>
+          :<div style={{width:'100%',height:'100%',background:dk?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.04)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12}}>
+            <div style={{fontSize:72,opacity:.1}}>🖼</div>
+            <div style={{fontSize:16,color:muted,fontWeight:600}}>Upload an image in Style tab</div>
+          </div>
+        }
+        <div style={{position:'absolute',bottom:0,left:0,right:0,height:imgH*0.32,background:`linear-gradient(transparent,${panelBg})`}}/>
+        <div style={{position:'absolute',top:0,left:0,right:0,height:6,background:`linear-gradient(90deg,${accent.p},${accent.s})`}}/>
+      </div>
+      <div style={{position:'absolute',top:imgH,left:0,right:0,bottom:0,zIndex:2,display:'flex',flexDirection:'column',padding:`28px ${padH}px 50px`}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:20,borderBottom:`1px solid ${lineC}`,marginBottom:26}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:42,height:42,background:`linear-gradient(135deg,${accent.p},${accent.s})`,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <span style={{fontSize:13,fontWeight:900,color:'#fff'}}>{(data.initials||'JS').toUpperCase()}</span>
+            </div>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:txt,lineHeight:1}}>{data.channel}</div>
+              <div style={{fontSize:11,color:muted,marginTop:3}}>{data.handle}</div>
+            </div>
+          </div>
+          {data.category&&<div style={{background:`${accent.p}18`,border:`1px solid ${accent.p}35`,borderRadius:5,padding:'6px 16px',fontSize:12,fontWeight:800,color:accent.p,letterSpacing:'.12em',textTransform:'uppercase',whiteSpace:'nowrap'}}>{data.category}</div>}
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:14}}>
+          <div style={{fontSize:data.hlSize||52,fontWeight:900,color:txt,lineHeight:1.1,letterSpacing:'-.01em',textTransform:'uppercase'}}>{data.headline}</div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingTop:18,borderTop:`1px solid ${lineC}`}}>
+          <div style={{display:'flex',gap:16,alignItems:'center'}}>
+            {data.date&&<span style={{fontSize:14,fontWeight:700,color:muted,whiteSpace:'nowrap'}}>{data.date}</span>}
+            {data.source&&<React.Fragment><span style={{color:lineC,fontSize:18}}>|</span><span style={{fontSize:13,fontWeight:700,color:accent.p,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>Source: {data.source}</span></React.Fragment>}
+          </div>
+          <LogoPill dark={dk}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const POSTER_MAP = {
+  grammar:GrammarPoster, kanji:KanjiPoster, vocab:VocabPoster, word:WordPoster,
+  challenge:ChallengePoster, promo:PromoPoster, tip:TipPoster, announce:AnnouncePoster,
+  imgbg:ImgBGPoster, imgcard:ImgCardPoster,
+  newstxt:NewsTxtPoster, newswire:NewsWirePoster, newsflash:NewsFlashPoster, newspanel:NewsPanelPoster,
+};
+
+/* ══ CONTROL PANELS ══════════════════════════════════════════ */
+function F({label,children}){return <div className="field"><label>{label}</label>{children}</div>;}
+function SI({v,k,onChange}){return <input value={v[k]||''} onChange={e=>onChange({...v,[k]:e.target.value})}/>;}
+function SL({label,data,field,min=12,max=200,onChange}){
+  const val=data[field]||Math.round((min+max)/2);
+  return(
+    <div className="slider-row">
+      <label>{label}</label>
+      <input type="range" min={min} max={max} value={val} onChange={e=>onChange({...data,[field]:+e.target.value})}/>
+      <span className="slider-val">{val}px</span>
+    </div>
+  );
+}
+function LvlSel({data,onChange}){
+  return <F label="Level"><select value={data.level||'N5'} onChange={e=>onChange({...data,level:e.target.value})}>
+    {['N5','N4','N3','N2','N1'].map(l=><option key={l} value={l}>{l}</option>)}
+  </select></F>;
+}
+
+function GrammarCtrl({data,onChange}){return <>
+  <LvlSel data={data} onChange={onChange}/>
+  <F label="Grammar Pattern"><SI v={data} k="pattern" onChange={onChange}/></F>
+  <F label="Parts (comma-separated)"><SI v={data} k="parts" onChange={onChange}/></F>
+  <div className="field-row"><F label="Example 1 JP"><SI v={data} k="ex1jp" onChange={onChange}/></F><F label="Example 1 BN"><SI v={data} k="ex1bn" onChange={onChange}/></F></div>
+  <div className="field-row"><F label="Example 2 JP"><SI v={data} k="ex2jp" onChange={onChange}/></F><F label="Example 2 BN"><SI v={data} k="ex2bn" onChange={onChange}/></F></div>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Pattern" data={data} field="ptSize" min={40} max={140} onChange={onChange}/>
+  <SL label="Examples" data={data} field="exSize" min={16} max={60} onChange={onChange}/>
+</>;}
+
+function KanjiCtrl({data,onChange}){return <>
+  <LvlSel data={data} onChange={onChange}/>
+  <div className="field-row"><F label="Kanji"><SI v={data} k="kanji" onChange={onChange}/></F><F label="Strokes"><SI v={data} k="strokes" onChange={onChange}/></F></div>
+  <div className="field-row"><F label="Kun (くん)"><SI v={data} k="kun" onChange={onChange}/></F><F label="On (おん)"><SI v={data} k="on" onChange={onChange}/></F></div>
+  <div className="field-row"><F label="Meaning EN"><SI v={data} k="meaningEn" onChange={onChange}/></F><F label="Meaning BN"><SI v={data} k="meaningBn" onChange={onChange}/></F></div>
+  <F label="Example JP"><SI v={data} k="exJp" onChange={onChange}/></F>
+  <div className="field-row"><F label="Romaji"><SI v={data} k="exRomaji" onChange={onChange}/></F><F label="Example BN"><SI v={data} k="exBn" onChange={onChange}/></F></div>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Kanji Size" data={data} field="kanjiSize" min={80} max={320} onChange={onChange}/>
+</>;}
+
+function VocabCtrl({data,onChange}){
+  const updW=(i,field,val)=>{const words=[...(data.words||[])];words[i]={...words[i],[field]:val};onChange({...data,words});};
+  return <>
+    <LvlSel data={data} onChange={onChange}/>
+    <F label="Headline"><SI v={data} k="headline" onChange={onChange}/></F>
+    <F label="Sub-headline"><SI v={data} k="sub" onChange={onChange}/></F>
+    <div className="sec-label">Words (6 slots)</div>
+    {(data.words||[]).slice(0,6).map((w,i)=>(
+      <div key={i} className="word-slot">
+        <div className="word-slot-head">Word {i+1}</div>
+        <div className="field-row"><F label="JP"><input value={w.jp||''} onChange={e=>updW(i,'jp',e.target.value)}/></F><F label="Romaji"><input value={w.romaji||''} onChange={e=>updW(i,'romaji',e.target.value)}/></F></div>
+        <div className="field-row"><F label="Bengali"><input value={w.bn||''} onChange={e=>updW(i,'bn',e.target.value)}/></F><F label="Tag"><select value={w.tag||'Noun'} onChange={e=>updW(i,'tag',e.target.value)}>{['Verb','Noun','Adj','Adv','Other'].map(t=><option key={t}>{t}</option>)}</select></F></div>
+      </div>
+    ))}
+    <div className="sec-label">Font Sizes</div>
+    <SL label="Headline" data={data} field="hlSize" min={24} max={80} onChange={onChange}/>
+    <SL label="JP Words" data={data} field="jpSize" min={18} max={64} onChange={onChange}/>
+  </>;
+}
+
+function WordCtrl({data,onChange}){return <>
+  <LvlSel data={data} onChange={onChange}/>
+  <div className="field-row"><F label="Japanese"><SI v={data} k="jp" onChange={onChange}/></F><F label="Romaji"><SI v={data} k="romaji" onChange={onChange}/></F></div>
+  <F label="Bengali Meaning"><SI v={data} k="bn" onChange={onChange}/></F>
+  <F label="Example JP"><SI v={data} k="exJp" onChange={onChange}/></F>
+  <F label="Example BN"><SI v={data} k="exBn" onChange={onChange}/></F>
+  <F label="Memory Tip"><textarea value={data.tip||''} onChange={e=>onChange({...data,tip:e.target.value})}/></F>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="JP Word" data={data} field="jpSize" min={60} max={240} onChange={onChange}/>
+  <SL label="BN Meaning" data={data} field="bnSize" min={24} max={80} onChange={onChange}/>
+</>;}
+
+function ChallengeCtrl({data,onChange}){return <>
+  <LvlSel data={data} onChange={onChange}/>
+  <F label="Question label (BN)"><SI v={data} k="qBn" onChange={onChange}/></F>
+  <F label="Question (JP)"><textarea value={data.q||''} onChange={e=>onChange({...data,q:e.target.value})}/></F>
+  <F label="Options (comma-separated)"><SI v={data} k="opts" onChange={onChange}/></F>
+  <F label="Correct Answer"><select value={data.answer||'0'} onChange={e=>onChange({...data,answer:e.target.value})}>{['0','1','2','3'].map(n=><option key={n} value={n}>{String.fromCharCode(65+parseInt(n))}</option>)}</select></F>
+  <F label="Explanation (BN)"><textarea value={data.exBn||''} onChange={e=>onChange({...data,exBn:e.target.value})}/></F>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Question" data={data} field="qSize" min={28} max={110} onChange={onChange}/>
+</>;}
+
+function PromoCtrl({data,onChange}){return <>
+  <div className="field-row"><F label="Headline 1"><SI v={data} k="h1" onChange={onChange}/></F><F label="Headline 2"><SI v={data} k="h2" onChange={onChange}/></F></div>
+  <F label="Body Text"><textarea value={data.body||''} onChange={e=>onChange({...data,body:e.target.value})}/></F>
+  <F label="Bullets (one per line)"><textarea value={data.bullets||''} onChange={e=>onChange({...data,bullets:e.target.value})}/></F>
+  <F label="CTA Button"><SI v={data} k="cta" onChange={onChange}/></F>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Headline 1" data={data} field="h1Size" min={36} max={140} onChange={onChange}/>
+  <SL label="Headline 2" data={data} field="h2Size" min={36} max={140} onChange={onChange}/>
+</>;}
+
+function TipCtrl({data,onChange}){return <>
+  <F label="Category"><SI v={data} k="category" onChange={onChange}/></F>
+  <F label="Main Tip"><textarea value={data.tip||''} onChange={e=>onChange({...data,tip:e.target.value})} style={{minHeight:90}}/></F>
+  <F label="Sub Text"><textarea value={data.sub||''} onChange={e=>onChange({...data,sub:e.target.value})}/></F>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Tip" data={data} field="tipSize" min={28} max={100} onChange={onChange}/>
+</>;}
+
+function AnnounceCtrl({data,onChange}){return <>
+  <F label="Badge"><SI v={data} k="badge" onChange={onChange}/></F>
+  <div className="field-row"><F label="Headline 1"><SI v={data} k="h1" onChange={onChange}/></F><F label="Headline 2"><SI v={data} k="h2" onChange={onChange}/></F></div>
+  <F label="Price"><SI v={data} k="price" onChange={onChange}/></F>
+  <F label="Sub-text"><SI v={data} k="sub" onChange={onChange}/></F>
+  <F label="Detail"><SI v={data} k="detail" onChange={onChange}/></F>
+  <F label="CTA Button"><SI v={data} k="cta" onChange={onChange}/></F>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Headline 1" data={data} field="h1Size" min={40} max={150} onChange={onChange}/>
+  <SL label="Headline 2" data={data} field="h2Size" min={40} max={150} onChange={onChange}/>
+</>;}
+
+function ImgBGCtrl({data,onChange}){return <>
+  <F label="Eyebrow Label"><SI v={data} k="eyebrow" onChange={onChange}/></F>
+  <div className="field-row"><F label="Headline 1"><SI v={data} k="h1" onChange={onChange}/></F><F label="Headline 2"><SI v={data} k="h2" onChange={onChange}/></F></div>
+  <F label="Body Text"><textarea value={data.body||''} onChange={e=>onChange({...data,body:e.target.value})}/></F>
+  <F label="CTA Button"><SI v={data} k="cta" onChange={onChange}/></F>
+  <div className="sec-label">Overlay Darkness</div>
+  <SL label="Darkness" data={data} field="overlayDark" min={0} max={95} onChange={onChange}/>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Headline 1" data={data} field="h1Size" min={36} max={140} onChange={onChange}/>
+  <SL label="Headline 2" data={data} field="h2Size" min={36} max={140} onChange={onChange}/>
+  <SL label="Body" data={data} field="bodySize" min={16} max={48} onChange={onChange}/>
+</>;}
+
+function ImgCardCtrl({data,onChange}){return <>
+  <LvlSel data={data} onChange={onChange}/>
+  <F label="Eyebrow Label"><SI v={data} k="eyebrow" onChange={onChange}/></F>
+  <F label="Main Heading (JP)"><SI v={data} k="h1" onChange={onChange}/></F>
+  <F label="Sub-heading"><SI v={data} k="h2" onChange={onChange}/></F>
+  <F label="Body Text"><textarea value={data.body||''} onChange={e=>onChange({...data,body:e.target.value})}/></F>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Heading" data={data} field="h1Size" min={36} max={140} onChange={onChange}/>
+  <SL label="Sub-heading" data={data} field="h2Size" min={18} max={64} onChange={onChange}/>
+  <SL label="Body" data={data} field="bodySize" min={16} max={48} onChange={onChange}/>
+</>;}
+
+function NewsTxtCtrl({data,onChange}){return <>
+  <div className="field-row"><F label="Channel Name"><SI v={data} k="channel" onChange={onChange}/></F><F label="Initials"><SI v={data} k="initials" onChange={onChange}/></F></div>
+  <div className="field-row"><F label="Handle"><SI v={data} k="handle" onChange={onChange}/></F><F label="Website"><SI v={data} k="website" onChange={onChange}/></F></div>
+  <F label="Category / Tag"><SI v={data} k="category" onChange={onChange}/></F>
+  <F label="Headline"><textarea value={data.headline||''} onChange={e=>onChange({...data,headline:e.target.value})} style={{minHeight:80}}/></F>
+  <F label="Body Text (optional)"><textarea value={data.body||''} onChange={e=>onChange({...data,body:e.target.value})}/></F>
+  <div className="field-row"><F label="Date"><SI v={data} k="date" onChange={onChange}/></F><F label="Source"><SI v={data} k="source" onChange={onChange}/></F></div>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Headline" data={data} field="hlSize" min={28} max={120} onChange={onChange}/>
+</>;}
+
+function NewsWireCtrl({data,onChange}){return <>
+  <div className="field-row"><F label="Channel Name"><SI v={data} k="channel" onChange={onChange}/></F><F label="Handle"><SI v={data} k="handle" onChange={onChange}/></F></div>
+  <div className="field-row"><F label="Website"><SI v={data} k="website" onChange={onChange}/></F><F label="Date"><SI v={data} k="date" onChange={onChange}/></F></div>
+  <F label="Section Headline"><SI v={data} k="headline" onChange={onChange}/></F>
+  <F label="Story 1"><textarea value={data.story1||''} onChange={e=>onChange({...data,story1:e.target.value})} style={{minHeight:60}}/></F>
+  <F label="Story 2"><textarea value={data.story2||''} onChange={e=>onChange({...data,story2:e.target.value})} style={{minHeight:60}}/></F>
+  <F label="Story 3"><textarea value={data.story3||''} onChange={e=>onChange({...data,story3:e.target.value})} style={{minHeight:60}}/></F>
+  <div className="field-row"><F label="Source"><SI v={data} k="source" onChange={onChange}/></F></div>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Section Headline" data={data} field="hlSize" min={24} max={80} onChange={onChange}/>
+</>;}
+
+function NewsFlashCtrl({data,onChange}){return <>
+  <div style={{background:'rgba(244,162,97,0.1)',border:'1px solid rgba(244,162,97,0.3)',borderRadius:10,padding:'10px 14px',marginBottom:12,fontSize:12,color:'rgba(244,162,97,0.9)',fontWeight:500,lineHeight:1.5}}>
+    💡 Upload an image in Style tab for best results
+  </div>
+  <div className="field-row"><F label="Channel Name"><SI v={data} k="channel" onChange={onChange}/></F><F label="Initials"><SI v={data} k="initials" onChange={onChange}/></F></div>
+  <div className="field-row"><F label="Handle"><SI v={data} k="handle" onChange={onChange}/></F><F label="Website"><SI v={data} k="website" onChange={onChange}/></F></div>
+  <F label="Category / Tag"><SI v={data} k="category" onChange={onChange}/></F>
+  <F label="Headline"><textarea value={data.headline||''} onChange={e=>onChange({...data,headline:e.target.value})} style={{minHeight:80}}/></F>
+  <div className="field-row"><F label="Date"><SI v={data} k="date" onChange={onChange}/></F><F label="Source"><SI v={data} k="source" onChange={onChange}/></F></div>
+  <div className="sec-label">Overlay Darkness</div>
+  <SL label="Darkness" data={data} field="overlayDark" min={0} max={95} onChange={onChange}/>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Headline" data={data} field="hlSize" min={28} max={120} onChange={onChange}/>
+</>;}
+
+function NewsPanelCtrl({data,onChange}){return <>
+  <div style={{background:'rgba(244,162,97,0.1)',border:'1px solid rgba(244,162,97,0.3)',borderRadius:10,padding:'10px 14px',marginBottom:12,fontSize:12,color:'rgba(244,162,97,0.9)',fontWeight:500,lineHeight:1.5}}>
+    💡 Upload an image in Style tab for best results
+  </div>
+  <div className="field-row"><F label="Channel Name"><SI v={data} k="channel" onChange={onChange}/></F><F label="Initials"><SI v={data} k="initials" onChange={onChange}/></F></div>
+  <div className="field-row"><F label="Handle"><SI v={data} k="handle" onChange={onChange}/></F><F label="Website"><SI v={data} k="website" onChange={onChange}/></F></div>
+  <F label="Category / Tag"><SI v={data} k="category" onChange={onChange}/></F>
+  <F label="Headline"><textarea value={data.headline||''} onChange={e=>onChange({...data,headline:e.target.value})} style={{minHeight:80}}/></F>
+  <div className="field-row"><F label="Date"><SI v={data} k="date" onChange={onChange}/></F><F label="Source"><SI v={data} k="source" onChange={onChange}/></F></div>
+  <div className="sec-label">Font Sizes</div>
+  <SL label="Headline" data={data} field="hlSize" min={24} max={100} onChange={onChange}/>
+</>;}
+
+const CTRL_MAP = {
+  grammar:GrammarCtrl, kanji:KanjiCtrl, vocab:VocabCtrl, word:WordCtrl,
+  challenge:ChallengeCtrl, promo:PromoCtrl, tip:TipCtrl, announce:AnnounceCtrl,
+  imgbg:ImgBGCtrl, imgcard:ImgCardCtrl,
+  newstxt:NewsTxtCtrl, newswire:NewsWireCtrl, newsflash:NewsFlashCtrl, newspanel:NewsPanelCtrl,
+};
+
+/* ══ IMAGE UPLOAD WIDGET ════════════════════════════════════ */
+function ImageUpload({ bgImage, onChange }) {
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef();
+
+  const loadFile = (file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => onChange(e.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div>
+      <div className="sec-label">Background / Feature Image</div>
+      <div
+        className={`img-drop${drag?' drag':''}${bgImage?' has':''}`}
+        onClick={() => inputRef.current.click()}
+        onDragOver={e=>{e.preventDefault();setDrag(true);}}
+        onDragLeave={()=>setDrag(false)}
+        onDrop={e=>{e.preventDefault();setDrag(false);loadFile(e.dataTransfer.files[0]);}}
+      >
+        <input ref={inputRef} type="file" accept="image/*" style={{display:'none'}}
+          onChange={e=>loadFile(e.target.files[0])}/>
+        {bgImage
+          ? <>
+              <div className="img-drop-txt" style={{color:'#2A9D8F',fontWeight:700}}>✓ Image loaded</div>
+              <img src={bgImage} className="img-thumb" alt="" />
+            </>
+          : <>
+              <div className="img-drop-icon">🖼</div>
+              <div className="img-drop-txt">Click or drag & drop an image<br/>Works on Photo BG &amp; Img Card</div>
+            </>
+        }
+      </div>
+      {bgImage && <button className="img-clear" onClick={e=>{e.stopPropagation();onChange(null);}}>✕ Remove image</button>}
+    </div>
+  );
+}
+
+/* ══ APP ═════════════════════════════════════════════════════ */
+function App() {
+  const [tpl, setTpl]       = useState('grammar');
+  const [accent, setAccent] = useState(ACCENTS[0]);
+  const [fmt, setFmt]       = useState(FORMATS[0]);
+  const [datas, setDatas]   = useState(DEFAULTS);
+  const [fx, setFx]         = useState({ petals:true, orbs:true });
+  const [bgImage, setBgImg] = useState(null);
+  const [tab, setTab]       = useState('style');
+  const [dl, setDl]         = useState(false);
+  const hiddenRef           = useRef();
+
+  // Compute preview dimensions fitting the available space
+  const [winSz, setWinSz] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const upd = () => setWinSz({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', upd);
+    return () => window.removeEventListener('resize', upd);
+  }, []);
+  const availW = winSz.w - 400;
+  const availH = winSz.h - 120;
+  const scaleByW = availW / fmt.w;
+  const scaleByH = availH / fmt.h;
+  const previewScale = Math.min(scaleByW, scaleByH, 640 / Math.max(fmt.w, fmt.h));
+  const prevW = Math.round(fmt.w * previewScale);
+  const prevH = Math.round(fmt.h * previewScale);
+
+  const data    = datas[tpl];
+  const setData = useCallback(d => setDatas(prev => ({ ...prev, [tpl]: d })), [tpl]);
+
+  const isImgTpl = ['imgbg','imgcard','newsflash','newspanel'].includes(tpl);
+
+  async function download() {
+    setDl(true);
+    try {
+      await document.fonts.ready;
+      await htmlToImage.toPng(hiddenRef.current, { width:fmt.w, height:fmt.h, pixelRatio:1, cacheBust:true });
+      await new Promise(r => setTimeout(r, 350));
+      const url = await htmlToImage.toPng(hiddenRef.current, {
+        width:fmt.w, height:fmt.h, pixelRatio:2, cacheBust:true,
+        style:{ transform:'none', transformOrigin:'top left' },
+      });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `japanese-shikhi-${tpl}-${fmt.id}-${Date.now()}.png`;
+      a.click();
+    } catch(e) { console.error(e); }
+    setDl(false);
+  }
+
+  const ActivePoster = POSTER_MAP[tpl];
+  const ActiveCtrl   = CTRL_MAP[tpl];
+  const tplMeta      = TEMPLATES.find(t => t.id === tpl);
+
+  const posterProps = { data, accent, fx, fmt, bgImage };
+
+  return (
+    <div className="app">
+
+      {/* ── SIDEBAR ── */}
+      <div className="sidebar">
+        <div className="sidebar-head">
+          <img className="sidebar-logo" src="assets/logo-light.webp" alt="Japanese Shikhi" />
+          <span className="sidebar-badge">Poster Studio</span>
+        </div>
+
+        <div className="tabs">
+          {['style','content'].map(t => (
+            <button key={t} className={`tab${tab===t?' on':''}`} onClick={() => setTab(t)}>
+              {t === 'style' ? 'Style & Format' : 'Content'}
+            </button>
+          ))}
+        </div>
+
+        <div className="scroll">
+          {tab === 'style' && <>
+            {/* Template picker */}
+            <div className="sec-label">Template</div>
+            <div className="tpl-grid">
+              {TEMPLATES.map(t => (
+                <button key={t.id} className={`tpl-btn${tpl===t.id?' on':''}`}
+                  onClick={() => { setTpl(t.id); setTab('content'); }}>
+                  <div className="tpl-jp">{t.jp}</div>
+                  <div className="tpl-en">{t.en}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Format selector */}
+            <div className="sec-label">Format / Size</div>
+            <div className="fmt-grid">
+              {FORMATS.map(f => (
+                <button key={f.id} className={`fmt-btn${fmt.id===f.id?' on':''}`} onClick={() => setFmt(f)}>
+                  <div className="fmt-name"><span className="fmt-icon">{f.icon}</span>{f.label}</div>
+                  <div className="fmt-dims">{f.dims}</div>
+                  <div className="fmt-dims" style={{color:'#374151'}}>{f.sub}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Accent color */}
+            <div className="sec-label">Accent Color</div>
+            <div className="swatch-row">
+              {ACCENTS.map(a => (
+                <div key={a.id} className={`swatch${accent.id===a.id?' on':''}`}
+                  style={{ background: a.id==='light' ? 'linear-gradient(135deg,#F9FAFB,#E5E7EB)' : `linear-gradient(135deg,${a.p},${a.s})` }}
+                  onClick={() => setAccent(a)} title={a.id} />
+              ))}
+            </div>
+            <div style={{fontSize:11,color:'#4b5563',marginBottom:14,marginTop:-6,fontWeight:500,lineHeight:1.6}}>
+              {ACCENTS.map(a => a.id.charAt(0).toUpperCase()+a.id.slice(1)).join(' · ')}
+            </div>
+
+            {/* Effects */}
+            <div className="sec-label">Effects</div>
+            <div className="toggle-row">
+              <span className="toggle-label">🌸 Sakura Petals</span>
+              <button className={`toggle-btn${fx.petals?' on':''}`} onClick={() => setFx(f=>({...f,petals:!f.petals}))}/>
+            </div>
+            <div className="toggle-row">
+              <span className="toggle-label">✨ Color Orbs</span>
+              <button className={`toggle-btn${fx.orbs?' on':''}`} onClick={() => setFx(f=>({...f,orbs:!f.orbs}))}/>
+            </div>
+
+            {/* Image upload */}
+            <ImageUpload bgImage={bgImage} onChange={setBgImg}/>
+          </>}
+
+          {tab === 'content' && <>
+            <div className="sec-label">{tplMeta?.jp} {tplMeta?.en} — Content</div>
+            {isImgTpl && !bgImage && (
+              <div style={{background:'rgba(244,162,97,0.1)',border:'1px solid rgba(244,162,97,0.3)',borderRadius:10,padding:'10px 14px',marginBottom:12,fontSize:12,color:'rgba(244,162,97,0.9)',fontWeight:500,lineHeight:1.5}}>
+                💡 Upload an image in Style tab for best results
+              </div>
+            )}
+            <ActiveCtrl data={data} onChange={setData}/>
+          </>}
+        </div>
+
+        <div className="dl-wrap">
+          <button className="dl-btn" onClick={download} disabled={dl}>
+            {dl ? '⏳ Rendering…' : `⬇  Download  ${fmt.dims}`}
+          </button>
+        </div>
+      </div>
+
+      {/* ── PREVIEW ── */}
+      <div className="preview-area">
+        <div className="preview-wrap" style={{ width:prevW, height:prevH }}>
+          <div style={{ width:fmt.w, height:fmt.h, transform:`scale(${previewScale})`, transformOrigin:'top left' }}>
+            <ActivePoster {...posterProps}/>
+          </div>
+        </div>
+        <div className="preview-label">{fmt.dims} px &nbsp;·&nbsp; 2× HQ &nbsp;·&nbsp; {fmt.sub}</div>
+      </div>
+
+      {/* ── HIDDEN FULL-SIZE RENDER (no transform — for correct download) ── */}
+      <div style={{ position:'fixed', left:-(fmt.w+100), top:-(fmt.h+100), width:fmt.w, height:fmt.h, pointerEvents:'none', zIndex:-999, overflow:'hidden' }}>
+        <div ref={hiddenRef} style={{ width:fmt.w, height:fmt.h }}>
+          <ActivePoster {...posterProps}/>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+}
+</script>
+</body>
+</html>

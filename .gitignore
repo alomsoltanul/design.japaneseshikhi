@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Vercel
+.vercel
+
+# Logs
+*.log
+
+# Editor
+.vscode
+.idea
+
+# OS
+.DS_Store
+
+# Keep .claude skills in repo
+# .claude
