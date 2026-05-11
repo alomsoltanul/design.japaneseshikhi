@@ -79,8 +79,9 @@ export default function App() {
     return () => window.removeEventListener('resize', upd)
   }, [])
 
-  const availW = winSz.w - 400
-  const availH = winSz.h - 120
+  const isMobile = winSz.w <= 768
+  const availW = Math.max(isMobile ? winSz.w - 32 : winSz.w - 400, 0)
+  const availH = Math.max(isMobile ? winSz.h * 0.45 - 48 : winSz.h - 120, 0)
   const scaleByW = availW / fmt.w
   const scaleByH = availH / fmt.h
   const previewScale = Math.min(scaleByW, scaleByH, 640 / Math.max(fmt.w, fmt.h))
@@ -154,7 +155,7 @@ export default function App() {
             <div className="tpl-grid">
               {TEMPLATES.map(t => (
                 <button key={t.id} className={`tpl-btn${tpl === t.id ? ' on' : ''}`}
-                  onClick={() => { setTpl(t.id); setTab('content'); }}>
+                  onClick={() => setTpl(t.id)}>
                   <div className="tpl-jp">{t.jp}</div>
                   <div className="tpl-en">{t.en}</div>
                 </button>
