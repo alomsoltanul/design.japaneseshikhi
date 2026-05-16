@@ -152,12 +152,11 @@ export default function App() {
       {/* ── SIDEBAR ── */}
       <div className="sidebar">
         <div className="sidebar-head">
-          <img className="sidebar-logo" src="/assets/logo-light.webp" alt="Japanese Shikhi" />
-          <span className="sidebar-badge">Poster Studio</span>
-        </div>
-
-        <div className="tool-menu-wrap">
-          <ToolMenu view={view} onChange={setView} />
+          <div className="sidebar-head-left">
+            <img className="sidebar-logo" src="/assets/logo-light.webp" alt="Japanese Shikhi" />
+            <span className="sidebar-badge">Poster Studio</span>
+          </div>
+          <ToolMenu view={view} onChange={setView} compact />
         </div>
 
         <div className="tabs">

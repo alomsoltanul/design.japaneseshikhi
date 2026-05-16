@@ -83,6 +83,12 @@ body {
   justify-content: space-between;
 }
 
+.sidebar-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .sidebar-logo {
   height: 18px;
 }
@@ -533,12 +539,6 @@ body {
 .custom-swatch-add:hover {
   border-color: #E63946;
   color: #E63946;
-}
-
-/* Tool menu */
-.tool-menu-wrap {
-  padding: 10px 14px 12px;
-  border-bottom: 1px solid #1e2235;
 }
 
 .tool-menu {

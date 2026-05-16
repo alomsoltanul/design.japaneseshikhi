@@ -23,3 +23,4 @@ dist-ssr
 
 # Keep .claude skills in repo
 # .claude
+.claude/image-prompt/
