@@ -1,4 +1,4 @@
-const CACHE = 'js-poster-v1';
+const CACHE = 'js-poster-v2';
 const ASSETS = [
   '/',
   '/index.html',
