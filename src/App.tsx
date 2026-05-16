@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { toPng } from 'html-to-image'
 import { ImageUpload } from '@/components/ImageUpload'
+import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
+import { ToolMenu, type AppView } from '@/components/ToolMenu'
 import { BASE_ACCENTS, FORMATS } from '@/themes'
 import { TEMPLATES, TEMPLATE_MAP } from '@/templates'
 import type { Accent, Format, FxState } from '@/types'
 
 const STORAGE_KEY = 'js-poster-studio-v2'
+const VIEW_STORAGE_KEY = 'js-poster-studio-view'
 
 interface StoredState {
   tpl: string
@@ -38,6 +41,11 @@ function buildDefaultDatas() {
 }
 
 export default function App() {
+  const [view, setView] = useState<AppView>(() => {
+    const raw = localStorage.getItem(VIEW_STORAGE_KEY)
+    return raw === 'prompt' ? 'prompt' : 'poster'
+  })
+
   const saved = loadState()
 
   const [tpl, setTpl] = useState(saved.tpl || 'grammar')
@@ -70,6 +78,10 @@ export default function App() {
     const custom = accents.filter(a => !BASE_ACCENTS.some(b => b.id === a.id))
     saveState({ tpl, accentId: accent.id, fmtId: fmt.id, datas, fx, customAccents: custom })
   }, [tpl, accent, fmt, datas, fx, accents])
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_STORAGE_KEY, view)
+  }, [view])
 
   // Window size for preview scaling
   const [winSz, setWinSz] = useState({ w: window.innerWidth, h: window.innerHeight })
@@ -131,6 +143,10 @@ export default function App() {
     setNewTheme({ id: '', p: '#E63946', s: '#6B21A8', bg: 'linear-gradient(150deg,#0a0c18 0%,#0f0d1f 55%,#13102a 100%)', dark: true })
   }
 
+  if (view === 'prompt') {
+    return <ImagePromptExtractor view={view} onChangeView={setView} />
+  }
+
   return (
     <div className="app">
       {/* ── SIDEBAR ── */}
@@ -138,6 +154,10 @@ export default function App() {
         <div className="sidebar-head">
           <img className="sidebar-logo" src="/assets/logo-light.webp" alt="Japanese Shikhi" />
           <span className="sidebar-badge">Poster Studio</span>
+        </div>
+
+        <div className="tool-menu-wrap">
+          <ToolMenu view={view} onChange={setView} />
         </div>
 
         <div className="tabs">
