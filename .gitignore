@@ -24,3 +24,6 @@ dist-ssr
 # Keep .claude skills in repo
 # .claude
 .claude/image-prompt/
+
+# Design handoff source files (local only)
+public/assets/design_handoff_musliminjapan/

@@ -3,6 +3,7 @@ import { toPng } from 'html-to-image'
 import { ImageUpload } from '@/components/ImageUpload'
 import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
 import { ToolMenu, type AppView } from '@/components/ToolMenu'
+import { PosterMaker } from '@/poster-maker/PosterMaker'
 import { BASE_ACCENTS, FORMATS } from '@/themes'
 import { TEMPLATES, TEMPLATE_MAP } from '@/templates'
 import type { Accent, Format, FxState } from '@/types'
@@ -42,6 +43,7 @@ function buildDefaultDatas() {
 
 export default function App() {
   const [view, setView] = useState<AppView>(() => {
+    if (window.location.pathname.startsWith('/poster-maker')) return 'poster-maker'
     const raw = localStorage.getItem(VIEW_STORAGE_KEY)
     return raw === 'prompt' ? 'prompt' : 'poster'
   })
@@ -80,8 +82,28 @@ export default function App() {
   }, [tpl, accent, fmt, datas, fx, accents])
 
   useEffect(() => {
-    localStorage.setItem(VIEW_STORAGE_KEY, view)
+    if (view !== 'poster-maker') {
+      localStorage.setItem(VIEW_STORAGE_KEY, view)
+    }
   }, [view])
+
+  useEffect(() => {
+    const sync = () => {
+      if (window.location.pathname.startsWith('/poster-maker')) {
+        setView('poster-maker')
+      }
+    }
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
+  }, [])
+
+  const handleChangeView = useCallback((next: AppView) => {
+    setView(next)
+    const target = next === 'poster-maker' ? '/poster-maker' : '/'
+    if (window.location.pathname !== target) {
+      window.history.pushState({}, '', target)
+    }
+  }, [])
 
   // Window size for preview scaling
   const [winSz, setWinSz] = useState({ w: window.innerWidth, h: window.innerHeight })
@@ -144,7 +166,11 @@ export default function App() {
   }
 
   if (view === 'prompt') {
-    return <ImagePromptExtractor view={view} onChangeView={setView} />
+    return <ImagePromptExtractor view={view} onChangeView={handleChangeView} />
+  }
+
+  if (view === 'poster-maker') {
+    return <PosterMaker />
   }
 
   return (
@@ -156,7 +182,7 @@ export default function App() {
             <img className="sidebar-logo" src="/assets/logo-light.webp" alt="Japanese Shikhi" />
             <span className="sidebar-badge">Poster Studio</span>
           </div>
-          <ToolMenu view={view} onChange={setView} compact />
+            <ToolMenu view={view} onChange={handleChangeView} compact />
         </div>
 
         <div className="tabs">

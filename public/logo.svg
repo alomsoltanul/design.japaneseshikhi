@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" fill="none">
+  
+  
+  <rect x="2" y="15" width="5" height="19" rx="1" fill="#10b981"></rect>
+  <path d="M4.5 15 C4.5 11 2 9 4.5 6 C7 9 7 11 4.5 15Z" fill="#059669"></path>
+  
+  <rect x="31" y="15" width="5" height="19" rx="1" fill="#10b981"></rect>
+  <path d="M33.5 15 C33.5 11 31 9 33.5 6 C36 9 36 11 33.5 15Z" fill="#059669"></path>
+  
+  <path d="M10 21 Q10 12 19 12 Q28 12 28 21Z" fill="#10b981"></path>
+  
+  <rect x="10" y="21" width="18" height="13" rx="1" fill="#10b981"></rect>
+  
+  <path d="M15.5 34 L15.5 28 Q19 24.5 22.5 28 L22.5 34Z" fill="#065f46"></path>
+  
+  <circle cx="21" cy="8" r="2.2" stroke="#fbbf24" stroke-width="1.4" fill="none"></circle>
+  <circle cx="22.2" cy="7.2" r="1.7" fill="#10b981"></circle>
+  
+  <text x="46" y="27" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#0f172a" letter-spacing="-0.3">Muslims in Japan</text>
+</svg>

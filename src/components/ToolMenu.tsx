@@ -1,4 +1,4 @@
-export type AppView = 'poster' | 'prompt'
+export type AppView = 'poster' | 'prompt' | 'poster-maker'
 
 export function ToolMenu({
   view,
@@ -26,6 +26,13 @@ export function ToolMenu({
         type="button"
       >
         Image Prompt Extractor
+      </button>
+      <button
+        className={`tool-tab${view === 'poster-maker' ? ' on' : ''}`}
+        onClick={() => onChange('poster-maker')}
+        type="button"
+      >
+        Create: Poster Maker
       </button>
     </div>
   )
