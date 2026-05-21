@@ -4,6 +4,7 @@ import { ImageUpload } from '@/components/ImageUpload'
 import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
 import { ToolMenu, type AppView } from '@/components/ToolMenu'
 import { PosterMaker } from '@/poster-maker/PosterMaker'
+import { ListeningStudio } from '@/listening/ListeningStudio'
 import { BASE_ACCENTS, FORMATS } from '@/themes'
 import { TEMPLATES, TEMPLATE_MAP } from '@/templates'
 import type { Accent, Format, FxState } from '@/types'
@@ -44,6 +45,7 @@ function buildDefaultDatas() {
 export default function App() {
   const [view, setView] = useState<AppView>(() => {
     if (window.location.pathname.startsWith('/poster-maker')) return 'poster-maker'
+    if (window.location.pathname.startsWith('/listening')) return 'listening'
     const raw = localStorage.getItem(VIEW_STORAGE_KEY)
     return raw === 'prompt' ? 'prompt' : 'poster'
   })
@@ -82,16 +84,15 @@ export default function App() {
   }, [tpl, accent, fmt, datas, fx, accents])
 
   useEffect(() => {
-    if (view !== 'poster-maker') {
+    if (view !== 'poster-maker' && view !== 'listening') {
       localStorage.setItem(VIEW_STORAGE_KEY, view)
     }
   }, [view])
 
   useEffect(() => {
     const sync = () => {
-      if (window.location.pathname.startsWith('/poster-maker')) {
-        setView('poster-maker')
-      }
+      if (window.location.pathname.startsWith('/poster-maker')) setView('poster-maker')
+      else if (window.location.pathname.startsWith('/listening')) setView('listening')
     }
     window.addEventListener('popstate', sync)
     return () => window.removeEventListener('popstate', sync)
@@ -99,7 +100,7 @@ export default function App() {
 
   const handleChangeView = useCallback((next: AppView) => {
     setView(next)
-    const target = next === 'poster-maker' ? '/poster-maker' : '/'
+    const target = next === 'poster-maker' ? '/poster-maker' : next === 'listening' ? '/listening' : '/'
     if (window.location.pathname !== target) {
       window.history.pushState({}, '', target)
     }
@@ -171,6 +172,10 @@ export default function App() {
 
   if (view === 'poster-maker') {
     return <PosterMaker />
+  }
+
+  if (view === 'listening') {
+    return <ListeningStudio />
   }
 
   return (

@@ -1,0 +1,614 @@
+/**
+ * Official VOICEVOX speaker list with all styles.
+ * Derived from VOICEVOX Engine /speakers endpoint.
+ */
+
+export interface VvStyle {
+  name: string
+  id: number
+  type: 'talk' | 'sing'
+}
+
+export interface VvSpeaker {
+  name: string
+  speaker_uuid: string
+  styles: VvStyle[]
+  version: string
+  permitted_synthesis_morphing: 'ALL' | 'SELF_ONLY' | 'NOTHING'
+  /** Auto-assigned emoji for UI */
+  emoji: string
+  /** Rough gender hint for filtering */
+  gender: 'female' | 'male' | 'other'
+}
+
+export const VOICEVOX_SPEAKERS: VvSpeaker[] = [
+  {
+    name: '四国めたん',
+    speaker_uuid: '7ffcb7ce-00ec-4bdc-82cd-45a8889e43ff',
+    styles: [
+      { name: 'ノーマル', id: 2, type: 'talk' },
+      { name: 'あまあま', id: 0, type: 'talk' },
+      { name: 'ツンツン', id: 6, type: 'talk' },
+      { name: 'セクシー', id: 4, type: 'talk' },
+      { name: 'ささやき', id: 36, type: 'talk' },
+      { name: 'ヒソヒソ', id: 37, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '💜',
+    gender: 'female',
+  },
+  {
+    name: 'ずんだもん',
+    speaker_uuid: '388f246b-8c41-4ac1-8e2d-5d79f3ff56d9',
+    styles: [
+      { name: 'ノーマル', id: 3, type: 'talk' },
+      { name: 'あまあま', id: 1, type: 'talk' },
+      { name: 'ツンツン', id: 7, type: 'talk' },
+      { name: 'セクシー', id: 5, type: 'talk' },
+      { name: 'ささやき', id: 22, type: 'talk' },
+      { name: 'ヒソヒソ', id: 38, type: 'talk' },
+      { name: 'ヘロヘロ', id: 75, type: 'talk' },
+      { name: 'なみだめ', id: 76, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🌱',
+    gender: 'other',
+  },
+  {
+    name: '春日部つむぎ',
+    speaker_uuid: '35b2c544-660e-401e-b503-0e14c635303a',
+    styles: [
+      { name: 'ノーマル', id: 8, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🎀',
+    gender: 'female',
+  },
+  {
+    name: '雨晴はう',
+    speaker_uuid: '3474ee95-c274-47f9-aa1a-8322163d96f1',
+    styles: [
+      { name: 'ノーマル', id: 10, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌧️',
+    gender: 'female',
+  },
+  {
+    name: '波音リツ',
+    speaker_uuid: 'b1a81618-b27b-40d2-b0ea-27a9ad408c4b',
+    styles: [
+      { name: 'ノーマル', id: 9, type: 'talk' },
+      { name: 'クイーン', id: 65, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌊',
+    gender: 'female',
+  },
+  {
+    name: '玄野武宏',
+    speaker_uuid: 'c30dc15a-0992-4f8d-8bb8-ad3b314e6a6f',
+    styles: [
+      { name: 'ノーマル', id: 11, type: 'talk' },
+      { name: '喜び', id: 39, type: 'talk' },
+      { name: 'ツンギレ', id: 40, type: 'talk' },
+      { name: '悲しみ', id: 41, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🥋',
+    gender: 'male',
+  },
+  {
+    name: '白上虎太郎',
+    speaker_uuid: 'e5020595-5c5d-4e87-b849-270a518d0dcf',
+    styles: [
+      { name: 'ふつう', id: 12, type: 'talk' },
+      { name: 'わーい', id: 32, type: 'talk' },
+      { name: 'びくびく', id: 33, type: 'talk' },
+      { name: 'おこ', id: 34, type: 'talk' },
+      { name: 'びえーん', id: 35, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🐯',
+    gender: 'male',
+  },
+  {
+    name: '青山龍星',
+    speaker_uuid: '4f51116a-d9ee-4516-925d-21f183e2afad',
+    styles: [
+      { name: 'ノーマル', id: 13, type: 'talk' },
+      { name: '熱血', id: 81, type: 'talk' },
+      { name: '不機嫌', id: 82, type: 'talk' },
+      { name: '喜び', id: 83, type: 'talk' },
+      { name: 'しっとり', id: 84, type: 'talk' },
+      { name: 'かなしみ', id: 85, type: 'talk' },
+      { name: '囁き', id: 86, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🐉',
+    gender: 'male',
+  },
+  {
+    name: '冥鳴ひまり',
+    speaker_uuid: '8eaad775-3119-417e-8cf4-2a10bfd592c8',
+    styles: [
+      { name: 'ノーマル', id: 14, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '👻',
+    gender: 'female',
+  },
+  {
+    name: '九州そら',
+    speaker_uuid: '481fb609-6446-4870-9f46-90c4dd623403',
+    styles: [
+      { name: 'ノーマル', id: 16, type: 'talk' },
+      { name: 'あまあま', id: 15, type: 'talk' },
+      { name: 'ツンツン', id: 18, type: 'talk' },
+      { name: 'セクシー', id: 17, type: 'talk' },
+      { name: 'ささやき', id: 19, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🗾',
+    gender: 'female',
+  },
+  {
+    name: 'もち子さん',
+    speaker_uuid: '9f3ee141-26ad-437e-97bd-d22298d02ad2',
+    styles: [
+      { name: 'ノーマル', id: 20, type: 'talk' },
+      { name: 'セクシー／あん子', id: 66, type: 'talk' },
+      { name: '泣き', id: 77, type: 'talk' },
+      { name: '怒り', id: 78, type: 'talk' },
+      { name: '喜び', id: 79, type: 'talk' },
+      { name: 'のんびり', id: 80, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🍡',
+    gender: 'female',
+  },
+  {
+    name: '剣崎雌雄',
+    speaker_uuid: '1a17ca16-7ee5-4ea5-b191-2f02ace24d21',
+    styles: [
+      { name: 'ノーマル', id: 21, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '⚔️',
+    gender: 'other',
+  },
+  {
+    name: 'WhiteCUL',
+    speaker_uuid: '67d5d8da-acd7-4207-bb10-b5542d3a663b',
+    styles: [
+      { name: 'ノーマル', id: 23, type: 'talk' },
+      { name: 'たのしい', id: 24, type: 'talk' },
+      { name: 'かなしい', id: 25, type: 'talk' },
+      { name: 'びえーん', id: 26, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '❄️',
+    gender: 'female',
+  },
+  {
+    name: '後鬼',
+    speaker_uuid: '0f56c2f2-644c-49c9-8989-94e11f7129d0',
+    styles: [
+      { name: '人間ver.', id: 27, type: 'talk' },
+      { name: 'ぬいぐるみver.', id: 28, type: 'talk' },
+      { name: '人間（怒り）ver.', id: 87, type: 'talk' },
+      { name: '鬼ver.', id: 88, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '👹',
+    gender: 'other',
+  },
+  {
+    name: 'No.7',
+    speaker_uuid: '044830d2-f23b-44d6-ac0d-b5d733caa900',
+    styles: [
+      { name: 'ノーマル', id: 29, type: 'talk' },
+      { name: 'アナウンス', id: 30, type: 'talk' },
+      { name: '読み聞かせ', id: 31, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '7️⃣',
+    gender: 'other',
+  },
+  {
+    name: 'ちび式じい',
+    speaker_uuid: '468b8e94-9da4-4f7a-8715-a22a48844f9e',
+    styles: [
+      { name: 'ノーマル', id: 42, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '👴',
+    gender: 'male',
+  },
+  {
+    name: '櫻歌ミコ',
+    speaker_uuid: '0693554c-338e-4790-8982-b9c6d476dc69',
+    styles: [
+      { name: 'ノーマル', id: 43, type: 'talk' },
+      { name: '第二形態', id: 44, type: 'talk' },
+      { name: 'ロリ', id: 45, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌸',
+    gender: 'female',
+  },
+  {
+    name: '小夜/SAYO',
+    speaker_uuid: 'a8cc6d22-aad0-4ab8-bf1e-2f843924164a',
+    styles: [
+      { name: 'ノーマル', id: 46, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌙',
+    gender: 'female',
+  },
+  {
+    name: 'ナースロボ＿タイプＴ',
+    speaker_uuid: '882a636f-3bac-431a-966d-c5e6bba9f949',
+    styles: [
+      { name: 'ノーマル', id: 47, type: 'talk' },
+      { name: '楽々', id: 48, type: 'talk' },
+      { name: '恐怖', id: 49, type: 'talk' },
+      { name: '内緒話', id: 50, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🤖',
+    gender: 'other',
+  },
+  {
+    name: '†聖騎士 紅桜†',
+    speaker_uuid: '471e39d2-fb11-4c8c-8d89-4b322d2498e0',
+    styles: [
+      { name: 'ノーマル', id: 51, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '⚜️',
+    gender: 'other',
+  },
+  {
+    name: '雀松朱司',
+    speaker_uuid: '0acebdee-a4a5-4e12-a695-e19609728e30',
+    styles: [
+      { name: 'ノーマル', id: 52, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🐦',
+    gender: 'male',
+  },
+  {
+    name: '麒ヶ島宗麟',
+    speaker_uuid: '7d1e7ba7-f957-40e5-a3fc-da49f769ab65',
+    styles: [
+      { name: 'ノーマル', id: 53, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🦌',
+    gender: 'male',
+  },
+  {
+    name: '春歌ナナ',
+    speaker_uuid: 'ba5d2428-f7e0-4c20-ac41-9dd56e9178b4',
+    styles: [
+      { name: 'ノーマル', id: 54, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌷',
+    gender: 'female',
+  },
+  {
+    name: '猫使アル',
+    speaker_uuid: '00a5c10c-d3bd-459f-83fd-43180b521a44',
+    styles: [
+      { name: 'ノーマル', id: 55, type: 'talk' },
+      { name: 'おちつき', id: 56, type: 'talk' },
+      { name: 'うきうき', id: 57, type: 'talk' },
+      { name: 'つよつよ', id: 110, type: 'talk' },
+      { name: 'へろへろ', id: 111, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🐱',
+    gender: 'other',
+  },
+  {
+    name: '猫使ビィ',
+    speaker_uuid: 'c20a2254-0349-4470-9fc8-e5c0f8cf3404',
+    styles: [
+      { name: 'ノーマル', id: 58, type: 'talk' },
+      { name: 'おちつき', id: 59, type: 'talk' },
+      { name: '人見知り', id: 60, type: 'talk' },
+      { name: 'つよつよ', id: 112, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🐈',
+    gender: 'other',
+  },
+  {
+    name: '中国うさぎ',
+    speaker_uuid: '1f18ffc3-47ea-4ce0-9829-0576d03a7ec8',
+    styles: [
+      { name: 'ノーマル', id: 61, type: 'talk' },
+      { name: 'おどろき', id: 62, type: 'talk' },
+      { name: 'こわがり', id: 63, type: 'talk' },
+      { name: 'へろへろ', id: 64, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🐇',
+    gender: 'other',
+  },
+  {
+    name: '栗田まろん',
+    speaker_uuid: '04dbd989-32d0-40b4-9e71-17c920f2a8a9',
+    styles: [
+      { name: 'ノーマル', id: 67, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌰',
+    gender: 'other',
+  },
+  {
+    name: 'あいえるたん',
+    speaker_uuid: 'dda44ade-5f9c-4a3a-9d2c-2a976c7476d9',
+    styles: [
+      { name: 'ノーマル', id: 68, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '💻',
+    gender: 'other',
+  },
+  {
+    name: '満別花丸',
+    speaker_uuid: '287aa49f-e56b-4530-a469-855776c84a8d',
+    styles: [
+      { name: 'ノーマル', id: 69, type: 'talk' },
+      { name: '元気', id: 70, type: 'talk' },
+      { name: 'ささやき', id: 71, type: 'talk' },
+      { name: 'ぶりっ子', id: 72, type: 'talk' },
+      { name: 'ボーイ', id: 73, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌺',
+    gender: 'female',
+  },
+  {
+    name: '琴詠ニア',
+    speaker_uuid: '97a4af4b-086e-4efd-b125-7ae2da85e697',
+    styles: [
+      { name: 'ノーマル', id: 74, type: 'talk' },
+    ],
+    version: '0.16.1',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🎹',
+    gender: 'female',
+  },
+  {
+    name: 'Voidoll',
+    speaker_uuid: '0ebe2c7d-96f3-4f0e-a2e3-ae13fe27c403',
+    styles: [
+      { name: 'ノーマル', id: 89, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'NOTHING',
+    emoji: '🔮',
+    gender: 'other',
+  },
+  {
+    name: 'ぞん子',
+    speaker_uuid: '0156da66-4300-474a-a398-49eb2e8dd853',
+    styles: [
+      { name: 'ノーマル', id: 90, type: 'talk' },
+      { name: '低血圧', id: 91, type: 'talk' },
+      { name: '覚醒', id: 92, type: 'talk' },
+      { name: '実況風', id: 93, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '💤',
+    gender: 'other',
+  },
+  {
+    name: '中部つるぎ',
+    speaker_uuid: '4614a7de-9829-465d-9791-97eb8a5f9b86',
+    styles: [
+      { name: 'ノーマル', id: 94, type: 'talk' },
+      { name: '怒り', id: 95, type: 'talk' },
+      { name: 'ヒソヒソ', id: 96, type: 'talk' },
+      { name: 'おどおど', id: 97, type: 'talk' },
+      { name: '絶望と敗北', id: 98, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '⚔️',
+    gender: 'other',
+  },
+  {
+    name: '離途',
+    speaker_uuid: '3b91e034-e028-4acb-a08d-fbdcd207ea63',
+    styles: [
+      { name: 'ノーマル', id: 99, type: 'talk' },
+      { name: 'シリアス', id: 101, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌫️',
+    gender: 'other',
+  },
+  {
+    name: '黒沢冴白',
+    speaker_uuid: '0b466290-f9b6-4718-8d37-6c0c81e824ac',
+    styles: [
+      { name: 'ノーマル', id: 100, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '⬛',
+    gender: 'male',
+  },
+  {
+    name: 'ユーレイちゃん',
+    speaker_uuid: '462cd6b4-c088-42b0-b357-3816e24f112e',
+    styles: [
+      { name: 'ノーマル', id: 102, type: 'talk' },
+      { name: '甘々', id: 103, type: 'talk' },
+      { name: '哀しみ', id: 104, type: 'talk' },
+      { name: 'ささやき', id: 105, type: 'talk' },
+      { name: 'ツクモちゃん', id: 106, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '👻',
+    gender: 'female',
+  },
+  {
+    name: '東北ずん子',
+    speaker_uuid: '80802b2d-8c75-4429-978b-515105017010',
+    styles: [
+      { name: 'ノーマル', id: 107, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🍆',
+    gender: 'female',
+  },
+  {
+    name: '東北きりたん',
+    speaker_uuid: '1bd6b32b-d650-4072-bbe5-1d0ef4aaa28b',
+    styles: [
+      { name: 'ノーマル', id: 108, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🍎',
+    gender: 'female',
+  },
+  {
+    name: '東北イタコ',
+    speaker_uuid: 'ab4c31a3-8769-422a-b412-708f5ae637e8',
+    styles: [
+      { name: 'ノーマル', id: 109, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🦊',
+    gender: 'female',
+  },
+  {
+    name: 'あんこもん',
+    speaker_uuid: '3be49e15-34bb-48a0-9e2f-9b80c96e9905',
+    styles: [
+      { name: 'ノーマル', id: 113, type: 'talk' },
+      { name: 'つよつよ', id: 114, type: 'talk' },
+      { name: 'よわよわ', id: 115, type: 'talk' },
+      { name: 'けだるげ', id: 116, type: 'talk' },
+      { name: 'ささやき', id: 117, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'SELF_ONLY',
+    emoji: '🫘',
+    gender: 'other',
+  },
+  {
+    name: '夜語トバリ',
+    speaker_uuid: 'd3be2066-205b-47f6-8818-1d93a9ca9cef',
+    styles: [
+      { name: 'ノーマル', id: 118, type: 'talk' },
+      { name: '明るい', id: 119, type: 'talk' },
+      { name: '哀しみ', id: 120, type: 'talk' },
+      { name: '呆れ', id: 121, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🌑',
+    gender: 'female',
+  },
+  {
+    name: '暁記ミタマ',
+    speaker_uuid: 'aca7de06-9ff9-49a3-9f08-9d3bc19689e5',
+    styles: [
+      { name: 'ノーマル', id: 122, type: 'talk' },
+      { name: '怒り', id: 123, type: 'talk' },
+      { name: '哀しみ', id: 124, type: 'talk' },
+      { name: 'ささやき', id: 125, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🔥',
+    gender: 'other',
+  },
+  {
+    name: '里石ユカ',
+    speaker_uuid: 'cc7baa71-6c74-4399-803b-b60576176a08',
+    styles: [
+      { name: 'つぼみ', id: 126, type: 'talk' },
+    ],
+    version: '0.16.0',
+    permitted_synthesis_morphing: 'ALL',
+    emoji: '🪨',
+    gender: 'female',
+  },
+]
+
+/** Get a default style ID for a speaker */
+export function getDefaultVoiceId(speakerName: string): number {
+  const s = VOICEVOX_SPEAKERS.find(sp => sp.name === speakerName)
+  return s?.styles[0]?.id ?? 2
+}
+
+/** Get style name from voice ID */
+export function getStyleName(speakerName: string, voiceId: number): string {
+  const s = VOICEVOX_SPEAKERS.find(sp => sp.name === speakerName)
+  return s?.styles.find(st => st.id === voiceId)?.name ?? 'ノーマル'
+}
+
+/** Pick a color per speaker name (stable hash) */
+export function getSpeakerColor(name: string): string {
+  const colors = [
+    '#E63946', '#2A9D8F', '#F4A261', '#1D3557', '#8b5cf6',
+    '#65a30d', '#d946ef', '#0ea5e9', '#f59e0b', '#ef4444',
+    '#10b981', '#6366f1', '#ec4899', '#84cc16', '#06b6d4',
+  ]
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % colors.length
+  return colors[h]
+}
+
+/** Search speakers by query */
+export function searchSpeakers(query: string): VvSpeaker[] {
+  const q = query.toLowerCase()
+  return VOICEVOX_SPEAKERS.filter(
+    s => s.name.toLowerCase().includes(q) || s.styles.some(st => st.name.toLowerCase().includes(q))
+  )
+}

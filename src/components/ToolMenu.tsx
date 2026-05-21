@@ -1,4 +1,4 @@
-export type AppView = 'poster' | 'prompt' | 'poster-maker'
+export type AppView = 'poster' | 'prompt' | 'poster-maker' | 'listening'
 
 export function ToolMenu({
   view,
@@ -33,6 +33,13 @@ export function ToolMenu({
         type="button"
       >
         Create: Poster Maker
+      </button>
+      <button
+        className={`tool-tab${view === 'listening' ? ' on' : ''}`}
+        onClick={() => onChange('listening')}
+        type="button"
+      >
+        Listening Studio
       </button>
     </div>
   )

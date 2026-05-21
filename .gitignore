@@ -27,3 +27,4 @@ dist-ssr
 
 # Design handoff source files (local only)
 public/assets/design_handoff_musliminjapan/
+.gstack/
