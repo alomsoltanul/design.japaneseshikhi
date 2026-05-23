@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { toPng } from 'html-to-image'
 import { ImageUpload } from '@/components/ImageUpload'
 import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
-import { ToolMenu, type AppView } from '@/components/ToolMenu'
+import { GlobalNav, type AppView } from '@/components/GlobalNav'
 import { PosterMaker } from '@/poster-maker/PosterMaker'
 import { ListeningStudio } from '@/listening/ListeningStudio'
 import { BASE_ACCENTS, FORMATS } from '@/themes'
@@ -47,7 +47,9 @@ export default function App() {
     if (window.location.pathname.startsWith('/poster-maker')) return 'poster-maker'
     if (window.location.pathname.startsWith('/listening')) return 'listening'
     const raw = localStorage.getItem(VIEW_STORAGE_KEY)
-    return raw === 'prompt' ? 'prompt' : 'poster'
+    if (raw === 'prompt') return 'prompt'
+    if (raw === 'poster') return 'poster'
+    return 'home'
   })
 
   const saved = loadState()
@@ -93,6 +95,7 @@ export default function App() {
     const sync = () => {
       if (window.location.pathname.startsWith('/poster-maker')) setView('poster-maker')
       else if (window.location.pathname.startsWith('/listening')) setView('listening')
+      else setView('home')
     }
     window.addEventListener('popstate', sync)
     return () => window.removeEventListener('popstate', sync)
@@ -166,29 +169,49 @@ export default function App() {
     setNewTheme({ id: '', p: '#E63946', s: '#6B21A8', bg: 'linear-gradient(150deg,#0a0c18 0%,#0f0d1f 55%,#13102a 100%)', dark: true })
   }
 
-  if (view === 'prompt') {
-    return <ImagePromptExtractor view={view} onChangeView={handleChangeView} />
-  }
-
-  if (view === 'poster-maker') {
-    return <PosterMaker />
-  }
-
-  if (view === 'listening') {
-    return <ListeningStudio />
-  }
+  const tools = [
+    { id: 'poster' as AppView, label: 'Poster Studio', desc: 'Design beautiful Japanese learning posters.', icon: '🎨' },
+    { id: 'prompt' as AppView, label: 'Prompt Extractor', desc: 'Extract image prompts from JSON data.', icon: '🖼️' },
+    { id: 'poster-maker' as AppView, label: 'Poster Maker', desc: 'Create custom posters with templates.', icon: '🖌️' },
+    { id: 'listening' as AppView, label: 'Listening Studio', desc: 'Build and edit listening practice tracks.', icon: '🎧' },
+  ]
 
   return (
-    <div className="app">
-      {/* ── SIDEBAR ── */}
-      <div className="sidebar">
-        <div className="sidebar-head">
-          <div className="sidebar-head-left">
-            <img className="sidebar-logo" src="/assets/logo-light.webp" alt="Japanese Shikhi" />
-            <span className="sidebar-badge">Poster Studio</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <GlobalNav view={view} onChange={handleChangeView} />
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        {view === 'home' && (
+          <div className="home-view">
+            <div className="home-hero">
+              <h1>Japanese Shikhi</h1>
+              <p>Content Studio — Create, design, and publish.</p>
+            </div>
+            <div className="home-grid">
+              {tools.map(tool => (
+                <button key={tool.id} className="home-card" onClick={() => handleChangeView(tool.id)}>
+                  <div className="home-card-icon">{tool.icon}</div>
+                  <div className="home-card-title">{tool.label}</div>
+                  <div className="home-card-desc">{tool.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
-            <ToolMenu view={view} onChange={handleChangeView} compact />
-        </div>
+        )}
+
+        {view === 'prompt' && <ImagePromptExtractor view={view} onChangeView={handleChangeView} />}
+        {view === 'poster-maker' && <PosterMaker />}
+        {view === 'listening' && <ListeningStudio />}
+
+        {view === 'poster' && (
+          <div className="app">
+            {/* ── SIDEBAR ── */}
+            <div className="sidebar">
+              <div className="sidebar-head">
+                <div className="sidebar-head-left">
+                  <img className="sidebar-logo" src="/assets/logo-light.webp" alt="Japanese Shikhi" />
+                  <span className="sidebar-badge">Poster Studio</span>
+                </div>
+              </div>
 
         <div className="tabs">
           {(['style', 'content'] as const).map(t => (
@@ -331,5 +354,8 @@ export default function App() {
         </div>
       </div>
     </div>
-  )
+    )}
+  </div>
+</div>
+)
 }

@@ -62,7 +62,7 @@ body {
 /* Layout */
 .app {
   display: flex;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -521,7 +521,7 @@ body {
 
 /* Poster Maker */
 .pm-root {
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   background: #07111f;
   color: #e2e8f0;
@@ -840,7 +840,7 @@ body {
 /* Image Prompt Extractor */
 .ipe-app {
   position: relative;
-  height: 100vh;
+  height: 100%;
   background: #0b0d14;
   color: #e2e4ec;
   font-family: 'Inter', sans-serif;
@@ -1414,7 +1414,7 @@ body {
 
   .app {
     flex-direction: column;
-    height: 100vh;
+    height: 100%;
     overflow: hidden;
   }
 
@@ -1536,5 +1536,211 @@ body {
 
   .tpl-en {
     font-size: 8px;
+  }
+}
+
+/* ── Global Navigation ── */
+.global-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 52px;
+  background: #111320;
+  border-bottom: 1px solid #1e2235;
+  flex-shrink: 0;
+  z-index: 100;
+  position: relative;
+}
+
+.global-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.global-nav-logo {
+  height: 20px;
+}
+
+.global-nav-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e5e7eb;
+  letter-spacing: .02em;
+}
+
+.global-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.global-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+
+.global-nav-link:hover {
+  color: #9ca3af;
+  background: rgba(255,255,255,0.03);
+}
+
+.global-nav-link.active {
+  color: #E63946;
+  background: rgba(230,57,70,0.08);
+  border-color: rgba(230,57,70,0.25);
+}
+
+.global-nav-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.global-nav-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid #252940;
+  border-radius: 6px;
+  color: #9ca3af;
+  font-size: 16px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Home View ── */
+.home-view {
+  height: 100%;
+  overflow-y: auto;
+  background: #0b0d14;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 32px;
+}
+
+.home-hero {
+  text-align: center;
+}
+
+.home-hero h1 {
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(90deg, #E63946, #6B21A8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.home-hero p {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  max-width: 960px;
+  width: 100%;
+}
+
+.home-card {
+  background: #141728;
+  border: 1px solid #1e2235;
+  border-radius: 14px;
+  padding: 24px;
+  text-align: left;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: none;
+  font-family: inherit;
+}
+
+.home-card:hover {
+  border: 1px solid #E63946;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.3);
+}
+
+.home-card-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.home-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e5e7eb;
+}
+
+.home-card-desc {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+@media (max-width: 860px) {
+  .home-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .global-nav-links {
+    position: absolute;
+    top: 52px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    background: #111320;
+    border-bottom: 1px solid #1e2235;
+    padding: 10px;
+    gap: 4px;
+    display: none;
+    z-index: 99;
+  }
+
+  .global-nav-links.open {
+    display: flex;
+  }
+
+  .global-nav-link {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .global-nav-toggle {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero h1 {
+    font-size: 26px;
   }
 }

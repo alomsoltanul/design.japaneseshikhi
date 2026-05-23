@@ -1,4 +1,4 @@
-export type AppView = 'poster' | 'prompt' | 'poster-maker' | 'listening'
+export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening'
 
 export function ToolMenu({
   view,

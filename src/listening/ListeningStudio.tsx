@@ -987,7 +987,7 @@ export function ListeningStudio() {
 function ListeningStudioInner() {
   const { theme } = useTrack()
   return (
-    <div className="studio-wrap" data-theme={theme} style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="studio-wrap" data-theme={theme} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <Studio />
       </div>

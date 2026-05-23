@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { extractPrompts, type ExtractedPrompts } from '@/lib/extractPrompts'
 import type { AppView } from '@/components/ToolMenu'
-import { ToolMenu } from '@/components/ToolMenu'
 
 const WIDTH_STORAGE_KEY = 'js-image-prompt-extractor-left-width'
 
@@ -156,7 +155,6 @@ export function ImagePromptExtractor({
             <span className="ipe-kbd">↵</span>
             <span className="ipe-kbd-label">Extract</span>
           </div>
-          <ToolMenu view={view} onChange={onChangeView} compact />
           <div className="ipe-admin">ADMIN TOOL</div>
         </div>
       </header>
