@@ -1,4 +1,4 @@
-export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening'
+export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import'
 
 export function ToolMenu({
   view,
@@ -19,6 +19,13 @@ export function ToolMenu({
         type="button"
       >
         Poster Studio
+      </button>
+      <button
+        className={`tool-tab${view === 'json-import' ? ' on' : ''}`}
+        onClick={() => onChange('json-import')}
+        type="button"
+      >
+        JSON Import
       </button>
       <button
         className={`tool-tab${view === 'prompt' ? ' on' : ''}`}

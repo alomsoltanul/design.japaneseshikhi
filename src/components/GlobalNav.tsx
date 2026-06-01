@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useTheme } from '@/ThemeContext'
 
-export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening'
+export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import'
 
 export function GlobalNav({
   view,
@@ -10,10 +11,12 @@ export function GlobalNav({
   onChange: (view: AppView) => void
 }) {
   const [open, setOpen] = useState(false)
+  const { mode, toggle } = useTheme()
 
   const items: { id: AppView; label: string; icon: string }[] = [
     { id: 'home', label: 'Home', icon: '🏠' },
     { id: 'poster', label: 'Poster Studio', icon: '🎨' },
+    { id: 'json-import', label: 'JSON Import', icon: '📋' },
     { id: 'prompt', label: 'Prompt Extractor', icon: '🖼️' },
     { id: 'poster-maker', label: 'Poster Maker', icon: '🖌️' },
     { id: 'listening', label: 'Listening Studio', icon: '🎧' },
@@ -47,14 +50,24 @@ export function GlobalNav({
         ))}
       </div>
 
-      <button
-        className="global-nav-toggle"
-        onClick={() => setOpen(!open)}
-        type="button"
-        aria-label="Toggle menu"
-      >
-        {open ? '✕' : '☰'}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button
+          className="theme-toggle"
+          onClick={toggle}
+          type="button"
+          title={mode === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+        >
+          {mode === 'dark' ? '☀️' : '🌙'}
+        </button>
+        <button
+          className="global-nav-toggle"
+          onClick={() => setOpen(!open)}
+          type="button"
+          aria-label="Toggle menu"
+        >
+          {open ? '✕' : '☰'}
+        </button>
+      </div>
     </nav>
   )
 }

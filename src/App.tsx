@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { toPng } from 'html-to-image'
 import { ImageUpload } from '@/components/ImageUpload'
 import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
-import { GlobalNav, type AppView } from '@/components/GlobalNav'
+import { type AppView } from '@/components/GlobalNav'
+import { JsonImporter } from '@/components/JsonImporter'
 import { PosterMaker } from '@/poster-maker/PosterMaker'
 import { ListeningStudio } from '@/listening/ListeningStudio'
 import { BASE_ACCENTS, FORMATS } from '@/themes'
@@ -46,9 +47,11 @@ export default function App() {
   const [view, setView] = useState<AppView>(() => {
     if (window.location.pathname.startsWith('/poster-maker')) return 'poster-maker'
     if (window.location.pathname.startsWith('/listening')) return 'listening'
+    if (window.location.pathname.startsWith('/json-import')) return 'json-import'
     const raw = localStorage.getItem(VIEW_STORAGE_KEY)
     if (raw === 'prompt') return 'prompt'
     if (raw === 'poster') return 'poster'
+    if (raw === 'json-import') return 'json-import'
     return 'home'
   })
 
@@ -95,6 +98,7 @@ export default function App() {
     const sync = () => {
       if (window.location.pathname.startsWith('/poster-maker')) setView('poster-maker')
       else if (window.location.pathname.startsWith('/listening')) setView('listening')
+      else if (window.location.pathname.startsWith('/json-import')) setView('json-import')
       else setView('home')
     }
     window.addEventListener('popstate', sync)
@@ -103,11 +107,21 @@ export default function App() {
 
   const handleChangeView = useCallback((next: AppView) => {
     setView(next)
-    const target = next === 'poster-maker' ? '/poster-maker' : next === 'listening' ? '/listening' : '/'
+    const target =
+      next === 'poster-maker' ? '/poster-maker' :
+      next === 'listening' ? '/listening' :
+      next === 'json-import' ? '/json-import' :
+      '/'
     if (window.location.pathname !== target) {
       window.history.pushState({}, '', target)
     }
   }, [])
+
+  const handleJsonImport = useCallback((payload: { template: string; data: Record<string, unknown> }) => {
+    setDatas(prev => ({ ...prev, [payload.template]: payload.data }))
+    setTpl(payload.template)
+    handleChangeView('poster')
+  }, [handleChangeView])
 
   // Window size for preview scaling
   const [winSz, setWinSz] = useState({ w: window.innerWidth, h: window.innerHeight })
@@ -171,6 +185,7 @@ export default function App() {
 
   const tools = [
     { id: 'poster' as AppView, label: 'Poster Studio', desc: 'Design beautiful Japanese learning posters.', icon: '🎨' },
+    { id: 'json-import' as AppView, label: 'JSON Import', desc: 'Paste JSON to auto-create content.', icon: '📋' },
     { id: 'prompt' as AppView, label: 'Prompt Extractor', desc: 'Extract image prompts from JSON data.', icon: '🖼️' },
     { id: 'poster-maker' as AppView, label: 'Poster Maker', desc: 'Create custom posters with templates.', icon: '🖌️' },
     { id: 'listening' as AppView, label: 'Listening Studio', desc: 'Build and edit listening practice tracks.', icon: '🎧' },
@@ -198,6 +213,7 @@ export default function App() {
           </div>
         )}
 
+        {view === 'json-import' && <JsonImporter onImport={handleJsonImport} />}
         {view === 'prompt' && <ImagePromptExtractor view={view} onChangeView={handleChangeView} />}
         {view === 'poster-maker' && <PosterMaker />}
         {view === 'listening' && <ListeningStudio />}
