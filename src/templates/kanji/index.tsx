@@ -79,7 +79,7 @@ export function KanjiPoster({ data, accent, fx, fmt }: {
   )
 }
 
-export function KanjiCtrl({ data, onChange }: ControlProps) {
+export function KanjiCtrl({ data, onChange, onDownload, onStartBatch }: ControlProps) {
   const SI = (k: keyof KanjiData) => <StringInput data={data} field={k} onChange={onChange} />
   return <>
     <ExcelPasteImporter
@@ -87,6 +87,8 @@ export function KanjiCtrl({ data, onChange }: ControlProps) {
       onChange={onChange}
       fieldMap={kanjiFieldMap}
       templateName="Kanji"
+      onDownload={onDownload}
+      onStartBatch={onStartBatch}
     />
     <LevelSelect data={data} onChange={onChange} />
     <div className="field-row">

@@ -38,6 +38,8 @@ export interface PosterProps {
 export interface ControlProps {
   data: any
   onChange: (data: any) => void
+  onDownload?: () => void
+  onStartBatch?: (rows: Record<string, unknown>[]) => void
 }
 
 export interface TemplateDef {

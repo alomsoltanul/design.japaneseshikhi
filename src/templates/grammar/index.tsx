@@ -143,7 +143,7 @@ export function GrammarPoster({ data, accent, fx, fmt }: {
   )
 }
 
-export function GrammarCtrl({ data, onChange }: ControlProps) {
+export function GrammarCtrl({ data, onChange, onDownload, onStartBatch }: ControlProps) {
   const SI = (k: keyof GrammarData) => <StringInput data={data} field={k} onChange={onChange} />
   return <>
     <ExcelPasteImporter
@@ -151,6 +151,8 @@ export function GrammarCtrl({ data, onChange }: ControlProps) {
       onChange={onChange}
       fieldMap={grammarFieldMap}
       templateName="Grammar"
+      onDownload={onDownload}
+      onStartBatch={onStartBatch}
     />
     <LevelSelect data={data} onChange={onChange} />
     <Field label="Grammar Pattern">{SI('pattern')}</Field>

@@ -2592,3 +2592,103 @@ body {
   font-weight: 700;
   color: var(--accent-teal);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Responsive Fixes
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Auth pages */
+  .auth-card {
+    padding: 24px 20px;
+    max-width: 100%;
+    border-radius: 12px;
+  }
+
+  .auth-brand h1 {
+    font-size: 18px;
+  }
+
+  /* Navbar account */
+  .account-name {
+    display: none;
+  }
+
+  .account-pill {
+    padding: 4px;
+  }
+
+  .account-dropdown {
+    right: -40px;
+    min-width: 180px;
+  }
+
+  .font-toggle {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+
+  /* Excel importer */
+  .excel-textarea {
+    min-height: 60px;
+    font-size: 11px;
+  }
+
+  .excel-map-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .excel-map-row select {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .excel-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .excel-apply-actions {
+    flex-direction: column;
+  }
+
+  .excel-apply-actions .excel-btn {
+    width: 100%;
+  }
+
+  .excel-row-nav {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .excel-row-count {
+    width: 100%;
+    text-align: center;
+    order: -1;
+    margin-bottom: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 12px;
+  }
+
+  .auth-creds code {
+    font-size: 10px;
+  }
+
+  .global-nav-brand {
+    gap: 6px;
+  }
+
+  .global-nav-title {
+    font-size: 11px;
+  }
+
+  .global-nav-logo {
+    height: 16px;
+  }
+}

@@ -4,6 +4,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { AuthGuard } from '@/auth/AuthGuard'
 import { LoginPage } from '@/auth/LoginPage'
 import { SignupPage } from '@/auth/SignupPage'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { GlobalNav } from '@/components/GlobalNav'
 import { ImageUpload } from '@/components/ImageUpload'
 import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
@@ -155,7 +156,7 @@ export default function App() {
 
   const isImgTpl = ['imgbg', 'imgcard', 'newsflash', 'newspanel'].includes(tpl)
 
-  async function download() {
+  async function download(customFilename?: string) {
     if (!hiddenRef.current) return
     setDl(true)
     try {
@@ -168,11 +169,38 @@ export default function App() {
       })
       const a = document.createElement('a')
       a.href = url
-      a.download = `japanese-shikhi-${tpl}-${fmt.id}-${Date.now()}.png`
+      a.download = customFilename || `japanese-shikhi-${tpl}-${fmt.id}-${Date.now()}.png`
       a.click()
     } catch (e) { console.error(e) }
     setDl(false)
   }
+
+  const [batchQueue, setBatchQueue] = useState<Record<string, unknown>[]>([])
+  const batchIndexRef = useRef(0)
+
+  const handleStartBatch = useCallback((rows: Record<string, unknown>[]) => {
+    if (rows.length === 0) return
+    setBatchQueue(rows)
+    batchIndexRef.current = 0
+  }, [])
+
+  useEffect(() => {
+    if (batchQueue.length === 0 || batchIndexRef.current >= batchQueue.length) return
+    const idx = batchIndexRef.current
+    const rowData = batchQueue[idx]
+    // Apply data
+    setDatas(prev => ({ ...prev, [tpl]: rowData }))
+    // Wait for render then download
+    const timer = setTimeout(async () => {
+      const filename = `JS-${tpl}-${String(idx + 1).padStart(3, '0')}.png`
+      await download(filename)
+      batchIndexRef.current += 1
+      if (batchIndexRef.current >= batchQueue.length) {
+        setBatchQueue([])
+      }
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [batchQueue, tpl])
 
   const tDef = TEMPLATE_MAP[tpl]
   const PosterComp = tDef.Poster
@@ -232,13 +260,22 @@ export default function App() {
             </div>
           )}
 
-          {view === 'json-import' && <JsonImporter onImport={handleJsonImport} />}
-          {view === 'prompt' && <ImagePromptExtractor view={view} onChangeView={handleChangeView} />}
-          {view === 'poster-maker' && <PosterMaker />}
-          {view === 'listening' && <ListeningStudio />}
+          <ErrorBoundary>
+            {view === 'json-import' && <JsonImporter onImport={handleJsonImport} />}
+          </ErrorBoundary>
+          <ErrorBoundary>
+            {view === 'prompt' && <ImagePromptExtractor view={view} onChangeView={handleChangeView} />}
+          </ErrorBoundary>
+          <ErrorBoundary>
+            {view === 'poster-maker' && <PosterMaker />}
+          </ErrorBoundary>
+          <ErrorBoundary>
+            {view === 'listening' && <ListeningStudio />}
+          </ErrorBoundary>
 
-          {view === 'poster' && (
-            <div className="app">
+          <ErrorBoundary>
+            {view === 'poster' && (
+              <div className="app">
               <div className="sidebar">
                 <div className="sidebar-head">
                   <div className="sidebar-head-left">
@@ -354,7 +391,7 @@ export default function App() {
                         Upload an image in Style tab for best results
                       </div>
                     )}
-                    <CtrlComp data={data as never} onChange={setData as never} />
+                    <CtrlComp data={data as never} onChange={setData as never} onDownload={download} onStartBatch={handleStartBatch} />
                   </>}
                 </div>
 
@@ -381,6 +418,7 @@ export default function App() {
               </div>
             </div>
           )}
+          </ErrorBoundary>
         </div>
       </div>
     </AuthGuard>

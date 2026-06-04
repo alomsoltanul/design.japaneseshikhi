@@ -72,7 +72,7 @@ export function WordPoster({ data, accent, fx, fmt }: {
   )
 }
 
-export function WordCtrl({ data, onChange }: ControlProps) {
+export function WordCtrl({ data, onChange, onDownload, onStartBatch }: ControlProps) {
   const SI = (k: keyof WordData) => <StringInput data={data} field={k} onChange={onChange} />
   return <>
     <ExcelPasteImporter
@@ -80,6 +80,8 @@ export function WordCtrl({ data, onChange }: ControlProps) {
       onChange={onChange}
       fieldMap={wordFieldMap}
       templateName="Word"
+      onDownload={onDownload}
+      onStartBatch={onStartBatch}
     />
     <LevelSelect data={data} onChange={onChange} />
     <div className="field-row">
