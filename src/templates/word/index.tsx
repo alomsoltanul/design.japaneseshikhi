@@ -1,6 +1,7 @@
 import { PosterShell } from '@/components/PosterShell'
 import { DomainPill, LogoPill } from '@/components/BrandPills'
 import { Field, StringInput, Slider, LevelSelect } from '@/components/Controls'
+import { ExcelPasteImporter } from '@/components/ExcelPasteImporter'
 import type { Accent, Format, FxState, ControlProps } from '@/types'
 
 export interface WordData {
@@ -19,6 +20,15 @@ export const wordDefaults: WordData = {
   level: 'N4', jp: '旅行', romaji: 'Ryokō', bn: 'ভ্রমণ / ট্রিপ',
   exJp: '来年、日本に旅行します。', exBn: 'আগামী বছর জাপান ভ্রমণ করব।',
   tip: 'মনে রাখুন: 旅 (tabi) = journey  行 (iku) = to go', jpSize: 160, bnSize: 44,
+}
+
+const wordFieldMap: Record<string, string> = {
+  'word_jp': 'jp',
+  'romaji': 'romaji',
+  'meaning_bn': 'bn',
+  'example_jp': 'exJp',
+  'example_bn': 'exBn',
+  'tip': 'tip',
 }
 
 export function WordPoster({ data, accent, fx, fmt }: {
@@ -65,6 +75,12 @@ export function WordPoster({ data, accent, fx, fmt }: {
 export function WordCtrl({ data, onChange }: ControlProps) {
   const SI = (k: keyof WordData) => <StringInput data={data} field={k} onChange={onChange} />
   return <>
+    <ExcelPasteImporter
+      data={data}
+      onChange={onChange}
+      fieldMap={wordFieldMap}
+      templateName="Word"
+    />
     <LevelSelect data={data} onChange={onChange} />
     <div className="field-row">
       <Field label="Japanese">{SI('jp')}</Field>

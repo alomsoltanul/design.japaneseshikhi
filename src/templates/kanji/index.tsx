@@ -1,6 +1,7 @@
 import { PosterShell } from '@/components/PosterShell'
 import { DomainPill, LogoPill } from '@/components/BrandPills'
 import { Field, StringInput, Slider, LevelSelect } from '@/components/Controls'
+import { ExcelPasteImporter } from '@/components/ExcelPasteImporter'
 import type { Accent, Format, FxState, ControlProps } from '@/types'
 
 export interface KanjiData {
@@ -21,6 +22,18 @@ export const kanjiDefaults: KanjiData = {
   level: 'N5', kanji: '山', kun: 'やま', on: 'サン',
   meaningEn: 'Mountain', meaningBn: 'পাহাড়',
   exJp: '富士山', exRomaji: 'Fujisan', exBn: 'ফুজি পর্বত', strokes: '3', kanjiSize: 220,
+}
+
+const kanjiFieldMap: Record<string, string> = {
+  'kanji': 'kanji',
+  'kun': 'kun',
+  'on': 'on',
+  'meaning_en': 'meaningEn',
+  'meaning_bn': 'meaningBn',
+  'example_jp': 'exJp',
+  'example_romaji': 'exRomaji',
+  'example_bn': 'exBn',
+  'strokes': 'strokes',
 }
 
 export function KanjiPoster({ data, accent, fx, fmt }: {
@@ -69,6 +82,12 @@ export function KanjiPoster({ data, accent, fx, fmt }: {
 export function KanjiCtrl({ data, onChange }: ControlProps) {
   const SI = (k: keyof KanjiData) => <StringInput data={data} field={k} onChange={onChange} />
   return <>
+    <ExcelPasteImporter
+      data={data}
+      onChange={onChange}
+      fieldMap={kanjiFieldMap}
+      templateName="Kanji"
+    />
     <LevelSelect data={data} onChange={onChange} />
     <div className="field-row">
       <Field label="Kanji">{SI('kanji')}</Field>
