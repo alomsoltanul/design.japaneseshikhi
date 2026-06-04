@@ -1,6 +1,7 @@
 import { PosterShell } from '@/components/PosterShell'
 import { DomainPill, LogoPill } from '@/components/BrandPills'
 import { Field, Slider, LevelSelect } from '@/components/Controls'
+import { VocabExcelImporter } from '@/components/VocabExcelImporter'
 import { TAG_COLORS } from '@/types'
 import type { Accent, Format, FxState, ControlProps } from '@/types'
 
@@ -84,6 +85,7 @@ export function VocabCtrl({ data, onChange }: ControlProps) {
     onChange({ ...data, words })
   }
   return <>
+    <VocabExcelImporter data={data as VocabData} onChange={onChange as (d: VocabData) => void} />
     <LevelSelect data={data} onChange={onChange} />
     <Field label="Headline">
       <input value={data.headline || ''} onChange={e => onChange({ ...data, headline: e.target.value })} />
