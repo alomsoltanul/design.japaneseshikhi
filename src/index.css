@@ -2107,6 +2107,35 @@ body {
 
 .auth-link:hover { text-decoration: underline; }
 
+.auth-creds {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.auth-creds p {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+
+.auth-creds code {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Global Nav Extensions — Account & Font
    ═══════════════════════════════════════════════════════════════ */

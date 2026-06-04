@@ -32,6 +32,24 @@ const AuthContext = createContext<AuthContextType>({
 const AUTH_KEY = 'js-auth-session'
 const USERS_KEY = 'js-auth-users'
 
+function seedDefaultUsers() {
+  const users = loadUsers()
+  if (Object.keys(users).length === 0) {
+    saveUsers({
+      'admin@japaneseshikhi.com': {
+        password: 'admin123',
+        name: 'Admin',
+        role: 'admin' as UserRole,
+      },
+      'editor@japaneseshikhi.com': {
+        password: 'editor123',
+        name: 'Editor',
+        role: 'editor' as UserRole,
+      },
+    })
+  }
+}
+
 function loadUsers(): Record<string, { password: string; name: string; role: UserRole }> {
   try {
     const raw = localStorage.getItem(USERS_KEY)
@@ -59,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    seedDefaultUsers()
     const session = loadSession()
     setUser(session)
     setIsLoading(false)

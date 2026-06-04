@@ -51,6 +51,11 @@ export function LoginPage({ onSwitch }: { onSwitch: () => void }) {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+        <div className="auth-creds">
+          <p>Default accounts</p>
+          <code>admin@japaneseshikhi.com / admin123</code>
+          <code>editor@japaneseshikhi.com / editor123</code>
+        </div>
         <div className="auth-footer">
           <span>Need an account?</span>
           <button type="button" className="auth-link" onClick={onSwitch}>
