@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import * as XLSX from 'xlsx'
 
 const TEMPLATE_EXAMPLES: Record<string, { headers: string; row: string; note: string }> = {
   Grammar: {
@@ -224,6 +225,30 @@ function buildRowData(
   return next
 }
 
+/** Read .xlsx file and return rows as string[][] */
+function readXlsxFile(file: File): Promise<string[][]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' }) as unknown[][]
+        // Convert everything to strings and filter empty rows
+        const rows = json
+          .map(row => (row as unknown[]).map(cell => String(cell ?? '').trim()))
+          .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''))
+        resolve(rows)
+      } catch (err) {
+        reject(err)
+      }
+    }
+    reader.onerror = reject
+    reader.readAsArrayBuffer(file)
+  })
+}
+
 export function ExcelPasteImporter({
   data,
   onChange,
@@ -382,6 +407,36 @@ export function ExcelPasteImporter({
     lastParsedRef.current = ''
   }
 
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const rows = await readXlsxFile(file)
+      if (rows.length === 0) return
+      // Convert rows back to tab-separated text for the existing pipeline
+      const text = rows.map(row => row.join('\t')).join('\n')
+      setRaw(text)
+      setExpanded(true)
+      lastParsedRef.current = text
+      const { rows: parsedRows, guessed, startRow, noHeaderDetected } = runParse(text)
+      if (parsedRows) {
+        setParsed(parsedRows)
+        setMapping(guessed)
+        setMappedCount(Object.keys(guessed).length)
+        setCurrentRow(startRow)
+        setBatching(false)
+        setDetectedNoHeader(noHeaderDetected)
+        if (autoApply) {
+          onChange(buildRowData(parsedRows[startRow], guessed, data))
+        }
+      }
+    } catch (err) {
+      console.error('Failed to read Excel file:', err)
+    }
+    // Reset input so same file can be re-selected
+    e.target.value = ''
+  }, [runParse, autoApply, data, onChange])
+
   const availableFields = Object.values(suggestedFieldMap)
   const hasData = parsed && parsed.length > 0
   const isMultiRow = hasData && parsed!.length > 1
@@ -421,6 +476,20 @@ export function ExcelPasteImporter({
             placeholder={`Example: copy a row from Excel with columns separated by tabs\n\npattern\tpattern_reading\tmeaning_bangla\tstructure_formula\n〜とはいえ\t〜to wa ie\tযদিও ~\t[Plain sentence] + とはいえ`}
             rows={3}
           />
+
+          <div className="excel-file-upload">
+            <label className="excel-file-label">
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileUpload}
+                className="excel-file-input"
+              />
+              <span className="excel-file-icon">📁</span>
+              <span>Or upload an Excel file (.xlsx)</span>
+            </label>
+          </div>
+
           <div className="excel-actions">
             <button type="button" className="excel-btn" onClick={handleParse}>
               Parse & Map

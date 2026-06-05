@@ -2565,6 +2565,38 @@ body {
   border: 1px dashed rgba(244, 162, 97, 0.25);
 }
 
+.excel-file-upload {
+  margin-bottom: 12px;
+}
+
+.excel-file-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all .15s;
+}
+
+.excel-file-label:hover {
+  border-color: var(--accent-red);
+  background: var(--bg-hover);
+}
+
+.excel-file-input {
+  display: none;
+}
+
+.excel-file-icon {
+  font-size: 16px;
+}
+
 .excel-mapping {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
