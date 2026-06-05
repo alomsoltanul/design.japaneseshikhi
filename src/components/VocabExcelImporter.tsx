@@ -21,6 +21,75 @@ function parsePastedText(raw: string): string[][] {
     .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''))
 }
 
+function normalizeHeader(h: string): string {
+  return h.toLowerCase().trim().replace(/[\s\-_]+/g, '_')
+}
+
+/** Smart column detection with fuzzy fallback */
+function detectColumns(headers: string[]): { jp: number; romaji: number; bn: number; tag: number } {
+  const nh = headers.map(normalizeHeader)
+
+  // Exact matches
+  let jp = nh.findIndex(h => h === 'jp' || h === 'word_jp' || h === 'japanese')
+  let romaji = nh.findIndex(h => h === 'romaji' || h === 'reading')
+  let bn = nh.findIndex(h => h === 'bn' || h === 'bengali' || h === 'meaning_bn' || h === 'meaning')
+  let tag = nh.findIndex(h => h === 'tag' || h === 'type' || h === 'pos')
+
+  // Fuzzy fallback
+  if (jp < 0) jp = nh.findIndex(h => h.includes('jp') || h.includes('japanese') || h.includes('word'))
+  if (romaji < 0) romaji = nh.findIndex(h => h.includes('romaji') || h.includes('reading') || h.includes('pronunciation'))
+  if (bn < 0) bn = nh.findIndex(h => h.includes('bengali') || h.includes('bangla') || h.includes('meaning') || h.includes('bn'))
+  if (tag < 0) tag = nh.findIndex(h => h.includes('tag') || h.includes('type') || h.includes('pos') || h.includes('category'))
+
+  return { jp, romaji, bn, tag }
+}
+
+/** Detect if first row is data (has Japanese/Bengali text) */
+function looksLikeData(row: string[]): boolean {
+  return row.some(c => /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u0980-\u09FF]/.test(c))
+}
+
+/** Infer columns from content when no headers */
+function inferColumnsFromRow(row: string[]): { jp: number; romaji: number; bn: number; tag: number } {
+  let jp = -1, romaji = -1, bn = -1, tag = -1
+  const used = new Set<number>()
+
+  // Japanese text → jp
+  row.forEach((c, i) => {
+    if (used.has(i)) return
+    if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(c)) {
+      jp = i; used.add(i)
+    }
+  })
+
+  // Bengali text → bn
+  row.forEach((c, i) => {
+    if (used.has(i)) return
+    if (/[\u0980-\u09FF]/.test(c)) {
+      bn = i; used.add(i)
+    }
+  })
+
+  // Romaji (latin with diacritics) → romaji
+  row.forEach((c, i) => {
+    if (used.has(i)) return
+    if (/^[a-zA-Z\sāīūēō\-]+$/.test(c) && c.length < 25) {
+      romaji = i; used.add(i)
+    }
+  })
+
+  // Known tag words → tag
+  const tagWords = ['verb', 'noun', 'adj', 'adv', 'other']
+  row.forEach((c, i) => {
+    if (used.has(i)) return
+    if (tagWords.some(t => c.toLowerCase().includes(t))) {
+      tag = i; used.add(i)
+    }
+  })
+
+  return { jp, romaji, bn, tag }
+}
+
 export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImporterProps) {
   const [raw, setRaw] = useState('')
   const [preview, setPreview] = useState<VocabWord[] | null>(null)
@@ -28,24 +97,37 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
   const [showHelp, setShowHelp] = useState(false)
   const [wordCount, setWordCount] = useState(0)
   const [expanded, setExpanded] = useState(false)
+  const [detectedDataMode, setDetectedDataMode] = useState(false)
+  const [forceDataMode, setForceDataMode] = useState(false)
   const lastParsedRef = useRef('')
 
-  const parseAndBuild = (text: string): VocabWord[] | null => {
+  const buildWords = (text: string, overrideDataMode?: boolean): VocabWord[] | null => {
     if (!text.trim()) return null
     const rows = parsePastedText(text)
     if (rows.length === 0) return null
 
-    const headers = rows[0].map(h => h.toLowerCase().trim().replace(/\s+/g, '_'))
-    const colMap = {
-      jp: headers.findIndex(h => h === 'jp' || h === 'word_jp' || h === 'japanese'),
-      romaji: headers.findIndex(h => h === 'romaji' || h === 'reading'),
-      bn: headers.findIndex(h => h === 'bn' || h === 'bengali' || h === 'meaning_bn' || h === 'meaning'),
-      tag: headers.findIndex(h => h === 'tag' || h === 'type' || h === 'pos'),
+    const useDataMode = overrideDataMode !== undefined ? overrideDataMode : forceDataMode
+    let colMap: { jp: number; romaji: number; bn: number; tag: number }
+    let dataRows: string[][]
+
+    const headerMap = detectColumns(rows[0])
+    const headerMatches = [headerMap.jp, headerMap.romaji, headerMap.bn, headerMap.tag].filter(v => v >= 0).length
+
+    if (headerMatches === 0 || useDataMode) {
+      const isData = useDataMode || looksLikeData(rows[0])
+      if (isData) {
+        colMap = inferColumnsFromRow(rows[0])
+        dataRows = rows
+      } else {
+        colMap = headerMap
+        dataRows = rows.length > 1 ? rows.slice(1) : rows
+      }
+    } else {
+      colMap = headerMap
+      dataRows = rows.length > 1 ? rows.slice(1) : rows
     }
 
-    const dataRows = rows.length > 1 ? rows.slice(1) : rows
     const words: VocabWord[] = []
-
     dataRows.forEach(row => {
       const w: VocabWord = {}
       if (colMap.jp >= 0 && row[colMap.jp]) w.jp = row[colMap.jp]
@@ -64,7 +146,7 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
   }
 
   const handleParse = () => {
-    const words = parseAndBuild(raw)
+    const words = buildWords(raw)
     if (!words) {
       setPreview(null)
       setWordCount(0)
@@ -77,7 +159,7 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
     }
   }
 
-  // Auto-parse when raw changes and looks like Excel data
+  // Auto-parse when raw changes
   useEffect(() => {
     if (!autoApply || !raw.trim()) return
     if (raw === lastParsedRef.current) return
@@ -86,7 +168,7 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
     lastParsedRef.current = raw
     setExpanded(true)
 
-    const words = parseAndBuild(raw)
+    const words = buildWords(raw)
     if (!words) {
       setPreview(null)
       setWordCount(0)
@@ -94,6 +176,7 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
     }
     setPreview(words)
     setWordCount(words.length)
+    setDetectedDataMode(looksLikeData(parsePastedText(raw)[0]))
     if (autoApply && words.length > 0) {
       onChange({ ...data, words })
     }
@@ -108,6 +191,8 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
     setRaw('')
     setPreview(null)
     setWordCount(0)
+    setDetectedDataMode(false)
+    setForceDataMode(false)
     lastParsedRef.current = ''
   }
 
@@ -172,6 +257,7 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
             <>
               <div className="excel-status" style={{ background: 'rgba(42,157,143,0.1)', borderColor: 'rgba(42,157,143,0.3)', color: 'rgba(42,157,143,0.9)' }}>
                 {wordCount} word{wordCount !== 1 ? 's' : ''} parsed — poster updated
+                {detectedDataMode && ' (data-only mode, inferred from content)'}
               </div>
               <div className="excel-section-title">Preview ({preview.length} words)</div>
               <div className="excel-preview-grid">
