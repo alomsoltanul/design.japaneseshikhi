@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { ExcelPasteImporter } from './ExcelPasteImporter'
 import type { VocabData, VocabWord } from '@/templates/vocab'
 
 const vocabFieldMap: Record<string, string> = {
@@ -13,20 +12,26 @@ const vocabFieldMap: Record<string, string> = {
 interface VocabExcelImporterProps {
   data: VocabData
   onChange: (data: VocabData) => void
+  onDownload?: () => void
 }
 
-export function VocabExcelImporter({ data, onChange }: VocabExcelImporterProps) {
+function parsePastedText(raw: string): string[][] {
+  if (!raw.trim()) return []
+  return raw
+    .split(/\r?\n/)
+    .map(row => row.split('\t').map(cell => cell.trim()))
+    .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''))
+}
+
+export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImporterProps) {
   const [raw, setRaw] = useState('')
   const [preview, setPreview] = useState<VocabWord[] | null>(null)
+  const [autoApply, setAutoApply] = useState(true)
 
-  const handleParse = () => {
-    if (!raw.trim()) return
-    const rows = raw
-      .split(/\r?\n/)
-      .map(row => row.split('\t').map(cell => cell.trim()))
-      .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''))
-
-    if (rows.length === 0) return
+  const parseAndBuild = (text: string): VocabWord[] | null => {
+    if (!text.trim()) return null
+    const rows = parsePastedText(text)
+    if (rows.length === 0) return null
 
     // Determine column mapping from header
     const headers = rows[0].map(h => h.toLowerCase().trim().replace(/\s+/g, '_'))
@@ -54,7 +59,36 @@ export function VocabExcelImporter({ data, onChange }: VocabExcelImporterProps) 
       if (w.jp) words.push(w)
     })
 
-    setPreview(words.slice(0, 6))
+    return words.slice(0, 6)
+  }
+
+  const handleParse = () => {
+    const words = parseAndBuild(raw)
+    if (!words) {
+      setPreview(null)
+      return
+    }
+    setPreview(words)
+    if (autoApply && words.length > 0) {
+      onChange({ ...data, words })
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text')
+    if (!text.trim()) return
+    setRaw(text)
+
+    const words = parseAndBuild(text)
+    if (!words) {
+      setPreview(null)
+      return
+    }
+    setPreview(words)
+    if (autoApply && words.length > 0) {
+      onChange({ ...data, words })
+    }
   }
 
   const applyWords = () => {
@@ -70,11 +104,23 @@ export function VocabExcelImporter({ data, onChange }: VocabExcelImporterProps) 
         <span className="excel-hint">Paste words to fill 6 slots</span>
       </button>
       <div className="excel-body">
+        <div className="excel-auto-row">
+          <label className="excel-auto-label">
+            <input
+              type="checkbox"
+              checked={autoApply}
+              onChange={e => setAutoApply(e.target.checked)}
+            />
+            Auto-update poster on paste
+          </label>
+        </div>
+
         <label className="excel-label">Paste vocabulary rows (jp, romaji, bn, tag)</label>
         <textarea
           className="excel-textarea"
           value={raw}
           onChange={e => setRaw(e.target.value)}
+          onPaste={handlePaste}
           placeholder={`jp\tromaji\tbengali\ttag\n食べる\tTaberu\tখাওয়া\tVerb\n飲む\tNomu\tপান করা\tVerb`}
           rows={4}
         />
@@ -82,6 +128,11 @@ export function VocabExcelImporter({ data, onChange }: VocabExcelImporterProps) 
           <button type="button" className="excel-btn" onClick={handleParse}>Parse</button>
           <button type="button" className="excel-btn secondary" onClick={() => { setRaw(''); setPreview(null) }}>Clear</button>
         </div>
+
+        {autoApply && raw.trim() && !preview && (
+          <div className="excel-status">Paste above or click Parse to auto-update the poster</div>
+        )}
+
         {preview && preview.length > 0 && (
           <>
             <div className="excel-section-title">Preview ({preview.length} words)</div>
@@ -95,9 +146,16 @@ export function VocabExcelImporter({ data, onChange }: VocabExcelImporterProps) 
               ))}
             </div>
             <div className="excel-apply-actions">
-              <button type="button" className="excel-btn primary" onClick={applyWords}>
-                Apply {preview.length} Words to Poster
-              </button>
+              {!autoApply && (
+                <button type="button" className="excel-btn primary" onClick={applyWords}>
+                  Apply {preview.length} Words to Poster
+                </button>
+              )}
+              {onDownload && (
+                <button type="button" className="excel-btn download" onClick={onDownload}>
+                  Download Image
+                </button>
+              )}
             </div>
           </>
         )}

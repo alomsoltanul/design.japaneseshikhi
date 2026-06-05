@@ -78,14 +78,14 @@ export function VocabPoster({ data, accent, fx, fmt }: {
   )
 }
 
-export function VocabCtrl({ data, onChange }: ControlProps) {
+export function VocabCtrl({ data, onChange, onDownload }: ControlProps) {
   const updW = (i: number, field: keyof VocabWord, val: string) => {
     const words = [...(data.words || [])]
     words[i] = { ...words[i], [field]: val }
     onChange({ ...data, words })
   }
   return <>
-    <VocabExcelImporter data={data as VocabData} onChange={onChange as (d: VocabData) => void} />
+    <VocabExcelImporter data={data as VocabData} onChange={onChange as (d: VocabData) => void} onDownload={onDownload} />
     <LevelSelect data={data} onChange={onChange} />
     <Field label="Headline">
       <input value={data.headline || ''} onChange={e => onChange({ ...data, headline: e.target.value })} />

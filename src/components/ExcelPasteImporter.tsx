@@ -64,21 +64,7 @@ export function ExcelPasteImporter({
   const [currentRow, setCurrentRow] = useState(0)
   const [expanded, setExpanded] = useState(false)
   const [batching, setBatching] = useState(false)
-
-  const handleParse = useCallback(() => {
-    const rows = parsePastedText(raw)
-    if (rows.length === 0) {
-      setParsed(null)
-      setMapping({})
-      return
-    }
-    const headers = rows[0]
-    const guessed = guessColumnMapping(headers, suggestedFieldMap)
-    setParsed(rows)
-    setMapping(guessed)
-    setCurrentRow(rows.length > 1 ? 1 : 0)
-    setBatching(false)
-  }, [raw, suggestedFieldMap])
+  const [autoApply, setAutoApply] = useState(true)
 
   const applyRow = useCallback((rowIndex: number) => {
     if (!parsed || rowIndex >= parsed.length) return
@@ -86,7 +72,73 @@ export function ExcelPasteImporter({
     onChange(buildRowData(row, mapping, data))
   }, [parsed, mapping, data, onChange])
 
-  const applyCurrent = () => applyRow(currentRow)
+  const goToRow = useCallback((rowIndex: number) => {
+    setCurrentRow(rowIndex)
+    if (parsed && rowIndex < parsed.length && autoApply) {
+      onChange(buildRowData(parsed[rowIndex], mapping, data))
+    }
+  }, [parsed, mapping, data, onChange, autoApply])
+
+  const parseText = useCallback((text: string): { rows: string[][] | null; guessed: FieldMap; startRow: number } => {
+    const rows = parsePastedText(text)
+    if (rows.length === 0) {
+      return { rows: null, guessed: {}, startRow: 0 }
+    }
+    const headers = rows[0]
+    const guessed = guessColumnMapping(headers, suggestedFieldMap)
+    const startRow = rows.length > 1 ? 1 : 0
+    return { rows, guessed, startRow }
+  }, [suggestedFieldMap])
+
+  const handleParse = useCallback(() => {
+    const { rows, guessed, startRow } = parseText(raw)
+    if (!rows) {
+      setParsed(null)
+      setMapping({})
+      return
+    }
+    setParsed(rows)
+    setMapping(guessed)
+    setCurrentRow(startRow)
+    setBatching(false)
+    if (autoApply) {
+      onChange(buildRowData(rows[startRow], guessed, data))
+    }
+  }, [raw, parseText, autoApply, data, onChange])
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text')
+    if (!text.trim()) return
+
+    setRaw(text)
+    setExpanded(true)
+
+    const { rows, guessed, startRow } = parseText(text)
+    if (!rows) {
+      setParsed(null)
+      setMapping({})
+      return
+    }
+    setParsed(rows)
+    setMapping(guessed)
+    setCurrentRow(startRow)
+    setBatching(false)
+
+    if (autoApply) {
+      onChange(buildRowData(rows[startRow], guessed, data))
+    }
+  }, [parseText, autoApply, data, onChange])
+
+  const handleDownloadCurrent = useCallback(() => {
+    if (autoApply) {
+      // Data already applied — just download
+      onDownload?.()
+    } else {
+      applyRow(currentRow)
+      setTimeout(() => onDownload?.(), 400)
+    }
+  }, [autoApply, applyRow, currentRow, onDownload])
 
   const handleBatchDownload = useCallback(() => {
     if (!parsed || parsed.length <= 1 || !onStartBatch) return
@@ -96,11 +148,6 @@ export function ExcelPasteImporter({
     setBatching(true)
   }, [parsed, mapping, data, onStartBatch])
 
-  const handleDownloadCurrent = useCallback(() => {
-    applyCurrent()
-    setTimeout(() => onDownload?.(), 400)
-  }, [applyCurrent, onDownload])
-
   const handleMappingChange = (colIndex: number, fieldKey: string) => {
     setMapping(prev => {
       const next = { ...prev }
@@ -108,6 +155,9 @@ export function ExcelPasteImporter({
         delete next[colIndex]
       } else {
         next[colIndex] = fieldKey
+      }
+      if (autoApply && parsed && currentRow < parsed.length) {
+        onChange(buildRowData(parsed[currentRow], next, data))
       }
       return next
     })
@@ -133,11 +183,23 @@ export function ExcelPasteImporter({
 
       {expanded && (
         <div className="excel-body">
+          <div className="excel-auto-row">
+            <label className="excel-auto-label">
+              <input
+                type="checkbox"
+                checked={autoApply}
+                onChange={e => setAutoApply(e.target.checked)}
+              />
+              Auto-update poster on paste
+            </label>
+          </div>
+
           <label className="excel-label">Paste Excel row(s) here (tab-separated)</label>
           <textarea
             className="excel-textarea"
             value={raw}
             onChange={e => setRaw(e.target.value)}
+            onPaste={handlePaste}
             placeholder={`Example: copy a row from Excel with columns separated by tabs\n\npattern\tpattern_reading\tmeaning_bangla\tstructure_formula\n〜とはいえ\t〜to wa ie\tযদিও ~\t[Plain sentence] + とはいえ`}
             rows={3}
           />
@@ -149,6 +211,10 @@ export function ExcelPasteImporter({
               Clear
             </button>
           </div>
+
+          {autoApply && raw.trim() && !parsed && (
+            <div className="excel-status">Paste above or click Parse to auto-update the poster</div>
+          )}
 
           {hasData && (
             <>
@@ -176,7 +242,7 @@ export function ExcelPasteImporter({
                     type="button"
                     className="excel-nav-btn"
                     disabled={currentRow <= dataRowStart}
-                    onClick={() => setCurrentRow(Math.max(dataRowStart, currentRow - 1))}
+                    onClick={() => goToRow(Math.max(dataRowStart, currentRow - 1))}
                   >
                     ← Prev
                   </button>
@@ -187,7 +253,7 @@ export function ExcelPasteImporter({
                     type="button"
                     className="excel-nav-btn"
                     disabled={currentRow >= parsed!.length - 1}
-                    onClick={() => setCurrentRow(Math.min(parsed!.length - 1, currentRow + 1))}
+                    onClick={() => goToRow(Math.min(parsed!.length - 1, currentRow + 1))}
                   >
                     Next →
                   </button>
@@ -195,12 +261,14 @@ export function ExcelPasteImporter({
               )}
 
               <div className="excel-apply-actions">
-                <button type="button" className="excel-btn primary" onClick={applyCurrent}>
-                  Apply to Poster
-                </button>
+                {!autoApply && (
+                  <button type="button" className="excel-btn primary" onClick={() => applyRow(currentRow)}>
+                    Apply to Poster
+                  </button>
+                )}
                 {onDownload && (
-                  <button type="button" className="excel-btn" onClick={handleDownloadCurrent}>
-                    Apply & Download
+                  <button type="button" className="excel-btn download" onClick={handleDownloadCurrent}>
+                    Download Image
                   </button>
                 )}
                 {isMultiRow && onStartBatch && (
