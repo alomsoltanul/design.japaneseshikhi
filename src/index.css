@@ -2494,6 +2494,77 @@ body {
   background: linear-gradient(90deg, #2A9D8F, #1D3557);
 }
 
+.excel-help-toggle {
+  margin-bottom: 10px;
+}
+
+.excel-help-btn {
+  background: none;
+  border: none;
+  color: var(--accent-teal);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-body);
+}
+
+.excel-help-btn:hover {
+  text-decoration: underline;
+}
+
+.excel-help-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.excel-help-note {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.excel-help-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.excel-help-code {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.excel-help-tip {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: rgba(244, 162, 97, 0.08);
+  border-radius: 6px;
+  border: 1px dashed rgba(244, 162, 97, 0.25);
+}
+
 .excel-mapping {
   background: var(--bg-card);
   border: 1px solid var(--border-color);

@@ -23,10 +23,17 @@ function parsePastedText(raw: string): string[][] {
     .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''))
 }
 
+const VOCAB_HELP = {
+  headers: 'jp\tromaji\tbengali\ttag',
+  rows: '食べる\tTaberu\tখাওয়া\tVerb\n飲む\tNomu\tপান করা\tVerb\n学校\tGakkō\tস্কুল\tNoun\n先生\tSensei\tশিক্ষক\tNoun\n大きい\tŌkii\tবড়\tAdj\n速い\tHayai\tদ্রুত\tAdj',
+  note: 'Copy rows from Excel with these exact column headers. Up to 6 words will fill the poster grid. The poster auto-updates when you paste.',
+}
+
 export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImporterProps) {
   const [raw, setRaw] = useState('')
   const [preview, setPreview] = useState<VocabWord[] | null>(null)
   const [autoApply, setAutoApply] = useState(true)
+  const [showHelp, setShowHelp] = useState(false)
 
   const parseAndBuild = (text: string): VocabWord[] | null => {
     if (!text.trim()) return null
@@ -128,6 +135,25 @@ export function VocabExcelImporter({ data, onChange, onDownload }: VocabExcelImp
           <button type="button" className="excel-btn" onClick={handleParse}>Parse</button>
           <button type="button" className="excel-btn secondary" onClick={() => { setRaw(''); setPreview(null) }}>Clear</button>
         </div>
+
+        <div className="excel-help-toggle">
+          <button type="button" className="excel-help-btn" onClick={() => setShowHelp(!showHelp)}>
+            {showHelp ? 'Hide' : 'Show'} paste format for Vocabulary
+          </button>
+        </div>
+
+        {showHelp && (
+          <div className="excel-help-box">
+            <p className="excel-help-note">{VOCAB_HELP.note}</p>
+            <div className="excel-help-label">Column headers (first row in Excel):</div>
+            <pre className="excel-help-code">{VOCAB_HELP.headers}</pre>
+            <div className="excel-help-label">Example data rows (up to 6):</div>
+            <pre className="excel-help-code">{VOCAB_HELP.rows}</pre>
+            <div className="excel-help-tip">
+              <strong>Tip:</strong> Select the header row + data rows in Excel, copy (Ctrl+C), click in the box above, and paste (Ctrl+V). The poster preview updates instantly.
+            </div>
+          </div>
+        )}
 
         {autoApply && raw.trim() && !preview && (
           <div className="excel-status">Paste above or click Parse to auto-update the poster</div>

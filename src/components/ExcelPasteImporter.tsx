@@ -1,5 +1,23 @@
 import { useState, useCallback } from 'react'
 
+const TEMPLATE_EXAMPLES: Record<string, { headers: string; row: string; note: string }> = {
+  Grammar: {
+    headers: 'pattern\tpattern_reading\tmeaning_bangla\tmeaning_english\tstructure_formula\tparts\tex1jp\tex1bn\tex2jp\tex2bn',
+    row: '〜は〜です\t〜wa〜desu\t~ হল ~\t~ is ~\tNoun + は + Noun + です\tNoun, は, Noun, です\t私は学生です。\tআমি একজন ছাত্র।\t彼は先生です।\tতিনি একজন শিক্ষক।',
+    note: 'Copy a row from Excel with these exact column headers. The poster will auto-update when you paste.',
+  },
+  Kanji: {
+    headers: 'kanji\tkun\ton\tmeaning_en\tmeaning_bn\texample_jp\texample_romaji\texample_bn\tstrokes',
+    row: '山\tやま\tサン\tMountain\tপাহাড়\t富士山\tFujisan\tফুজি পর্বত\t3',
+    note: 'Copy a row from Excel with these exact column headers. The poster will auto-update when you paste.',
+  },
+  Word: {
+    headers: 'word_jp\tromaji\tmeaning_bn\texample_jp\texample_bn\ttip',
+    row: '旅行\tRyokō\tভ্রমণ / ট্রিপ\t来年、日本に旅行します।\tআগামী বছর জাপান ভ্রমণ করব।\t旅=tabi, 行=iku',
+    note: 'Copy a row from Excel with these exact column headers. The poster will auto-update when you paste.',
+  },
+}
+
 export interface FieldMap {
   [excelColumnIndex: number]: string // maps column index → template data key
 }
@@ -65,6 +83,7 @@ export function ExcelPasteImporter({
   const [expanded, setExpanded] = useState(false)
   const [batching, setBatching] = useState(false)
   const [autoApply, setAutoApply] = useState(true)
+  const [showHelp, setShowHelp] = useState(false)
 
   const applyRow = useCallback((rowIndex: number) => {
     if (!parsed || rowIndex >= parsed.length) return
@@ -211,6 +230,25 @@ export function ExcelPasteImporter({
               Clear
             </button>
           </div>
+
+          <div className="excel-help-toggle">
+            <button type="button" className="excel-help-btn" onClick={() => setShowHelp(!showHelp)}>
+              {showHelp ? 'Hide' : 'Show'} paste format for {templateName}
+            </button>
+          </div>
+
+          {showHelp && TEMPLATE_EXAMPLES[templateName] && (
+            <div className="excel-help-box">
+              <p className="excel-help-note">{TEMPLATE_EXAMPLES[templateName].note}</p>
+              <div className="excel-help-label">Column headers (first row in Excel):</div>
+              <pre className="excel-help-code">{TEMPLATE_EXAMPLES[templateName].headers}</pre>
+              <div className="excel-help-label">Example data row:</div>
+              <pre className="excel-help-code">{TEMPLATE_EXAMPLES[templateName].row}</pre>
+              <div className="excel-help-tip">
+                <strong>Tip:</strong> Copy a row from Excel (including headers), then click in the box above and press Ctrl+V. The poster preview will update automatically.
+              </div>
+            </div>
+          )}
 
           {autoApply && raw.trim() && !parsed && (
             <div className="excel-status">Paste above or click Parse to auto-update the poster</div>
