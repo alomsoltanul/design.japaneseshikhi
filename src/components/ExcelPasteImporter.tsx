@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 const TEMPLATE_EXAMPLES: Record<string, { headers: string; row: string; note: string }> = {
   Grammar: {
     headers: 'pattern\tpattern_reading\tmeaning_bangla\tmeaning_english\tstructure_formula\tparts\tex1jp\tex1bn\tex2jp\tex2bn',
-    row: '〜は〜です\t〜wa〜desu\t~ হল ~\t~ is ~\tNoun + は + Noun + です\tNoun, は, Noun, です\t私は学生です。\tআমি একজন ছাত্র।\t彼は先生です।\tতিনি একজন শিক্ষক।',
+    row: '〜は〜です\t〜wa〜desu\t~ হল ~\t~ is ~\tNoun + は + Noun + です\tNoun, は, Noun, です\t私は学生です。\tআমি একজন ছাত্র।\t彼は先生です。\tতিনি একজন শিক্ষক।',
     note: 'Copy a row from Excel with these exact column headers. The poster will auto-update when you paste.',
   },
   Kanji: {
@@ -19,13 +19,13 @@ const TEMPLATE_EXAMPLES: Record<string, { headers: string; row: string; note: st
 }
 
 export interface FieldMap {
-  [excelColumnIndex: number]: string // maps column index → template data key
+  [excelColumnIndex: number]: string
 }
 
 interface ExcelPasteImporterProps {
   data: Record<string, unknown>
   onChange: (data: Record<string, unknown>) => void
-  fieldMap: Record<string, string> // suggested mapping: excel header name (lowercase) → template data key
+  fieldMap: Record<string, string>
   templateName: string
   onDownload?: () => void
   onStartBatch?: (rows: Record<string, unknown>[]) => void
@@ -84,6 +84,8 @@ export function ExcelPasteImporter({
   const [batching, setBatching] = useState(false)
   const [autoApply, setAutoApply] = useState(true)
   const [showHelp, setShowHelp] = useState(false)
+  const [mappedCount, setMappedCount] = useState(0)
+  const lastParsedRef = useRef('')
 
   const applyRow = useCallback((rowIndex: number) => {
     if (!parsed || rowIndex >= parsed.length) return
@@ -114,10 +116,12 @@ export function ExcelPasteImporter({
     if (!rows) {
       setParsed(null)
       setMapping({})
+      setMappedCount(0)
       return
     }
     setParsed(rows)
     setMapping(guessed)
+    setMappedCount(Object.keys(guessed).length)
     setCurrentRow(startRow)
     setBatching(false)
     if (autoApply) {
@@ -125,43 +129,41 @@ export function ExcelPasteImporter({
     }
   }, [raw, parseText, autoApply, data, onChange])
 
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    e.preventDefault()
-    const text = e.clipboardData.getData('text')
-    if (!text.trim()) return
+  // Auto-parse when raw changes and looks like Excel data
+  useEffect(() => {
+    if (!autoApply || !raw.trim()) return
+    if (raw === lastParsedRef.current) return
+    if (!raw.includes('\t') && !raw.includes('\n')) return
 
-    setRaw(text)
+    lastParsedRef.current = raw
     setExpanded(true)
 
-    const { rows, guessed, startRow } = parseText(text)
+    const { rows, guessed, startRow } = parseText(raw)
     if (!rows) {
       setParsed(null)
       setMapping({})
+      setMappedCount(0)
       return
     }
     setParsed(rows)
     setMapping(guessed)
+    setMappedCount(Object.keys(guessed).length)
     setCurrentRow(startRow)
     setBatching(false)
-
-    if (autoApply) {
-      onChange(buildRowData(rows[startRow], guessed, data))
-    }
-  }, [parseText, autoApply, data, onChange])
+    onChange(buildRowData(rows[startRow], guessed, data))
+  }, [raw, autoApply, parseText, data, onChange])
 
   const handleDownloadCurrent = useCallback(() => {
-    if (autoApply) {
-      // Data already applied — just download
-      onDownload?.()
-    } else {
+    if (!autoApply) {
       applyRow(currentRow)
-      setTimeout(() => onDownload?.(), 400)
     }
+    // Always wait for React to re-render the hidden poster DOM
+    setTimeout(() => onDownload?.(), 600)
   }, [autoApply, applyRow, currentRow, onDownload])
 
   const handleBatchDownload = useCallback(() => {
     if (!parsed || parsed.length <= 1 || !onStartBatch) return
-    const dataRows = parsed.slice(1) // skip header
+    const dataRows = parsed.slice(1)
     const batchData = dataRows.map(row => buildRowData(row, mapping, data))
     onStartBatch(batchData)
     setBatching(true)
@@ -178,8 +180,18 @@ export function ExcelPasteImporter({
       if (autoApply && parsed && currentRow < parsed.length) {
         onChange(buildRowData(parsed[currentRow], next, data))
       }
+      setMappedCount(Object.keys(next).length)
       return next
     })
+  }
+
+  const handleClear = () => {
+    setRaw('')
+    setParsed(null)
+    setMapping({})
+    setBatching(false)
+    setMappedCount(0)
+    lastParsedRef.current = ''
   }
 
   const availableFields = Object.values(suggestedFieldMap)
@@ -218,7 +230,6 @@ export function ExcelPasteImporter({
             className="excel-textarea"
             value={raw}
             onChange={e => setRaw(e.target.value)}
-            onPaste={handlePaste}
             placeholder={`Example: copy a row from Excel with columns separated by tabs\n\npattern\tpattern_reading\tmeaning_bangla\tstructure_formula\n〜とはいえ\t〜to wa ie\tযদিও ~\t[Plain sentence] + とはいえ`}
             rows={3}
           />
@@ -226,7 +237,7 @@ export function ExcelPasteImporter({
             <button type="button" className="excel-btn" onClick={handleParse}>
               Parse & Map
             </button>
-            <button type="button" className="excel-btn secondary" onClick={() => { setRaw(''); setParsed(null); setMapping({}); setBatching(false); }}>
+            <button type="button" className="excel-btn secondary" onClick={handleClear}>
               Clear
             </button>
           </div>
@@ -256,6 +267,17 @@ export function ExcelPasteImporter({
 
           {hasData && (
             <>
+              {mappedCount === 0 && (
+                <div className="excel-status" style={{ background: 'rgba(230,57,70,0.1)', borderColor: 'rgba(230,57,70,0.3)', color: 'rgba(230,57,70,0.9)' }}>
+                  No columns matched the expected headers. Click Show paste format to see the required column names.
+                </div>
+              )}
+              {mappedCount > 0 && (
+                <div className="excel-status" style={{ background: 'rgba(42,157,143,0.1)', borderColor: 'rgba(42,157,143,0.3)', color: 'rgba(42,157,143,0.9)' }}>
+                  {mappedCount} column{mappedCount !== 1 ? 's' : ''} mapped — poster updated
+                </div>
+              )}
+
               <div className="excel-mapping">
                 <p className="excel-section-title">Column Mapping</p>
                 {parsed![0].map((header, i) => (
