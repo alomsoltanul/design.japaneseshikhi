@@ -1,0 +1,46 @@
+{
+  "level": "N1",
+  "tests": [
+    {
+      "test_number": 1,
+      "problems": [
+        {
+          "mondai_number": 1,
+          "problem_title": "もんだい１",
+          "problem_title_en": "Task Comprehension",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "女の人はこのあとまず何に取りかかりますか。",
+              "question_text_en": "What will the woman start working on first after this?",
+              "image_file": "n1_t1_m1_q1.png",
+              "options": [
+                { "id": 1, "text": "アンケートの集計" },
+                { "id": 2, "text": "報告書の構成案" },
+                { "id": 3, "text": "追加調査の依頼" },
+                { "id": 4, "text": "発表用の資料作成" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "「サンプル数が足りないから、まず追加の調査を手配して」と指示されました。",
+                "advice": "「〜ないことには」は前提条件が満たされなければ先へ進めない含意を持ちます。",
+                "hint": "前提が崩れている点を指摘した直後の指示を聞き取りましょう。",
+                "trap": "集計や構成案は「データが揃わないことには意味がない」と退けられています。"
+              },
+              "transcript": {
+                "pre_question": "会社で女の人と男の上司が打ち合わせをしています。",
+                "dialogue": [
+                  { "speaker": "female", "text": "アンケートの集計から始めようと思うのですが。" },
+                  { "speaker": "male", "text": "いや、サンプル数が足りないんだよ。データが揃わないことには意味がない。" },
+                  { "speaker": "female", "text": "では、構成案を先に…。" },
+                  { "speaker": "male", "text": "それも後だ。まず追加の調査を手配してくれ。" }
+                ],
+                "post_question": "女の人はこのあとまず何に取りかかりますか。"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

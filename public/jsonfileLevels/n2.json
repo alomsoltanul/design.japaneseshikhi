@@ -1,0 +1,46 @@
+{
+  "level": "N2",
+  "tests": [
+    {
+      "test_number": 1,
+      "problems": [
+        {
+          "mondai_number": 1,
+          "problem_title": "もんだい１",
+          "problem_title_en": "Task Comprehension",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "男の人はこのあとまず何をしますか。",
+              "question_text_en": "What will the man do first after this?",
+              "image_file": "n2_t1_m1_q1.png",
+              "options": [
+                { "id": 1, "text": "見積もりを取り直す" },
+                { "id": 2, "text": "部長に報告する" },
+                { "id": 3, "text": "業者に電話する" },
+                { "id": 4, "text": "予算案を作り直す" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "「まずは先方に納期を確認してくれる?」と頼まれました。",
+                "advice": "「まずは〜てくれる?」は依頼と優先順位を同時に表します。",
+                "hint": "優先順位を示す「まずは」の直後の依頼を聞き取りましょう。",
+                "trap": "報告は「それが分かってから」と言われたので後です。"
+              },
+              "transcript": {
+                "pre_question": "会社で男の人と女の上司が話しています。",
+                "dialogue": [
+                  { "speaker": "male", "text": "新しい見積もり、予算をかなり超えていまして。" },
+                  { "speaker": "female", "text": "そう。まずは先方に納期を確認してくれる?" },
+                  { "speaker": "male", "text": "分かりました。部長への報告は…。" },
+                  { "speaker": "female", "text": "それが分かってからでいいわ。" }
+                ],
+                "post_question": "男の人はこのあとまず何をしますか。"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

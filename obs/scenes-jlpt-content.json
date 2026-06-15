@@ -1,0 +1,108 @@
+{
+  "name": "JLPT Content",
+  "current_scene": "Question",
+  "scene_order": [
+    {
+      "name": "Question"
+    },
+    {
+      "name": "Think Time"
+    },
+    {
+      "name": "Answer Reveal"
+    },
+    {
+      "name": "Feedback"
+    },
+    {
+      "name": "Outro"
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Question",
+      "sources": [
+        {
+          "name": "Question Browser",
+          "id": "browser_source",
+          "settings": {
+            "url": "http://localhost:5173/listening/studio?level=N5&test=3&mondai=1&question=1&scene=question",
+            "width": 1080,
+            "height": 1920,
+            "css": "body { overflow: hidden; margin: 0; }",
+            "reroute_audio": true,
+            "restart_when_active": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Think Time",
+      "sources": [
+        {
+          "name": "Think Time Browser",
+          "id": "browser_source",
+          "settings": {
+            "url": "http://localhost:5173/listening/studio?level=N5&test=3&mondai=1&question=1&scene=think",
+            "width": 1080,
+            "height": 1920,
+            "css": "body { overflow: hidden; margin: 0; }",
+            "reroute_audio": true,
+            "restart_when_active": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Answer Reveal",
+      "sources": [
+        {
+          "name": "Answer Reveal Browser",
+          "id": "browser_source",
+          "settings": {
+            "url": "http://localhost:5173/listening/studio?level=N5&test=3&mondai=1&question=1&scene=answer",
+            "width": 1080,
+            "height": 1920,
+            "css": "body { overflow: hidden; margin: 0; }",
+            "reroute_audio": true,
+            "restart_when_active": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "sources": [
+        {
+          "name": "Feedback Browser",
+          "id": "browser_source",
+          "settings": {
+            "url": "http://localhost:5173/listening/studio?level=N5&test=3&mondai=1&question=1&scene=feedback",
+            "width": 1080,
+            "height": 1920,
+            "css": "body { overflow: hidden; margin: 0; }",
+            "reroute_audio": true,
+            "restart_when_active": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Outro",
+      "sources": [
+        {
+          "name": "Outro Browser",
+          "id": "browser_source",
+          "settings": {
+            "url": "http://localhost:5173/listening/studio?level=N5&test=3&mondai=1&question=1&scene=outro",
+            "width": 1080,
+            "height": 1920,
+            "css": "body { overflow: hidden; margin: 0; }",
+            "reroute_audio": true,
+            "restart_when_active": true
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -21,6 +21,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/voicevox/, ''),
       },
+      // Dev only: forward /api/* to the Vercel functions server (`vercel dev`).
+      // Set VITE_API_PROXY=http://localhost:3009 to run the SPA on vite while
+      // the serverless content-factory routes run under vercel dev.
+      ...(process.env.VITE_API_PROXY
+        ? { '/api': { target: process.env.VITE_API_PROXY, changeOrigin: true } }
+        : {}),
     },
   },
 })

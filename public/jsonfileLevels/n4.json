@@ -1,0 +1,46 @@
+{
+  "level": "N4",
+  "tests": [
+    {
+      "test_number": 1,
+      "problems": [
+        {
+          "mondai_number": 1,
+          "problem_title": "もんだい１",
+          "problem_title_en": "Task Comprehension",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "おとこの ひとは このあと まず 何を しますか。",
+              "question_text_en": "What will the man do first after this?",
+              "image_file": "n4_t1_m1_q1.png",
+              "options": [
+                { "id": 1, "text": "しりょうを コピーする" },
+                { "id": 2, "text": "メールを おくる" },
+                { "id": 3, "text": "かいぎしつを よやくする" },
+                { "id": 4, "text": "ぶちょうに きく" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "「じゃあ、さきに かいぎしつを とっておきます」と いいました。",
+                "advice": "「さきに〜ておく」は じゅんびを あらわす ひょうげんです。",
+                "hint": "「まず」「さきに」の あとの こうどうを ききましょう。",
+                "trap": "コピーは「あとで いい」と いったので さいしょでは ありません。"
+              },
+              "transcript": {
+                "pre_question": "かいしゃで おとこの ひとと おんなの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "female", "text": "３じの かいぎ、じゅんびは できてる?" },
+                  { "speaker": "male", "text": "しりょうの コピーは あとで いいですよね。" },
+                  { "speaker": "female", "text": "うん。それより へやが ひつようね。" },
+                  { "speaker": "male", "text": "じゃあ、さきに かいぎしつを とっておきます。" }
+                ],
+                "post_question": "おとこの ひとは このあと まず 何を しますか。"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "level": "N3",
+  "tests": [
+    {
+      "test_number": 1,
+      "problems": [
+        {
+          "mondai_number": 1,
+          "problem_title": "もんだい１",
+          "problem_title_en": "Task Comprehension",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "女の人はこのあとまず何をしなければなりませんか。",
+              "question_text_en": "What must the woman do first after this?",
+              "image_file": "n3_t1_m1_q1.png",
+              "options": [
+                { "id": 1, "text": "申込書を出す" },
+                { "id": 2, "text": "写真を撮る" },
+                { "id": 3, "text": "お金を払う" },
+                { "id": 4, "text": "印鑑を持ってくる" }
+              ],
+              "correct_option_id": 2,
+              "feedback": {
+                "reason": "「写真がないと受け付けられません」と言われました。",
+                "advice": "「〜ないと〜ない」は必要条件を表す表現です。",
+                "hint": "受付の人が「先に」必要だと言ったものを聞きましょう。",
+                "trap": "印鑑は「次回でいい」と言われたので今ではありません。"
+              },
+              "transcript": {
+                "pre_question": "市役所で女の人と受付の人が話しています。",
+                "dialogue": [
+                  { "speaker": "female", "text": "この申込書、出したいんですが。" },
+                  { "speaker": "male", "text": "写真は持ってきましたか。写真がないと受け付けられません。" },
+                  { "speaker": "female", "text": "あ、忘れました…。" },
+                  { "speaker": "male", "text": "そこの機械で撮れますよ。印鑑は次回でいいです。" }
+                ],
+                "post_question": "女の人はこのあとまず何をしなければなりませんか。"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

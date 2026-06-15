@@ -7,11 +7,21 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc -b",
+    "typecheck:api": "tsc -p api/tsconfig.json --noEmit",
+    "factory": "node scripts/factory-dev.mjs",
+    "obs:scenes": "node scripts/gen-obs-scenes.mjs",
+    "obs:switch": "node scripts/obs-auto-switch.js",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "@supabase/supabase-js": "^2.108.1",
+    "@vercel/og": "^0.11.1",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
+    "mp4-muxer": "^5.2.2",
+    "obs-websocket-js": "^5.0.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "xlsx": "^0.18.5"
@@ -19,6 +29,7 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vercel/node": "^5.8.17",
     "@vitejs/plugin-react": "^4.4.0",
     "globals": "^16.0.0",
     "typescript": "~5.8.0",

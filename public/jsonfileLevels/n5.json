@@ -1,0 +1,230 @@
+{
+  "level": "N5",
+  "tests": [
+    {
+      "test_number": 1,
+      "problems": [
+        {
+          "mondai_number": 1,
+          "problem_title": "もんだい１",
+          "problem_title_en": "Task Comprehension",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "おとこの ひとは これから なにを かいますか。",
+              "question_text_en": "What will the man buy now?",
+              "image_file": "n5_t1_m1_q1.png",
+              "options": [
+                { "id": 1, "text": "おにぎり" },
+                { "id": 2, "text": "おべんとう" },
+                { "id": 3, "text": "サンドイッチ" },
+                { "id": 4, "text": "パン" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "おとこの ひとが「じゃあ、サンドイッチに します」と いいました。",
+                "advice": "「〜に します」は えらぶ ときに つかう ことばです。",
+                "hint": "さいごに おとこの ひとが きめた ものを ききましょう。",
+                "trap": "おべんとうは「たかい」と いって やめたので こたえでは ありません。"
+              },
+              "transcript": {
+                "pre_question": "コンビニで おとこの ひとと おんなの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "female", "text": "おひるごはん、なにに する?" },
+                  { "speaker": "male", "text": "おべんとうが いいけど、ちょっと たかいなあ。" },
+                  { "speaker": "female", "text": "じゃあ、おにぎりは?" },
+                  { "speaker": "male", "text": "うーん、きょうは パンか サンドイッチが いいな。" },
+                  { "speaker": "female", "text": "サンドイッチ、おいしいよ。" },
+                  { "speaker": "male", "text": "じゃあ、サンドイッチに します。" }
+                ],
+                "post_question": "おとこの ひとは これから なにを かいますか。"
+              },
+              "social": {
+                "caption": "🍙 Lunch at the konbini — but what does he actually buy? Listen for the moment he changes his mind. You've got this! 💪",
+                "hashtags": ["#JLPT", "#N5", "#日本語", "#JapaneseLearning", "#LanguageLearning", "#StudyGram", "#Nihongo", "#LearnJapanese"]
+              }
+            },
+            {
+              "question_number": 2,
+              "question_text": "おんなの ひとは なにを のみますか。",
+              "question_text_en": "What will the woman drink?",
+              "image_file": "n5_t1_m1_q2.png",
+              "options": [
+                { "id": 1, "text": "コーヒー" },
+                { "id": 2, "text": "おちゃ" },
+                { "id": 3, "text": "ぎゅうにゅう" },
+                { "id": 4, "text": "みず" }
+              ],
+              "correct_option_id": 2,
+              "feedback": {
+                "reason": "おんなの ひとが「やっぱり おちゃに します」と いいました。",
+                "advice": "「やっぱり」は きもちが かわった ときに つかいます。",
+                "hint": "「やっぱり」の あとの ことばが だいじです。",
+                "trap": "さいしょに コーヒーと いいましたが、あとで かえたので ちがいます。"
+              },
+              "transcript": {
+                "pre_question": "コンビニで おんなの ひとと みせの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "female", "text": "あたたかい コーヒーを ください。" },
+                  { "speaker": "male", "text": "はい。コーヒーですね。" },
+                  { "speaker": "female", "text": "あ、すみません。やっぱり おちゃに します。" },
+                  { "speaker": "male", "text": "わかりました。つめたい おちゃですか。" },
+                  { "speaker": "female", "text": "はい、それで おねがいします。" }
+                ],
+                "post_question": "おんなの ひとは なにを のみますか。"
+              }
+            },
+            {
+              "question_number": 3,
+              "question_text": "おとこの ひとは なんで おかねを はらいますか。",
+              "question_text_en": "How will the man pay?",
+              "image_file": "n5_t1_m1_q3.png",
+              "options": [
+                { "id": 1, "text": "おさつ" },
+                { "id": 2, "text": "カード" },
+                { "id": 3, "text": "こまかい おかね" },
+                { "id": 4, "text": "けいたい" }
+              ],
+              "correct_option_id": 2,
+              "feedback": {
+                "reason": "おとこの ひとが「カードで おねがいします」と いいました。",
+                "advice": "「〜で」は ほうほうを いう ときに つかいます。",
+                "hint": "さいごに おとこの ひとが えらんだ はらいかたを ききましょう。",
+                "trap": "こまかい おかねが ないと いったので げんきんでは ありません。"
+              },
+              "transcript": {
+                "pre_question": "コンビニで みせの ひとと おとこの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "female", "text": "ぜんぶで せんえんです。" },
+                  { "speaker": "male", "text": "あ、こまかい おかねが ありません。" },
+                  { "speaker": "female", "text": "では、カードも つかえますよ。" },
+                  { "speaker": "male", "text": "じゃあ、カードで おねがいします。" }
+                ],
+                "post_question": "おとこの ひとは なんで おかねを はらいますか。"
+              }
+            },
+            {
+              "question_number": 4,
+              "question_text": "おんなの ひとは どれを かいますか。",
+              "question_text_en": "Which one will the woman buy?",
+              "image_file": "n5_t1_m1_q4.png",
+              "options": [
+                { "id": 1, "text": "ちいさい かさ" },
+                { "id": 2, "text": "おおきい かさ" },
+                { "id": 3, "text": "タオル" },
+                { "id": 4, "text": "ぼうし" }
+              ],
+              "correct_option_id": 1,
+              "feedback": {
+                "reason": "おんなの ひとが「ちいさいのを ください」と いいました。",
+                "advice": "「ちいさいの」の「の」は ものを あらわします。",
+                "hint": "かさの おおきさに きを つけて ききましょう。",
+                "trap": "おおきい かさは「おもい」と いって えらびませんでした。"
+              },
+              "transcript": {
+                "pre_question": "コンビニで おんなの ひとと みせの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "female", "text": "あめが ふって きました。かさは ありますか。" },
+                  { "speaker": "male", "text": "はい。おおきいのと ちいさいのが あります。" },
+                  { "speaker": "female", "text": "おおきいのは おもいですね。" },
+                  { "speaker": "male", "text": "そうですね。ちいさいのは かるいですよ。" },
+                  { "speaker": "female", "text": "じゃあ、ちいさいのを ください。" }
+                ],
+                "post_question": "おんなの ひとは どれを かいますか。"
+              }
+            },
+            {
+              "question_number": 5,
+              "question_text": "おとこの ひとは おにぎりを いくつ かいますか。",
+              "question_text_en": "How many rice balls will the man buy?",
+              "image_file": "n5_t1_m1_q5.png",
+              "options": [
+                { "id": 1, "text": "ひとつ" },
+                { "id": 2, "text": "ふたつ" },
+                { "id": 3, "text": "みっつ" },
+                { "id": 4, "text": "よっつ" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "おとこの ひとが「みっつ ください」と いいました。",
+                "advice": "ひとつ・ふたつ・みっつ の かぞえかたを おぼえましょう。",
+                "hint": "さいごに いった かずを ききましょう。",
+                "trap": "ふたつと いってから ひとつ ふやしたので みっつです。"
+              },
+              "transcript": {
+                "pre_question": "コンビニで おとこの ひとと みせの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "male", "text": "おにぎりを ふたつ ください。" },
+                  { "speaker": "female", "text": "はい、ふたつですね。" },
+                  { "speaker": "male", "text": "あ、ともだちのも いるから、もう ひとつ。" },
+                  { "speaker": "female", "text": "では、みっつですね。" },
+                  { "speaker": "male", "text": "はい、みっつ ください。" }
+                ],
+                "post_question": "おとこの ひとは おにぎりを いくつ かいますか。"
+              }
+            },
+            {
+              "question_number": 6,
+              "question_text": "ふたりは つぎに どこへ いきますか。",
+              "question_text_en": "Where will the two go next?",
+              "image_file": "n5_t1_m1_q6.png",
+              "options": [
+                { "id": 1, "text": "ぎんこう" },
+                { "id": 2, "text": "ゆうびんきょく" },
+                { "id": 3, "text": "こうえん" },
+                { "id": 4, "text": "えき" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "おんなの ひとが「こうえんで たべましょう」と いいました。",
+                "advice": "「〜ましょう」は さそう ときの いいかたです。",
+                "hint": "かいものの あと どこへ いくか ききましょう。",
+                "trap": "ゆうびんきょくは「あした いく」と いったので きょうでは ありません。"
+              },
+              "transcript": {
+                "pre_question": "コンビニの まえで おんなの ひとと おとこの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "male", "text": "パンを かいましたね。どこで たべますか。" },
+                  { "speaker": "female", "text": "ちかくの こうえんで たべましょう。" },
+                  { "speaker": "male", "text": "いいですね。ゆうびんきょくにも いきますか。" },
+                  { "speaker": "female", "text": "ゆうびんきょくは あした いきます。" }
+                ],
+                "post_question": "ふたりは つぎに どこへ いきますか。"
+              }
+            },
+            {
+              "question_number": 7,
+              "question_text": "みせの ひとは なにを つけますか。",
+              "question_text_en": "What will the clerk add?",
+              "image_file": "n5_t1_m1_q7.png",
+              "options": [
+                { "id": 1, "text": "ふくろ" },
+                { "id": 2, "text": "おはし" },
+                { "id": 3, "text": "スプーン" },
+                { "id": 4, "text": "フォーク" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "みせの ひとが「スプーンを おつけします」と いいました。",
+                "advice": "たべものに あわせて どうぐが かわる ことを おぼえましょう。",
+                "hint": "プリンを たべる ときに つかう ものを かんがえましょう。",
+                "trap": "おはしは「いりません」と いったので こたえでは ありません。"
+              },
+              "transcript": {
+                "pre_question": "コンビニで おんなの ひとと みせの ひとが はなして います。",
+                "dialogue": [
+                  { "speaker": "female", "text": "この プリンを ください。" },
+                  { "speaker": "male", "text": "はい。おはしは いりますか。" },
+                  { "speaker": "female", "text": "おはしは いりません。" },
+                  { "speaker": "male", "text": "では、スプーンを おつけしますね。" },
+                  { "speaker": "female", "text": "はい、おねがいします。" }
+                ],
+                "post_question": "みせの ひとは なにを つけますか。"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -11,6 +11,8 @@ import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
 import { JsonImporter } from '@/components/JsonImporter'
 import { PosterMaker } from '@/poster-maker/PosterMaker'
 import { ListeningStudio } from '@/listening/ListeningStudio'
+import { StudioMode } from '@/studio/StudioMode'
+import { ContentFactory } from '@/studio/ContentFactory'
 import { BASE_ACCENTS, FORMATS } from '@/themes'
 import { TEMPLATES, TEMPLATE_MAP } from '@/templates'
 import type { Accent, Format, FxState } from '@/types'
@@ -65,6 +67,12 @@ function getInitialView(): AppView {
 }
 
 export default function App() {
+  // Studio Mode (Module 2) is fully chromeless and auth-free so OBS browser
+  // sources can load it. Short-circuit before nav + auth gate.
+  if (window.location.pathname.startsWith('/listening/studio')) {
+    return <StudioMode />
+  }
+
   const { user } = useAuth()
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login')
   const [view, setView] = useState<AppView>(getInitialView)
@@ -270,7 +278,12 @@ export default function App() {
             {view === 'poster-maker' && <PosterMaker />}
           </ErrorBoundary>
           <ErrorBoundary>
-            {view === 'listening' && <ListeningStudio />}
+            {view === 'listening' && (
+              <div style={{ height: '100%', overflow: 'auto' }}>
+                <ContentFactory />
+                <ListeningStudio />
+              </div>
+            )}
           </ErrorBoundary>
 
           <ErrorBoundary>
