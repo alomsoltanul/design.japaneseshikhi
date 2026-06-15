@@ -25,6 +25,9 @@ export function ExportStage({ job, onDone }: { job: ExportJob | null; onDone: (e
     async function run() {
       try {
         await document.fonts.ready
+        // wait for any slide images to finish loading before capture
+        const imgs = cardRefs.current.flatMap(n => (n ? Array.from(n.querySelectorAll('img')) : []))
+        await Promise.all(imgs.map(im => (im.complete ? null : new Promise(res => { im.onload = im.onerror = () => res(null) }))))
         await new Promise(r => setTimeout(r, 250)) // let layout settle
 
         // System (local) fonts render Japanese fine; skip web-font embedding so

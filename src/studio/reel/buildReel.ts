@@ -71,11 +71,14 @@ export async function buildReel(
   const audioSegs: AudioSeg[] = segs.map(s => ({ start: s.start, audio: s.audio, chime: s.chime }))
   const mixed = await mixTimeline(audioSegs, total, 48000)
 
+  // preload the question image (same-origin, won't taint the canvas)
+  const img = q.image_file ? await loadImage(`/jsonfileImages/${q.image_file}`).catch(() => null) : null
+
   // frame drawer
   const draw = (ctx: CanvasRenderingContext2D, t: number) => {
     let cur = segs[0]
     for (const s of segs) if (t >= s.start) cur = s
-    renderFrame(ctx, cur.scene, q, level, t - cur.start, cur.dur)
+    renderFrame(ctx, cur.scene, q, level, t - cur.start, cur.dur, img)
   }
 
   if (webcodecsSupported()) {
@@ -89,6 +92,15 @@ export async function buildReel(
   // Fallback: realtime WebM (browser without WebCodecs)
   const webm = await recordWebm(draw, mixed, total, (r, note) => onProgress({ stage: 'encode', ratio: r, note }))
   return { video: webm, mime: 'video/webm', ext: 'webm', durationSec: total }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const im = new Image()
+    im.onload = () => resolve(im)
+    im.onerror = () => reject(new Error(`image not found: ${src}`))
+    im.src = src
+  })
 }
 
 function pickMime(): string {

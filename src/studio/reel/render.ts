@@ -134,6 +134,18 @@ function label(ctx: CanvasRenderingContext2D, text: string, y: number) {
   ctx.fillText(text, W / 2, y)
 }
 
+function drawImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, topY: number, maxH: number) {
+  const maxW = W - 140
+  const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
+  const w = img.naturalWidth * scale
+  const h = img.naturalHeight * scale
+  const x = (W - w) / 2
+  roundRect(ctx, x - 16, topY - 16, w + 32, h + 32, 28)
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'
+  ctx.fill()
+  ctx.drawImage(img, x, topY, w, h)
+}
+
 /** Draw one frame. tLocal = seconds into the scene, dur = scene length. */
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
@@ -142,16 +154,19 @@ export function renderFrame(
   level: string,
   tLocal: number,
   dur: number,
+  img?: HTMLImageElement | null,
 ) {
   bg(ctx)
   ctx.fillStyle = '#fff'
+  const hasImg = !!(img && img.complete && img.naturalWidth > 0)
 
   if (scene === 'question') {
     badge(ctx, level)
     ctx.fillStyle = '#fff'
-    ctx.font = `800 70px ${JP}`
-    const afterQ = wrapCenter(ctx, q.question_text, W / 2, 360, W - 160, 92)
-    optionRows(ctx, q, Math.max(afterQ + 40, 760), false, 0)
+    ctx.font = `800 68px ${JP}`
+    const afterQ = wrapCenter(ctx, q.question_text, W / 2, 350, W - 160, 90)
+    if (hasImg) drawImage(ctx, img!, Math.max(afterQ + 50, 720), 820)
+    else optionRows(ctx, q, Math.max(afterQ + 40, 760), false, 0)
     return
   }
 

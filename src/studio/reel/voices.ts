@@ -1,6 +1,6 @@
 // VOICEVOX narration for reels. Reuses the repo's VOICEVOX client and applies
 // consistent, user-tunable params so speakers don't sound fast/slow/quiet.
-import { getSpeakers, audioQuery, synthesize, checkHealth, type VvSpeaker } from '@/listening/voicevox'
+import { getSpeakers, audioQuery, synthesize, checkHealth, reelEnvBlocked, type VvSpeaker } from '@/listening/voicevox'
 import type { VoiceSettings } from './voiceSettings'
 
 export interface Voices {
@@ -31,6 +31,12 @@ export async function resolveVoices(settings: VoiceSettings): Promise<Voices> {
 }
 
 export async function ensureVoicevox(): Promise<void> {
+  if (reelEnvBlocked()) {
+    throw new Error(
+      'Reels need VOICEVOX, which runs on your computer. The live HTTPS site can’t reach it. ' +
+      'Build reels locally: run `npm run dev` and open http://localhost:5173/listening.',
+    )
+  }
   if (!(await checkHealth())) {
     throw new Error('VOICEVOX is not running. Open the VOICEVOX app (http://127.0.0.1:50021) and try again.')
   }

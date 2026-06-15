@@ -72,9 +72,56 @@ The app reads these at runtime from `/jsonfileLevels/{level}.json`.
   - slide 1 hook · 2 listen · 3 options · 4 answer · 5 explain (advice + hint).
   - If you add `social.caption` / `social.hashtags`, those are used; otherwise a caption is auto-built from `question_text_en`.
 
+## Images (recommended — they make the reels pop)
+
+Add an image per question and it shows up in **Studio's question scene, the reel
+video, and carousel slide 1**.
+
+1. In the question JSON set:
+   ```jsonc
+   "image_file": "n5_t1_m1_q1.png",          // the file name you'll save
+   "image_prompt": "…"                         // optional: the prompt you used (for reference)
+   ```
+2. Generate the image (any AI image tool) and save the PNG to
+   `public/jsonfileImages/n5_t1_m1_q1.png` (name must match `image_file`).
+3. Refresh — the image appears automatically. Missing file → falls back to text.
+
+### Recommended prompt — official JLPT style (4-panel)
+
+JLPT Mondai 1 images are simple, clean line illustrations of the four options.
+Use this template (fill in the four options):
+
+```
+A clean 2x2 four-panel illustration in the style of an official JLPT listening
+exam, simple flat vector line-art, minimal color, white background, thin black
+outlines, no text or numbers in the image. Each panel shows ONE everyday object
+or action, clearly distinguishable:
+  Panel 1 (top-left): {option 1}
+  Panel 2 (top-right): {option 2}
+  Panel 3 (bottom-left): {option 3}
+  Panel 4 (bottom-right): {option 4}
+Consistent simple style across all panels, centered, lots of whitespace,
+1:1 square. No words, no captions, no watermark.
+```
+
+For Mondai 2/3/4 (no 4-panel), use a single simple scene illustration instead:
+
+```
+A simple flat vector line illustration for a JLPT listening question, minimal
+color, white background, thin black outlines, no text. Scene: {describe the
+situation, e.g. "a man and a woman talking at a train station ticket gate"}.
+Clean, friendly, lots of whitespace, 1:1 square. No words or watermark.
+```
+
+Tip: keep a consistent illustrator/style across a whole test so the reels and
+carousels look like a set.
+
 ## Notes
 
-- **No audio / no video compile.** Slides are images; the reel is the live Studio screen.
-- `image_file` is optional. If set, put the PNG at `public/jsonfileImages/{image_file}` to show it in Studio's question scene; if the file is missing, Studio falls back to showing the 4 options.
+- **No audio / no video compile from slides.** Slides are images; the **reel** is a
+  real compiled MP4 (voice + animated scenes) built with VOICEVOX — local only.
+- **VOICEVOX / reels are local-only.** The live HTTPS site can't reach your local
+  VOICEVOX, so build reels with `npm run dev` at http://localhost:5173. Slides and
+  Studio work anywhere.
 - Keep every word within the level (N5 = minimal kanji + kana). The app does not check this — you do.
 - You can add as many `tests`, `problems`, and `questions` as you like.

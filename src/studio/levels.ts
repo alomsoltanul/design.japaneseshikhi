@@ -12,6 +12,7 @@ export interface LevelQuestion {
   question_text: string
   question_text_en: string
   image_file?: string
+  image_prompt?: string
   audio_file?: string
   options: Option[]
   correct_option_id: number

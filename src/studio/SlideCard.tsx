@@ -57,6 +57,14 @@ export function SlideCard({ slide, level, total }: { slide: CarouselSlide; level
           gap: 40,
         }}
       >
+        {slide.imageUrl && (
+          <img
+            src={slide.imageUrl}
+            alt=""
+            style={{ maxWidth: '88%', maxHeight: 560, objectFit: 'contain', borderRadius: 20, background: 'rgba(0,0,0,0.04)' }}
+          />
+        )}
+
         {slide.type === 'answer' ? (
           <div
             style={{

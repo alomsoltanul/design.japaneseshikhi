@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { LEVELS, type LevelFile } from './levels'
+import { LEVELS, type LevelFile, type LevelQuestion } from './levels'
 import { getMergedLevel, addPasted, clearPasted, getPasted, countQuestions } from './content'
 import { ExportStage, type ExportJob } from './ExportStage'
 import { ReelButton } from './ReelButton'
 import { loadVoiceSettings, saveVoiceSettings, DEFAULT_VOICE, type VoiceSettings } from './reel/voiceSettings'
 import { listVoices } from './reel/voices'
+import { reelEnvBlocked } from '@/listening/voicevox'
 
 const BRAND = '#E63946'
+const CARD = 'rgba(255,255,255,0.045)'
+const LINE = 'rgba(255,255,255,0.10)'
 
 interface Speaker { name: string; styles: { id: number; name: string }[] }
 
@@ -20,32 +23,27 @@ export function ContentFactory() {
   const [job, setJob] = useState<ExportJob | null>(null)
   const [busyQ, setBusyQ] = useState<number | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [panel, setPanel] = useState<'none' | 'paste' | 'voice'>('none')
 
-  // paste
   const [pasteText, setPasteText] = useState('')
   const [pasteMsg, setPasteMsg] = useState<string | null>(null)
   const pastedCount = useMemo(() => countQuestions(getPasted(level)), [level, reloadKey])
 
-  // voice
   const [voice, setVoice] = useState<VoiceSettings>(DEFAULT_VOICE)
-  const [showVoice, setShowVoice] = useState(false)
   const [speakers, setSpeakers] = useState<Speaker[]>([])
+  const reelsLocalOnly = useMemo(() => reelEnvBlocked(), [])
 
   useEffect(() => { setVoice(loadVoiceSettings()) }, [])
   useEffect(() => {
-    if (showVoice && speakers.length === 0) listVoices().then(setSpeakers).catch(() => {})
-  }, [showVoice, speakers.length])
+    if (panel === 'voice' && speakers.length === 0) listVoices().then(setSpeakers).catch(() => {})
+  }, [panel, speakers.length])
 
-  const updateVoice = (patch: Partial<VoiceSettings>) => {
+  const updateVoice = (patch: Partial<VoiceSettings>) =>
     setVoice(v => { const next = { ...v, ...patch }; saveVoiceSettings(next); return next })
-  }
 
-  // load merged level
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
-    setFile(null)
+    setLoading(true); setErr(null); setFile(null)
     getMergedLevel(level)
       .then(f => {
         if (cancelled) return
@@ -68,44 +66,81 @@ export function ContentFactory() {
       const f = addPasted(level, pasteText)
       setPasteText('')
       setReloadKey(k => k + 1)
-      setPasteMsg(`Added. ${countQuestions(f)} pasted question(s) now available for ${level}.`)
-    } catch (e) {
-      setPasteMsg(`✗ ${(e as Error).message}`)
-    }
+      setPasteMsg(`✓ Added. ${countQuestions(f)} pasted question(s) for ${level}.`)
+    } catch (e) { setPasteMsg(`✗ ${(e as Error).message}`) }
   }, [level, pasteText])
 
-  const onClearPasted = useCallback(() => {
-    clearPasted(level)
-    setReloadKey(k => k + 1)
-    setPasteMsg('Cleared pasted content for this level.')
-  }, [level])
+  const onClearPasted = useCallback(() => { clearPasted(level); setReloadKey(k => k + 1); setPasteMsg('Cleared pasted content.') }, [level])
 
-  const startExport = useCallback((q: number) => {
-    const question = problem?.questions.find(x => x.question_number === q)
+  const startExport = useCallback((qn: number) => {
+    const question = problem?.questions.find(x => x.question_number === qn)
     if (!question || !test || !problem) return
-    setBusyQ(q)
-    setErr(null)
+    setBusyQ(qn); setErr(null)
     setJob({ question, level, test: test.test_number, mondai: problem.mondai_number })
   }, [problem, test, level])
 
-  const studioUrl = (q: number) =>
-    `/listening/studio?level=${level}&test=${test?.test_number ?? 1}&mondai=${problem?.mondai_number ?? 1}&question=${q}&scene=question`
+  const studioUrl = (qn: number) =>
+    `/listening/studio?level=${level}&test=${test?.test_number ?? 1}&mondai=${problem?.mondai_number ?? 1}&question=${qn}&scene=question`
 
-  const input: React.CSSProperties = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', borderRadius: 8, padding: '8px 12px', fontSize: 14 }
-  const sub = (t: string) => <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.7, margin: '4px 0 8px' }}>{t}</div>
+  const sel: React.CSSProperties = { background: 'rgba(255,255,255,0.06)', border: `1px solid ${LINE}`, color: '#fff', borderRadius: 9, padding: '8px 12px', fontSize: 14 }
 
   return (
-    <div style={{ padding: 24, color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <span style={{ fontSize: 18, fontWeight: 800 }}>Content Factory</span>
-        <span style={{ background: '#10b981', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>Offline · Free</span>
-        <button onClick={() => setShowVoice(s => !s)} style={{ ...input, marginLeft: 'auto', cursor: 'pointer' }}>🎙 Voice settings {showVoice ? '▲' : '▼'}</button>
+    <div style={{ maxWidth: 1080, margin: '0 auto', padding: '28px 24px 48px', color: '#fff' }}>
+      {/* Header */}
+      <div style={{ background: `linear-gradient(135deg, rgba(230,57,70,0.16), rgba(230,57,70,0.02))`, border: `1px solid ${LINE}`, borderRadius: 18, padding: '22px 24px', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.01em' }}>JLPT Listening Studio</span>
+          <span style={{ background: '#10b981', fontSize: 11, fontWeight: 800, padding: '4px 11px', borderRadius: 999 }}>Offline · Free</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <Toggle active={panel === 'paste'} onClick={() => setPanel(panel === 'paste' ? 'none' : 'paste')}>📋 Paste JSON</Toggle>
+            <Toggle active={panel === 'voice'} onClick={() => setPanel(panel === 'voice' ? 'none' : 'voice')}>🎙 Voice</Toggle>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.65, marginTop: 8 }}>
+          Paste JSON or edit <code>public/jsonfileLevels/{level.toLowerCase()}.json</code> → export carousel slides or build a voiced MP4 reel.
+        </div>
+        {reelsLocalOnly && (
+          <div style={{ marginTop: 12, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '9px 13px', fontSize: 12.5 }}>
+            ⚠ <b>Reels are local-only.</b> This live site can’t reach your VOICEVOX. Slides & Studio work here; for MP4 reels run <code>npm run dev</code> and open <code>http://localhost:5173/listening</code>.
+          </div>
+        )}
       </div>
 
-      {/* Voice settings */}
-      {showVoice && (
-        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 16, margin: '12px 0' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
+      {/* Level pills + selectors */}
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 6, background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 5 }}>
+          {LEVELS.map(l => (
+            <button key={l} onClick={() => setLevel(l)} style={{ background: level === l ? BRAND : 'transparent', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 15px', fontWeight: 800, cursor: 'pointer', fontSize: 14 }}>{l}</button>
+          ))}
+        </div>
+        <select value={testNo} onChange={e => setTestNo(Number(e.target.value))} style={sel} disabled={!file}>
+          {file?.tests.map(t => <option key={t.test_number} value={t.test_number}>{t.test_number === 99 ? '📋 Pasted' : `Test ${t.test_number}`}</option>)}
+        </select>
+        <select value={mondaiNo} onChange={e => setMondaiNo(Number(e.target.value))} style={sel} disabled={!test}>
+          {test?.problems.map(p => <option key={p.mondai_number} value={p.mondai_number}>もんだい{p.mondai_number} · {p.problem_title_en}</option>)}
+        </select>
+        {loading && <span style={{ fontSize: 13, opacity: 0.6 }}>Loading…</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.55 }}>{questions.length} question{questions.length === 1 ? '' : 's'}</span>
+      </div>
+
+      {/* Paste panel */}
+      {panel === 'paste' && (
+        <Panel title={`Paste JSON → ${level}`}>
+          <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
+            placeholder="Paste a question, an array of questions, a problem, a test, or a full level file…"
+            style={{ ...sel, width: '100%', minHeight: 110, fontFamily: 'monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+            <button onClick={onPaste} disabled={!pasteText.trim()} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 800, cursor: pasteText.trim() ? 'pointer' : 'not-allowed', opacity: pasteText.trim() ? 1 : 0.5 }}>Add to {level}</button>
+            {pastedCount > 0 && <button onClick={onClearPasted} style={{ ...sel, cursor: 'pointer' }}>Clear pasted ({pastedCount})</button>}
+            {pasteMsg && <span style={{ fontSize: 12.5, color: pasteMsg.startsWith('✗') ? BRAND : '#10b981' }}>{pasteMsg}</span>}
+          </div>
+        </Panel>
+      )}
+
+      {/* Voice panel */}
+      {panel === 'voice' && (
+        <Panel title="Voice settings (saved automatically)">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
             <Slider label={`Speed ${voice.speed.toFixed(2)}×`} min={0.5} max={1.6} step={0.05} value={voice.speed} onChange={v => updateVoice({ speed: v })} />
             <Slider label={`Volume ${voice.volume.toFixed(2)}`} min={0.6} max={2} step={0.05} value={voice.volume} onChange={v => updateVoice({ volume: v })} />
             <Slider label={`Intonation ${voice.intonation.toFixed(2)}`} min={0} max={1.6} step={0.05} value={voice.intonation} onChange={v => updateVoice({ intonation: v })} />
@@ -114,94 +149,88 @@ export function ContentFactory() {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14 }}>
             {(['narrator', 'female', 'male'] as const).map(role => (
-              <label key={role} style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, textTransform: 'capitalize' }}>
-                {role} voice
-                <select
-                  value={voice[role] ?? ''}
-                  onChange={e => updateVoice({ [role]: e.target.value ? Number(e.target.value) : null } as Partial<VoiceSettings>)}
-                  style={input}
-                >
+              <label key={role} style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, textTransform: 'capitalize' }}>{role} voice
+                <select value={voice[role] ?? ''} onChange={e => updateVoice({ [role]: e.target.value ? Number(e.target.value) : null } as Partial<VoiceSettings>)} style={sel}>
                   <option value="">Auto</option>
-                  {speakers.flatMap(s => s.styles.map(st => (
-                    <option key={`${s.name}-${st.id}`} value={st.id}>{s.name} · {st.name}</option>
-                  )))}
+                  {speakers.flatMap(s => s.styles.map(st => <option key={`${s.name}-${st.id}`} value={st.id}>{s.name} · {st.name}</option>))}
                 </select>
               </label>
             ))}
           </div>
-          <div style={{ fontSize: 11, opacity: 0.55, marginTop: 10 }}>
-            {speakers.length ? `${speakers.length} VOICEVOX voices loaded.` : 'Open VOICEVOX to load the voice list. "Auto" picks sensible defaults.'} Settings are saved automatically.
+          <div style={{ fontSize: 11.5, opacity: 0.55, marginTop: 10 }}>
+            {speakers.length ? `${speakers.length} VOICEVOX voices loaded.` : 'Open VOICEVOX (local) to load voices. "Auto" picks sensible defaults.'}
           </div>
-        </div>
+        </Panel>
       )}
 
-      {/* Paste JSON */}
-      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 16, margin: '8px 0 16px' }}>
-        {sub(`Paste JSON → ${level} (generate without editing files)`)}
-        <textarea
-          value={pasteText}
-          onChange={e => setPasteText(e.target.value)}
-          placeholder='Paste a question, an array of questions, a problem, a test, or a full level file…'
-          style={{ ...input, width: '100%', minHeight: 90, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-          <button onClick={onPaste} disabled={!pasteText.trim()} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 800, cursor: pasteText.trim() ? 'pointer' : 'not-allowed', opacity: pasteText.trim() ? 1 : 0.5 }}>
-            Add to {level}
-          </button>
-          {pastedCount > 0 && (
-            <button onClick={onClearPasted} style={{ ...input, cursor: 'pointer' }}>Clear pasted ({pastedCount})</button>
-          )}
-          {pasteMsg && <span style={{ fontSize: 12, color: pasteMsg.startsWith('✗') ? BRAND : '#10b981' }}>{pasteMsg}</span>}
-        </div>
-      </div>
+      {err && <div style={{ background: 'rgba(230,57,70,0.13)', border: '1px solid rgba(230,57,70,0.4)', borderRadius: 10, padding: '11px 15px', fontSize: 13, marginBottom: 14 }}>{err}</div>}
+      {!loading && !err && questions.length === 0 && <div style={{ fontSize: 13, opacity: 0.6, padding: '20px 0' }}>No questions here. Paste JSON or add to the level file.</div>}
 
-      {/* Selectors */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', marginBottom: 16 }}>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>Level
-          <select value={level} onChange={e => setLevel(e.target.value)} style={input}>{LEVELS.map(l => <option key={l} value={l}>{l}</option>)}</select>
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>Test
-          <select value={testNo} onChange={e => setTestNo(Number(e.target.value))} style={input} disabled={!file}>
-            {file?.tests.map(t => <option key={t.test_number} value={t.test_number}>{t.test_number === 99 ? 'Pasted' : `Test ${t.test_number}`}</option>)}
-          </select>
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>Mondai
-          <select value={mondaiNo} onChange={e => setMondaiNo(Number(e.target.value))} style={input} disabled={!test}>
-            {test?.problems.map(p => <option key={p.mondai_number} value={p.mondai_number}>{p.mondai_number} · {p.problem_title_en}</option>)}
-          </select>
-        </label>
-        {loading && <span style={{ fontSize: 13, opacity: 0.7 }}>Loading…</span>}
-      </div>
-
-      {err && <div style={{ background: 'rgba(230,57,70,0.15)', border: '1px solid rgba(230,57,70,0.4)', borderRadius: 8, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>{err}</div>}
-      {!loading && !err && questions.length === 0 && <div style={{ fontSize: 13, opacity: 0.6 }}>No questions here yet. Paste JSON above or add to the level file.</div>}
-
-      {questions.map(q => {
-        const correct = q.options.find(o => o.id === q.correct_option_id)
-        return (
-          <div key={q.question_number} style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 16px', marginBottom: 8 }}>
-            <span style={{ fontWeight: 800, color: BRAND, width: 28 }}>Q{q.question_number}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.question_text}</div>
-              <div style={{ fontSize: 12, opacity: 0.6 }}>✓ {correct?.text}</div>
+      {/* Question cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {questions.map(qq => {
+          const correct = qq.options.find(o => o.id === qq.correct_option_id)
+          return (
+            <div key={qq.question_number} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
+              <Thumb q={qq} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 900, color: BRAND, fontSize: 13 }}>Q{qq.question_number}</span>
+                  <span style={{ fontSize: 16.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qq.question_text}</span>
+                </div>
+                {qq.question_text_en && <div style={{ fontSize: 12.5, opacity: 0.5, marginTop: 2 }}>{qq.question_text_en}</div>}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, background: 'rgba(16,185,129,0.14)', color: '#34d399', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>✓ {correct?.text}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <a href={studioUrl(qq.question_number)} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#fff', textDecoration: 'none', border: `1px solid ${LINE}`, borderRadius: 9, padding: '8px 14px' }}>Studio ↗</a>
+                  <button onClick={() => startExport(qq.question_number)} disabled={busyQ != null} style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: `1px solid ${LINE}`, borderRadius: 9, padding: '8px 14px', fontWeight: 700, cursor: busyQ != null ? 'progress' : 'pointer', whiteSpace: 'nowrap', opacity: busyQ != null && busyQ !== qq.question_number ? 0.5 : 1 }}>
+                    {busyQ === qq.question_number ? 'Exporting…' : '🖼 Slides ZIP'}
+                  </button>
+                </div>
+                <ReelButton question={qq} level={level} test={test?.test_number ?? 1} mondai={problem?.mondai_number ?? 1} settings={voice} />
+              </div>
             </div>
-            <a href={studioUrl(q.question_number)} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#fff', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 14px' }}>Open Studio ↗</a>
-            <button onClick={() => startExport(q.question_number)} disabled={busyQ != null} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: busyQ != null ? 'progress' : 'pointer', whiteSpace: 'nowrap', opacity: busyQ != null && busyQ !== q.question_number ? 0.5 : 1 }}>
-              {busyQ === q.question_number ? 'Exporting…' : 'Export Slides (ZIP)'}
-            </button>
-            <ReelButton question={q} level={level} test={test?.test_number ?? 1} mondai={problem?.mondai_number ?? 1} settings={voice} />
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
 
       <ExportStage job={job} onDone={e => { if (e) setErr(`Export failed: ${e}`); setBusyQ(null); setJob(null) }} />
     </div>
   )
 }
 
+function Thumb({ q }: { q: LevelQuestion }) {
+  const [failed, setFailed] = useState(false)
+  const size = 84
+  if (q.image_file && !failed) {
+    return <img src={`/jsonfileImages/${q.image_file}`} onError={() => setFailed(true)} alt="" style={{ width: size, height: size, objectFit: 'cover', borderRadius: 12, background: 'rgba(255,255,255,0.06)', flex: 'none' }} />
+  }
+  return (
+    <div style={{ width: size, height: size, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: 8, flex: 'none' }}>
+      {q.options.slice(0, 4).map(o => (
+        <div key={o.id} style={{ background: o.id === q.correct_option_id ? 'rgba(230,57,70,0.5)' : 'rgba(255,255,255,0.10)', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>{o.id}</div>
+      ))}
+    </div>
+  )
+}
+
+function Toggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return <button onClick={onClick} style={{ background: active ? BRAND : 'rgba(255,255,255,0.06)', color: '#fff', border: `1px solid ${active ? BRAND : LINE}`, borderRadius: 9, padding: '8px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{children}</button>
+}
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: 18, marginBottom: 16 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 800, opacity: 0.75, marginBottom: 12 }}>{title}</div>
+      {children}
+    </div>
+  )
+}
+
 function Slider({ label, min, max, step, value, onChange }: { label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 150 }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, minWidth: 155 }}>
       {label}
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} style={{ accentColor: BRAND }} />
     </label>

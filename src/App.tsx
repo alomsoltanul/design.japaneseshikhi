@@ -279,9 +279,14 @@ export default function App() {
           </ErrorBoundary>
           <ErrorBoundary>
             {view === 'listening' && (
-              <div style={{ height: '100%', overflow: 'auto' }}>
+              <div style={{ height: '100%', overflow: 'auto', background: 'radial-gradient(1200px 600px at 50% -10%, #1b1430 0%, #0c0e16 60%)' }}>
                 <ContentFactory />
-                <ListeningStudio />
+                <details style={{ maxWidth: 1080, margin: '0 auto 40px', padding: '0 24px' }}>
+                  <summary style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700, padding: '10px 0' }}>
+                    Advanced · VOICEVOX track editor (legacy)
+                  </summary>
+                  <div style={{ marginTop: 12 }}><ListeningStudio /></div>
+                </details>
               </div>
             )}
           </ErrorBoundary>

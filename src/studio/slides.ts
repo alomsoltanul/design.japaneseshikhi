@@ -7,6 +7,7 @@ export interface CarouselSlide {
   type: 'hook' | 'listen' | 'options' | 'answer' | 'explain'
   text: string
   cta?: string
+  imageUrl?: string
 }
 
 export interface ReelSegment {
@@ -29,7 +30,7 @@ function defaultHashtags(level: string): string[] {
 export function buildSlides(q: LevelQuestion): CarouselSlide[] {
   const correct = q.options.find(o => o.id === q.correct_option_id)
   return [
-    { slide: 1, type: 'hook', text: `${q.question_text}\nCan you guess? 🤔` },
+    { slide: 1, type: 'hook', text: `${q.question_text}\nCan you guess? 🤔`, imageUrl: q.image_file ? `/jsonfileImages/${q.image_file}` : undefined },
     { slide: 2, type: 'listen', text: '🎧 Listen first!' },
     { slide: 3, type: 'options', text: q.options.map(o => `${o.id}. ${o.text}`).join('\n') },
     { slide: 4, type: 'answer', text: `✅ ${correct ? correct.text : ''}` },

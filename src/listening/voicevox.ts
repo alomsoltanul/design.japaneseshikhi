@@ -5,6 +5,20 @@
 
 const BASE_URL = import.meta.env.DEV ? '/api/voicevox' : 'http://127.0.0.1:50021'
 
+/** True when we're on localhost dev (where the VOICEVOX proxy is reachable). */
+export function isLocalHost(): boolean {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+}
+
+/**
+ * On a deployed HTTPS site the browser blocks calls to the user's local
+ * VOICEVOX (mixed content / private network), and our server can't reach it
+ * either. Reels are therefore local-only.
+ */
+export function reelEnvBlocked(): boolean {
+  return location.protocol === 'https:' && !isLocalHost()
+}
+
 export interface VvSpeaker {
   name: string
   speaker_uuid: string
