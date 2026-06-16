@@ -48,12 +48,17 @@ export function ContentFactory() {
       .then(f => {
         if (cancelled) return
         setFile(f)
-        setTestNo(f.tests[0]?.test_number ?? 1)
-        setMondaiNo(f.tests[0]?.problems[0]?.mondai_number ?? 1)
+        // Keep the current selection if it still exists (e.g. after a paste),
+        // otherwise fall back to the first test/mondai.
+        const t = f.tests.find(x => x.test_number === testNo) ?? f.tests[0]
+        setTestNo(t?.test_number ?? 1)
+        const p = t?.problems.find(x => x.mondai_number === mondaiNo) ?? t?.problems[0]
+        setMondaiNo(p?.mondai_number ?? 1)
       })
       .catch(e => !cancelled && setErr((e as Error).message))
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, reloadKey])
 
   const test = useMemo(() => file?.tests.find(t => t.test_number === testNo) ?? file?.tests[0], [file, testNo])
@@ -65,8 +70,12 @@ export function ContentFactory() {
     try {
       const f = addPasted(level, pasteText)
       setPasteText('')
+      // Jump to the pasted content so it's immediately visible.
+      const t = f.tests[0]
+      if (t) { setTestNo(t.test_number); setMondaiNo(t.problems[0]?.mondai_number ?? 1) }
       setReloadKey(k => k + 1)
-      setPasteMsg(`✓ Added. ${countQuestions(f)} pasted question(s) for ${level}.`)
+      setPanel('none')
+      setPasteMsg(`✓ Added. Showing ${t?.test_number === 99 ? '“Pasted”' : `Test ${t?.test_number}`}. ${countQuestions(f)} pasted question(s).`)
     } catch (e) { setPasteMsg(`✗ ${(e as Error).message}`) }
   }, [level, pasteText])
 
