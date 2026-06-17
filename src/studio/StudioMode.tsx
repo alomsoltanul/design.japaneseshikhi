@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import './studio.css'
-import { findQuestion, type LevelQuestion } from './levels'
+import { findQuestion, panelsOf, hasPanels, type LevelQuestion } from './levels'
 import { getMergedLevel } from './content'
+import { loadImageMap, resolveImage } from './imageStore'
 
 /* ════════════════════════════════════════════════════════════
    Studio Mode (chromeless 9:16 recording surface) — offline.
@@ -62,18 +63,22 @@ export function StudioMode() {
   const [err, setErr] = useState<string | null>(null)
   const sceneIdx = SCENES.indexOf(params.scene)
 
-  // Load the question from the static level file.
+  // Load uploaded images + the question (images first so the grid resolves).
   useEffect(() => {
     let cancelled = false
-    getMergedLevel(params.level)
-      .then(f => {
+    ;(async () => {
+      await loadImageMap()
+      try {
+        const f = await getMergedLevel(params.level)
         if (cancelled) return
         const q = findQuestion(f, params.test, params.mondai, params.question)
         if (!q) throw new Error(`Q${params.question} not found in ${params.level} test ${params.test} mondai ${params.mondai}`)
         setData(q)
         setErr(null)
-      })
-      .catch(e => !cancelled && setErr((e as Error).message))
+      } catch (e) {
+        if (!cancelled) setErr((e as Error).message)
+      }
+    })()
     return () => {
       cancelled = true
     }
@@ -151,6 +156,20 @@ function LevelBadge({ level }: { level: string }) {
   return <div className="studio-badge">JLPT {level}</div>
 }
 
+function PanelGrid({ q, reveal }: { q: LevelQuestion; reveal?: boolean }) {
+  return (
+    <div className="studio-panels">
+      {panelsOf(q).map(p => (
+        <div key={p.id} className={`studio-panel${reveal && p.correct ? ' correct' : ''}`}>
+          {p.url ? <img src={p.url} alt="" /> : <span className="studio-panel-text">{p.text}</span>}
+          <span className="studio-panel-num">{p.id}</span>
+          {reveal && p.correct && <span className="studio-panel-check">✓</span>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function QuestionScene({ data, level }: { data: LevelQuestion | null; level: string }) {
   const [imgFailed, setImgFailed] = useState(false)
   const showImage = data?.image_file && !imgFailed
@@ -158,13 +177,10 @@ function QuestionScene({ data, level }: { data: LevelQuestion | null; level: str
     <div className="studio-scene">
       <LevelBadge level={level} />
       <div className="studio-question">{data?.question_text ?? '…'}</div>
-      {showImage ? (
-        <img
-          className="studio-image"
-          src={`/jsonfileImages/${data!.image_file}`}
-          alt=""
-          onError={() => setImgFailed(true)}
-        />
+      {data && hasPanels(data) ? (
+        <PanelGrid q={data} />
+      ) : showImage ? (
+        <img className="studio-image" src={resolveImage(data!.image_file) ?? ''} alt="" onError={() => setImgFailed(true)} />
       ) : (
         <div className="studio-options">
           {data?.options.map(o => (
@@ -201,18 +217,22 @@ function AnswerScene({ data }: { data: LevelQuestion | null }) {
   return (
     <div className="studio-scene">
       <div className="studio-think-label">こたえ / Answer</div>
-      <div className="studio-options">
-        {data?.options.map(o => {
-          const correct = o.id === data.correct_option_id
-          return (
-            <div key={o.id} className={`studio-option${correct ? ' correct' : ''}`}>
-              <span className="studio-option-num">{o.id}</span>
-              {o.text}
-              {correct && <span className="studio-check">✓</span>}
-            </div>
-          )
-        })}
-      </div>
+      {data && hasPanels(data) ? (
+        <PanelGrid q={data} reveal />
+      ) : (
+        <div className="studio-options">
+          {data?.options.map(o => {
+            const correct = o.id === data.correct_option_id
+            return (
+              <div key={o.id} className={`studio-option${correct ? ' correct' : ''}`}>
+                <span className="studio-option-num">{o.id}</span>
+                {o.text}
+                {correct && <span className="studio-check">✓</span>}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

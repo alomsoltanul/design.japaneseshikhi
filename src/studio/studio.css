@@ -81,6 +81,70 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* 2x2 per-option image grid (JLPT 4-panel) */
+.studio-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  width: 86%;
+}
+.studio-panel {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: #fff;
+  border-radius: 22px;
+  border: 4px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.studio-panel img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 14px;
+  box-sizing: border-box;
+}
+.studio-panel-text {
+  color: #1a1a1a;
+  font-size: 40px;
+  font-weight: 700;
+  text-align: center;
+  padding: 12px;
+}
+.studio-panel-num {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.studio-panel.correct {
+  border-color: #e63946;
+  animation: studio-pop 0.5s cubic-bezier(0.22, 1.3, 0.5, 1);
+}
+.studio-panel.correct .studio-panel-num {
+  background: #e63946;
+}
+.studio-panel-check {
+  position: absolute;
+  right: 12px;
+  bottom: 6px;
+  color: #e63946;
+  font-size: 70px;
+  font-weight: 900;
+  animation: studio-check 0.45s ease both;
+}
+
 .studio-options {
   display: flex;
   flex-direction: column;

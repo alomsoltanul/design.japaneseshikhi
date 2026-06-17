@@ -57,13 +57,22 @@ export function SlideCard({ slide, level, total }: { slide: CarouselSlide; level
           gap: 40,
         }}
       >
-        {slide.imageUrl && (
-          <img
-            src={slide.imageUrl}
-            alt=""
-            style={{ maxWidth: '88%', maxHeight: 560, objectFit: 'contain', borderRadius: 20, background: 'rgba(0,0,0,0.04)' }}
-          />
-        )}
+        {slide.panels && slide.panels.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, width: '86%' }}>
+            {slide.panels.map(p => {
+              const hot = slide.type === 'answer' && p.correct
+              return (
+                <div key={p.id} style={{ position: 'relative', aspectRatio: '1 / 1', background: '#fff', borderRadius: 18, border: `5px solid ${hot ? BRAND : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {p.url ? <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 12, boxSizing: 'border-box' }} /> : <span style={{ color: INK, fontSize: 40, fontWeight: 700, textAlign: 'center', padding: 10 }}>{p.text}</span>}
+                  <span style={{ position: 'absolute', top: 12, left: 12, width: 52, height: 52, borderRadius: '50%', background: hot ? BRAND : 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 28, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{p.id}</span>
+                  {hot && <span style={{ position: 'absolute', right: 12, bottom: 4, color: BRAND, fontSize: 64, fontWeight: 900 }}>✓</span>}
+                </div>
+              )
+            })}
+          </div>
+        ) : slide.imageUrl ? (
+          <img src={slide.imageUrl} alt="" style={{ maxWidth: '88%', maxHeight: 560, objectFit: 'contain', borderRadius: 20, background: 'rgba(0,0,0,0.04)' }} />
+        ) : null}
 
         {slide.type === 'answer' ? (
           <div

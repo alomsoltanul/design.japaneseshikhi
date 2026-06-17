@@ -1,6 +1,6 @@
 // Offline social content: build carousel slides, caption, hashtags and a reel
 // script deterministically from a question. No API call.
-import type { LevelQuestion } from './levels'
+import { panelsOf, hasPanels, imageUrl, type LevelQuestion, type Panel } from './levels'
 
 export interface CarouselSlide {
   slide: number
@@ -8,6 +8,7 @@ export interface CarouselSlide {
   text: string
   cta?: string
   imageUrl?: string
+  panels?: Panel[]
 }
 
 export interface ReelSegment {
@@ -29,11 +30,12 @@ function defaultHashtags(level: string): string[] {
 
 export function buildSlides(q: LevelQuestion): CarouselSlide[] {
   const correct = q.options.find(o => o.id === q.correct_option_id)
+  const grid = hasPanels(q) ? panelsOf(q) : undefined
   return [
-    { slide: 1, type: 'hook', text: `${q.question_text}\nCan you guess? 🤔`, imageUrl: q.image_file ? `/jsonfileImages/${q.image_file}` : undefined },
+    { slide: 1, type: 'hook', text: `${q.question_text}\nCan you guess? 🤔`, imageUrl: imageUrl(q.image_file) ?? undefined, panels: grid },
     { slide: 2, type: 'listen', text: '🎧 Listen first!' },
-    { slide: 3, type: 'options', text: q.options.map(o => `${o.id}. ${o.text}`).join('\n') },
-    { slide: 4, type: 'answer', text: `✅ ${correct ? correct.text : ''}` },
+    { slide: 3, type: 'options', text: q.options.map(o => `${o.id}. ${o.text}`).join('\n'), panels: grid },
+    { slide: 4, type: 'answer', text: `✅ ${correct ? correct.text : ''}`, panels: grid },
     {
       slide: 5,
       type: 'explain',

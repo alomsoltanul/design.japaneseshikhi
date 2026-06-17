@@ -1,7 +1,7 @@
 // Offline level data: read hand-authored JSON from /public/jsonfileLevels/{level}.json.
 // No API, no key, no cost. Edit the JSON + refresh the browser.
 
-export interface Option { id: number; text: string }
+export interface Option { id: number; text: string; image?: string }
 export interface Feedback { reason: string; advice: string; hint: string; trap: string }
 export interface DialogueLine { speaker: 'male' | 'female' | 'narrator'; text: string }
 export interface Transcript { pre_question: string; dialogue: DialogueLine[]; post_question: string }
@@ -40,6 +40,25 @@ export interface LevelFile {
 
 export const LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
 export type Level = (typeof LEVELS)[number]
+
+// ── image helpers ──
+import { resolveImage } from './imageStore'
+
+export function imageUrl(name?: string): string | null {
+  return resolveImage(name)
+}
+
+export interface Panel { id: number; text: string; url: string | null; correct: boolean }
+
+/** Per-option panels for the 4-panel grid (JLPT style). */
+export function panelsOf(q: LevelQuestion): Panel[] {
+  return q.options.map(o => ({ id: o.id, text: o.text, url: imageUrl(o.image), correct: o.id === q.correct_option_id }))
+}
+
+/** True when any option has its own image → render a 2x2 image grid. */
+export function hasPanels(q: LevelQuestion): boolean {
+  return q.options.some(o => !!o.image)
+}
 
 const cache = new Map<string, Promise<LevelFile>>()
 

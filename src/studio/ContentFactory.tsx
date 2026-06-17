@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { LEVELS, type LevelFile, type LevelQuestion } from './levels'
+import { LEVELS, panelsOf, hasPanels, type LevelFile, type LevelQuestion } from './levels'
 import { getMergedLevel, addPasted, clearPasted, getPasted, countQuestions } from './content'
 import { ExportStage, type ExportJob } from './ExportStage'
 import { ReelButton } from './ReelButton'
 import { loadVoiceSettings, saveVoiceSettings, DEFAULT_VOICE, type VoiceSettings } from './reel/voiceSettings'
 import { listVoices } from './reel/voices'
 import { reelEnvBlocked } from '@/listening/voicevox'
+import { loadImageMap, addUpload, clearUploads, uploadedNames, resolveImage } from './imageStore'
 
 const BRAND = '#E63946'
 const CARD = 'rgba(255,255,255,0.045)'
@@ -23,11 +24,18 @@ export function ContentFactory() {
   const [job, setJob] = useState<ExportJob | null>(null)
   const [busyQ, setBusyQ] = useState<number | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
-  const [panel, setPanel] = useState<'none' | 'paste' | 'voice'>('none')
+  const [panel, setPanel] = useState<'none' | 'upload' | 'paste' | 'voice'>('none')
 
   const [pasteText, setPasteText] = useState('')
   const [pasteMsg, setPasteMsg] = useState<string | null>(null)
   const pastedCount = useMemo(() => countQuestions(getPasted(level)), [level, reloadKey])
+
+  // uploaded images (IndexedDB)
+  const [imgReady, setImgReady] = useState(false)
+  const [imgVersion, setImgVersion] = useState(0)
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null)
+  useEffect(() => { loadImageMap().then(() => setImgReady(true)) }, [])
+  const uploaded = useMemo(() => uploadedNames(), [imgVersion, imgReady])
 
   const [voice, setVoice] = useState<VoiceSettings>(DEFAULT_VOICE)
   const [speakers, setSpeakers] = useState<Speaker[]>([])
@@ -81,6 +89,45 @@ export function ContentFactory() {
 
   const onClearPasted = useCallback(() => { clearPasted(level); setReloadKey(k => k + 1); setPasteMsg('Cleared pasted content.') }, [level])
 
+  const onUploadJson = useCallback(async (f: File) => {
+    setPasteMsg(null)
+    try {
+      const text = await f.text()
+      const merged = addPasted(level, text)
+      const t = merged.tests[0]
+      if (t) { setTestNo(t.test_number); setMondaiNo(t.problems[0]?.mondai_number ?? 1) }
+      setReloadKey(k => k + 1)
+      setPasteMsg(`✓ Loaded ${f.name}. ${countQuestions(merged)} question(s) added.`)
+    } catch (e) { setPasteMsg(`✗ ${(e as Error).message}`) }
+  }, [level])
+
+  const onUploadImages = useCallback(async (files: FileList | File[]) => {
+    const arr = Array.from(files).filter(f => f.type.startsWith('image/'))
+    if (!arr.length) return
+    for (const f of arr) await addUpload(f)
+    setImgVersion(v => v + 1)
+    setUploadMsg(`✓ ${arr.length} image(s) added (${uploadedNames().length} total).`)
+  }, [])
+
+  const onClearUploads = useCallback(async () => {
+    await clearUploads()
+    setImgVersion(v => v + 1)
+    setUploadMsg('Cleared all uploaded images.')
+  }, [])
+
+  // image filenames referenced by the current level, and which are missing from uploads + repo
+  const referenced = useMemo(() => {
+    const names = new Set<string>()
+    for (const t of file?.tests ?? [])
+      for (const p of t.problems)
+        for (const qn of p.questions) {
+          if (qn.image_file) names.add(qn.image_file)
+          for (const o of qn.options) if (o.image) names.add(o.image)
+        }
+    return [...names]
+  }, [file])
+  const notUploaded = useMemo(() => referenced.filter(n => !uploaded.includes(n)), [referenced, uploaded])
+
   const startExport = useCallback((qn: number) => {
     const question = problem?.questions.find(x => x.question_number === qn)
     if (!question || !test || !problem) return
@@ -101,12 +148,13 @@ export function ContentFactory() {
           <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.01em' }}>JLPT Listening Studio</span>
           <span style={{ background: '#10b981', fontSize: 11, fontWeight: 800, padding: '4px 11px', borderRadius: 999 }}>Offline · Free</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <Toggle active={panel === 'upload'} onClick={() => setPanel(panel === 'upload' ? 'none' : 'upload')}>📤 Upload</Toggle>
             <Toggle active={panel === 'paste'} onClick={() => setPanel(panel === 'paste' ? 'none' : 'paste')}>📋 Paste JSON</Toggle>
             <Toggle active={panel === 'voice'} onClick={() => setPanel(panel === 'voice' ? 'none' : 'voice')}>🎙 Voice</Toggle>
           </div>
         </div>
         <div style={{ fontSize: 13, opacity: 0.65, marginTop: 8 }}>
-          Paste JSON or edit <code>public/jsonfileLevels/{level.toLowerCase()}.json</code> → export carousel slides or build a voiced MP4 reel.
+          <b>Upload</b> your Claude JSON + images → questions and images appear → build a voiced MP4 reel (saved to your PC). No database; images stay in your browser.
         </div>
         {reelsLocalOnly && (
           <div style={{ marginTop: 12, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '9px 13px', fontSize: 12.5 }}>
@@ -131,6 +179,48 @@ export function ContentFactory() {
         {loading && <span style={{ fontSize: 13, opacity: 0.6 }}>Loading…</span>}
         <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.55 }}>{questions.length} question{questions.length === 1 ? '' : 's'}</span>
       </div>
+
+      {/* Upload panel */}
+      {panel === 'upload' && (
+        <Panel title={`Upload content → ${level}`}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
+            <div style={{ minWidth: 240 }}>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>1. Claude JSON file</div>
+              <label style={{ display: 'inline-block', background: BRAND, color: '#fff', borderRadius: 9, padding: '9px 18px', fontWeight: 800, cursor: 'pointer' }}>
+                Choose .json
+                <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onUploadJson(f); e.currentTarget.value = '' }} />
+              </label>
+            </div>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>2. Images (drag in, or choose — names must match the JSON)</div>
+              <label
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) onUploadImages(e.dataTransfer.files) }}
+                style={{ display: 'block', border: `2px dashed ${LINE}`, borderRadius: 10, padding: '18px', textAlign: 'center', cursor: 'pointer', fontSize: 13, opacity: 0.85 }}
+              >
+                Drag & drop images here, or click to choose
+                <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { if (e.target.files) onUploadImages(e.target.files); e.currentTarget.value = '' }} />
+              </label>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12.5, opacity: 0.7 }}>{uploaded.length} image(s) uploaded</span>
+            {uploaded.length > 0 && <button onClick={onClearUploads} style={{ ...sel, cursor: 'pointer' }}>Clear images</button>}
+            {uploadMsg && <span style={{ fontSize: 12.5, color: uploadMsg.startsWith('✗') ? BRAND : '#10b981' }}>{uploadMsg}</span>}
+          </div>
+          {notUploaded.length > 0 && (
+            <div style={{ fontSize: 12, marginTop: 10, color: '#f59e0b' }}>
+              Referenced by JSON but not uploaded ({notUploaded.length}): {notUploaded.join(', ')}
+              <span style={{ opacity: 0.6 }}> — upload these, or place them in public/jsonfileImages/.</span>
+            </div>
+          )}
+          {uploaded.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {uploaded.map(n => <span key={n} style={{ fontSize: 11, background: 'rgba(16,185,129,0.14)', color: '#34d399', padding: '3px 9px', borderRadius: 999 }}>{n}</span>)}
+            </div>
+          )}
+        </Panel>
+      )}
 
       {/* Paste panel */}
       {panel === 'paste' && (
@@ -212,8 +302,20 @@ export function ContentFactory() {
 function Thumb({ q }: { q: LevelQuestion }) {
   const [failed, setFailed] = useState(false)
   const size = 84
+  // 2x2 per-option image grid
+  if (hasPanels(q)) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: 12, background: '#fff', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, padding: 2, flex: 'none' }}>
+        {panelsOf(q).map(p => (
+          <div key={p.id} style={{ background: '#fff', border: p.correct ? '2px solid #e63946' : '1px solid #eee', borderRadius: 5, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {p.url ? <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ color: '#333', fontSize: 11, fontWeight: 800 }}>{p.id}</span>}
+          </div>
+        ))}
+      </div>
+    )
+  }
   if (q.image_file && !failed) {
-    return <img src={`/jsonfileImages/${q.image_file}`} onError={() => setFailed(true)} alt="" style={{ width: size, height: size, objectFit: 'cover', borderRadius: 12, background: 'rgba(255,255,255,0.06)', flex: 'none' }} />
+    return <img src={resolveImage(q.image_file) ?? ''} onError={() => setFailed(true)} alt="" style={{ width: size, height: size, objectFit: 'cover', borderRadius: 12, background: 'rgba(255,255,255,0.06)', flex: 'none' }} />
   }
   return (
     <div style={{ width: size, height: size, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: 8, flex: 'none' }}>

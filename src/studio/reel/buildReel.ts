@@ -1,6 +1,6 @@
 // Deterministic reel pipeline: VOICEVOX voice → gapless offline audio mix →
 // WebCodecs MP4 (or WebM fallback). No ffmpeg.wasm, no realtime audio drift.
-import type { LevelQuestion } from '../levels'
+import { imageUrl, type LevelQuestion } from '../levels'
 import { W, H, renderFrame, type SceneKind } from './render'
 import { ensureVoicevox, resolveVoices, synthBuffer } from './voices'
 import { mixTimeline, type AudioSeg } from './mixAudio'
@@ -71,14 +71,22 @@ export async function buildReel(
   const audioSegs: AudioSeg[] = segs.map(s => ({ start: s.start, audio: s.audio, chime: s.chime }))
   const mixed = await mixTimeline(audioSegs, total, 48000)
 
-  // preload the question image (same-origin, won't taint the canvas)
-  const img = q.image_file ? await loadImage(`/jsonfileImages/${q.image_file}`).catch(() => null) : null
+  // preload images (resolved from the local store / repo; won't taint the canvas)
+  const singleUrl = imageUrl(q.image_file)
+  const single = singleUrl ? await loadImage(singleUrl).catch(() => null) : null
+  const panelImgs = await Promise.all(
+    q.options.map(o => {
+      const u = imageUrl(o.image)
+      return u ? loadImage(u).catch(() => null) : Promise.resolve(null)
+    }),
+  )
+  const media = { single, panels: panelImgs.some(Boolean) ? panelImgs : undefined }
 
   // frame drawer
   const draw = (ctx: CanvasRenderingContext2D, t: number) => {
     let cur = segs[0]
     for (const s of segs) if (t >= s.start) cur = s
-    renderFrame(ctx, cur.scene, q, level, t - cur.start, cur.dur, img)
+    renderFrame(ctx, cur.scene, q, level, t - cur.start, cur.dur, media)
   }
 
   if (webcodecsSupported()) {

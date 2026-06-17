@@ -13,7 +13,7 @@
               "question_number": 1,
               "question_text": "おとこの ひとは これから なにを かいますか。",
               "question_text_en": "What will the man buy now?",
-              "image_file": "n5_t1_m1_q1.png",
+              "image_file": "n5.png",
               "image_prompt": "A clean 2x2 four-panel illustration in the style of an official JLPT listening exam, simple flat vector line-art, minimal color, white background, thin black outlines, no text. Panel 1: a rice ball (onigiri). Panel 2: a bento box. Panel 3: a sandwich. Panel 4: a loaf of bread. Consistent simple style, centered, lots of whitespace, 1:1 square, no words or watermark.",
               "options": [
                 { "id": 1, "text": "おにぎり" },

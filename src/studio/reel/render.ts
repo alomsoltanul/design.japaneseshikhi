@@ -146,6 +146,81 @@ function drawImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, topY: n
   ctx.drawImage(img, x, topY, w, h)
 }
 
+/** 2x2 grid of per-option images (JLPT 4-panel). */
+function drawPanelGrid(
+  ctx: CanvasRenderingContext2D,
+  q: LevelQuestion,
+  panels: (HTMLImageElement | null)[],
+  topY: number,
+  highlightCorrect: boolean,
+  pop: number,
+) {
+  const gap = 24
+  const cell = (W - 160 - gap) / 2
+  const x0 = 80
+  ctx.textBaseline = 'alphabetic'
+  q.options.slice(0, 4).forEach((o, i) => {
+    const col = i % 2
+    const row = i < 2 ? 0 : 1
+    const x = x0 + col * (cell + gap)
+    const y = topY + row * (cell + gap)
+    const correct = highlightCorrect && o.id === q.correct_option_id
+    const im = panels[i]
+    // cell bg
+    roundRect(ctx, x, y, cell, cell, 24)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    // image (object-fit: contain)
+    if (im && im.complete && im.naturalWidth > 0) {
+      const pad = 16
+      const aw = cell - pad * 2
+      const s = Math.min(aw / im.naturalWidth, aw / im.naturalHeight)
+      const iw = im.naturalWidth * s
+      const ih = im.naturalHeight * s
+      ctx.drawImage(im, x + (cell - iw) / 2, y + (cell - ih) / 2, iw, ih)
+    } else {
+      ctx.fillStyle = '#1a1a1a'
+      ctx.font = `700 44px ${JP}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(o.text, x + cell / 2, y + cell / 2)
+      ctx.textBaseline = 'alphabetic'
+    }
+    // number badge
+    ctx.beginPath()
+    ctx.arc(x + 42, y + 42, 32, 0, Math.PI * 2)
+    ctx.fillStyle = correct ? BRAND : 'rgba(0,0,0,0.55)'
+    ctx.fill()
+    ctx.fillStyle = '#fff'
+    ctx.font = `800 36px ${JP}`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(o.id), x + 42, y + 43)
+    ctx.textBaseline = 'alphabetic'
+    // correct outline + check
+    if (correct) {
+      ctx.lineWidth = 8
+      ctx.strokeStyle = BRAND
+      roundRect(ctx, x, y, cell, cell, 24)
+      ctx.stroke()
+      ctx.save()
+      ctx.translate(x + cell - 56, y + cell - 56)
+      ctx.scale(pop, pop)
+      ctx.fillStyle = BRAND
+      ctx.font = `900 84px ${JP}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('✓', 0, 4)
+      ctx.restore()
+    }
+  })
+}
+
+export interface ReelMedia {
+  single?: HTMLImageElement | null
+  panels?: (HTMLImageElement | null)[]
+}
+
 /** Draw one frame. tLocal = seconds into the scene, dur = scene length. */
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
@@ -154,33 +229,50 @@ export function renderFrame(
   level: string,
   tLocal: number,
   dur: number,
-  img?: HTMLImageElement | null,
+  media?: ReelMedia,
 ) {
   bg(ctx)
   ctx.fillStyle = '#fff'
+  const img = media?.single
+  const panels = media?.panels
   const hasImg = !!(img && img.complete && img.naturalWidth > 0)
+  const hasGrid = !!(panels && panels.length)
 
   if (scene === 'question') {
     badge(ctx, level)
     ctx.fillStyle = '#fff'
     ctx.font = `800 68px ${JP}`
     const afterQ = wrapCenter(ctx, q.question_text, W / 2, 350, W - 160, 90)
-    if (hasImg) drawImage(ctx, img!, Math.max(afterQ + 50, 720), 820)
+    const top = Math.max(afterQ + 50, 700)
+    if (hasGrid) drawPanelGrid(ctx, q, panels!, top, false, 0)
+    else if (hasImg) drawImage(ctx, img!, Math.max(afterQ + 50, 720), 820)
     else optionRows(ctx, q, Math.max(afterQ + 40, 760), false, 0)
     return
   }
 
   if (scene === 'listen') {
     badge(ctx, level)
-    ctx.font = `900 220px ${JP}`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('🎧', W / 2, H / 2 - 120)
     const dots = '.'.repeat(1 + (Math.floor(tLocal * 2) % 3))
-    label(ctx, `きいて ください${dots}`, H / 2 + 120)
-    ctx.font = `600 44px ${JP}`
-    ctx.fillStyle = 'rgba(255,255,255,0.6)'
-    ctx.fillText('Listen carefully', W / 2, H / 2 + 200)
+    if (hasGrid || hasImg) {
+      // Show the image(s) while the dialogue plays (look + listen).
+      ctx.fillStyle = '#fff'
+      label(ctx, '🎧 きいて ください', 300)
+      if (hasGrid) drawPanelGrid(ctx, q, panels!, 430, false, 0)
+      else drawImage(ctx, img!, 440, 980)
+      ctx.font = `600 42px ${JP}`
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'
+      ctx.textAlign = 'center'
+      ctx.fillText(`Listen${dots}`, W / 2, H - 130)
+    } else {
+      ctx.font = `900 220px ${JP}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('🎧', W / 2, H / 2 - 120)
+      label(ctx, `きいて ください${dots}`, H / 2 + 120)
+      ctx.font = `600 44px ${JP}`
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'
+      ctx.fillText('Listen carefully', W / 2, H / 2 + 200)
+    }
     return
   }
 
@@ -202,7 +294,8 @@ export function renderFrame(
     badge(ctx, level)
     label(ctx, 'こたえ / Answer', 320)
     const pop = Math.min(1, tLocal / 0.4)
-    optionRows(ctx, q, 470, true, pop < 0.05 ? 0 : pop)
+    if (hasGrid) drawPanelGrid(ctx, q, panels!, 430, true, pop < 0.05 ? 0 : pop)
+    else optionRows(ctx, q, 470, true, pop < 0.05 ? 0 : pop)
     return
   }
 
