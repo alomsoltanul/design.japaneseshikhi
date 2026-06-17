@@ -172,6 +172,8 @@ function PanelGrid({ q, reveal }: { q: LevelQuestion; reveal?: boolean }) {
 
 function QuestionScene({ data, level }: { data: LevelQuestion | null; level: string }) {
   const [imgFailed, setImgFailed] = useState(false)
+  const singleUrl = resolveImage(data?.image_file)
+  useEffect(() => setImgFailed(false), [singleUrl])
   const showImage = data?.image_file && !imgFailed
   return (
     <div className="studio-scene">
@@ -180,7 +182,7 @@ function QuestionScene({ data, level }: { data: LevelQuestion | null; level: str
       {data && hasPanels(data) ? (
         <PanelGrid q={data} />
       ) : showImage ? (
-        <img className="studio-image" src={resolveImage(data!.image_file) ?? ''} alt="" onError={() => setImgFailed(true)} />
+        <img className="studio-image" src={singleUrl ?? ''} alt="" onError={() => setImgFailed(true)} />
       ) : (
         <div className="studio-options">
           {data?.options.map(o => (

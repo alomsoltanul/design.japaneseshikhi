@@ -302,6 +302,9 @@ export function ContentFactory() {
 function Thumb({ q }: { q: LevelQuestion }) {
   const [failed, setFailed] = useState(false)
   const size = 84
+  const singleUrl = resolveImage(q.image_file)
+  // reset the error flag when the resolved URL changes (e.g. after an upload)
+  useEffect(() => setFailed(false), [singleUrl])
   // 2x2 per-option image grid
   if (hasPanels(q)) {
     return (
@@ -314,8 +317,8 @@ function Thumb({ q }: { q: LevelQuestion }) {
       </div>
     )
   }
-  if (q.image_file && !failed) {
-    return <img src={resolveImage(q.image_file) ?? ''} onError={() => setFailed(true)} alt="" style={{ width: size, height: size, objectFit: 'cover', borderRadius: 12, background: 'rgba(255,255,255,0.06)', flex: 'none' }} />
+  if (singleUrl && !failed) {
+    return <img src={singleUrl} onError={() => setFailed(true)} alt="" style={{ width: size, height: size, objectFit: 'cover', borderRadius: 12, background: 'rgba(255,255,255,0.06)', flex: 'none' }} />
   }
   return (
     <div style={{ width: size, height: size, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: 8, flex: 'none' }}>

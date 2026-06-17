@@ -2,7 +2,7 @@
   "level": "N5",
   "tests": [
     {
-      "test_number": 1,
+      "test_number": 3,
       "problems": [
         {
           "mondai_number": 1,
@@ -11,216 +11,419 @@
           "questions": [
             {
               "question_number": 1,
-              "question_text": "おとこの ひとは これから なにを かいますか。",
-              "question_text_en": "What will the man buy now?",
-              "image_file": "n5.png",
-              "image_prompt": "A clean 2x2 four-panel illustration in the style of an official JLPT listening exam, simple flat vector line-art, minimal color, white background, thin black outlines, no text. Panel 1: a rice ball (onigiri). Panel 2: a bento box. Panel 3: a sandwich. Panel 4: a loaf of bread. Consistent simple style, centered, lots of whitespace, 1:1 square, no words or watermark.",
+              "question_text": "おんなの ひとは あした なにを もって きますか。",
+              "question_text_en": "What will the woman bring tomorrow?",
+              "image_file": "n5_t3_m1_q1.png",
+              "image_prompt": "A clean 2x2 four-panel illustration in the style of an official JLPT listening exam, simple flat vector line-art, minimal color, white background, thin black outlines, no text or numbers in the image. Panel 1 (top-left): an umbrella; Panel 2 (top-right): a notebook/notepad; Panel 3 (bottom-left): a camera; Panel 4 (bottom-right): a lunch box / bento box. Consistent simple style, centered, lots of whitespace, 1:1 square. No words, no captions, no watermark.",
               "options": [
-                { "id": 1, "text": "おにぎり" },
-                { "id": 2, "text": "おべんとう" },
-                { "id": 3, "text": "サンドイッチ" },
-                { "id": 4, "text": "パン" }
+                { "id": 1, "text": "かさ" },
+                { "id": 2, "text": "ノート" },
+                { "id": 3, "text": "カメラ" },
+                { "id": 4, "text": "おべんとう" }
               ],
               "correct_option_id": 3,
               "feedback": {
-                "reason": "おとこの ひとが「じゃあ、サンドイッチに します」と いいました。",
-                "advice": "「〜に します」は えらぶ ときに つかう ことばです。",
-                "hint": "さいごに おとこの ひとが きめた ものを ききましょう。",
-                "trap": "おべんとうは「たかい」と いって やめたので こたえでは ありません。"
+                "reason": "男の人が「カメラを もって きてください」と言いました。",
+                "advice": "「もってきてください」= please bring ~ (te-form of もってくる)",
+                "hint": "Listen for what the man explicitly asks her to bring.",
+                "trap": "She mentions rain, so かさ sounds logical — but the man's request is for カメラ."
               },
               "transcript": {
-                "pre_question": "コンビニで おとこの ひとと おんなの ひとが はなして います。",
+                "pre_question": "おんなの ひとと おとこの ひとが はなして います。おんなの ひとは あした なにを もって きますか。",
                 "dialogue": [
-                  { "speaker": "female", "text": "おひるごはん、なにに する?" },
-                  { "speaker": "male", "text": "おべんとうが いいけど、ちょっと たかいなあ。" },
-                  { "speaker": "female", "text": "じゃあ、おにぎりは?" },
-                  { "speaker": "male", "text": "うーん、きょうは パンか サンドイッチが いいな。" },
-                  { "speaker": "female", "text": "サンドイッチ、おいしいよ。" },
-                  { "speaker": "male", "text": "じゃあ、サンドイッチに します。" }
+                  { "speaker": "female", "text": "あしたの えんそくは たのしみですね。" },
+                  { "speaker": "male", "text": "そうですね。あ、あめが ふるかも しれないので、かさを わすれないで ください。" },
+                  { "speaker": "female", "text": "はい、わかりました。" },
+                  { "speaker": "male", "text": "それから、みんなで しゃしんを とりたいので、カメラも もって きて ください。" },
+                  { "speaker": "female", "text": "カメラですね。わかりました！" }
                 ],
-                "post_question": "おとこの ひとは これから なにを かいますか。"
+                "post_question": "おんなの ひとは あした なにを もって きますか。"
               },
               "social": {
-                "caption": "🍙 Lunch at the konbini — but what does he actually buy? Listen for the moment he changes his mind. You've got this! 💪",
-                "hashtags": ["#JLPT", "#N5", "#日本語", "#JapaneseLearning", "#LanguageLearning", "#StudyGram", "#Nihongo", "#LearnJapanese"]
+                "caption": "🎒 えんそくで なにを もっていく？N5リスニング練習！\nダイアログを聞いて、正しい答えを選ぼう✏️",
+                "hashtags": ["#JLPT", "#N5", "#日本語", "#リスニング", "#japaneseshikhi"]
               }
             },
             {
               "question_number": 2,
-              "question_text": "おんなの ひとは なにを のみますか。",
-              "question_text_en": "What will the woman drink?",
-              "image_file": "n5_t1_m1_q2.png",
+              "question_text": "おとこの ひとは どこで ひるごはんを たべますか。",
+              "question_text_en": "Where will the man eat lunch?",
+              "image_file": "n5_t3_m1_q2.png",
+              "image_prompt": "A clean 2x2 four-panel illustration in the style of an official JLPT listening exam, simple flat vector line-art, minimal color, white background, thin black outlines, no text or numbers in the image. Panel 1 (top-left): a cafeteria / canteen with trays; Panel 2 (top-right): a park bench with trees; Panel 3 (bottom-left): a convenience store; Panel 4 (bottom-right): a restaurant with a door sign. Consistent simple style, centered, lots of whitespace, 1:1 square. No words, no captions, no watermark.",
               "options": [
-                { "id": 1, "text": "コーヒー" },
-                { "id": 2, "text": "おちゃ" },
-                { "id": 3, "text": "ぎゅうにゅう" },
-                { "id": 4, "text": "みず" }
+                { "id": 1, "text": "しょくどう" },
+                { "id": 2, "text": "こうえん" },
+                { "id": 3, "text": "コンビニ" },
+                { "id": 4, "text": "レストラン" }
               ],
               "correct_option_id": 2,
               "feedback": {
-                "reason": "おんなの ひとが「やっぱり おちゃに します」と いいました。",
-                "advice": "「やっぱり」は きもちが かわった ときに つかいます。",
-                "hint": "「やっぱり」の あとの ことばが だいじです。",
-                "trap": "さいしょに コーヒーと いいましたが、あとで かえたので ちがいます。"
+                "reason": "男の人が「こうえんで たべます」と言いました。",
+                "advice": "「で」marks the place where an action happens: こうえん＋で＋たべます。",
+                "hint": "Listen for the particle で after a place name.",
+                "trap": "The woman suggests the cafeteria (しょくどう), but the man declines."
               },
               "transcript": {
-                "pre_question": "コンビニで おんなの ひとと みせの ひとが はなして います。",
+                "pre_question": "おんなの ひとと おとこの ひとが はなして います。おとこの ひとは どこで ひるごはんを たべますか。",
                 "dialogue": [
-                  { "speaker": "female", "text": "あたたかい コーヒーを ください。" },
-                  { "speaker": "male", "text": "はい。コーヒーですね。" },
-                  { "speaker": "female", "text": "あ、すみません。やっぱり おちゃに します。" },
-                  { "speaker": "male", "text": "わかりました。つめたい おちゃですか。" },
-                  { "speaker": "female", "text": "はい、それで おねがいします。" }
+                  { "speaker": "female", "text": "やまださん、ひるごはんは しょくどうで たべますか。" },
+                  { "speaker": "male", "text": "いいえ、きょうは いい てんきなので、こうえんで たべます。" },
+                  { "speaker": "female", "text": "いいですね！コンビニで かってから いきますか。" },
+                  { "speaker": "male", "text": "おべんとうは もう もって います。じゃあ、また あとで。" }
                 ],
-                "post_question": "おんなの ひとは なにを のみますか。"
+                "post_question": "おとこの ひとは どこで ひるごはんを たべますか。"
+              },
+              "social": {
+                "caption": "🍱 ひるごはんは どこで食べる？N5リスニング！\n「で」の使い方もチェックしよう✅",
+                "hashtags": ["#JLPT", "#N5", "#日本語", "#japaneseshikhi", "#リスニング練習"]
               }
             },
             {
               "question_number": 3,
-              "question_text": "おとこの ひとは なんで おかねを はらいますか。",
-              "question_text_en": "How will the man pay?",
-              "image_file": "n5_t1_m1_q3.png",
+              "question_text": "おんなの こは あとで なにを しますか。",
+              "question_text_en": "What will the girl do later?",
+              "image_file": "n5_t3_m1_q3.png",
+              "image_prompt": "A clean 2x2 four-panel illustration in the style of an official JLPT listening exam, simple flat vector line-art, minimal color, white background, thin black outlines, no text or numbers in the image. Panel 1 (top-left): a person doing homework at a desk; Panel 2 (top-right): a person watching TV; Panel 3 (bottom-left): a person playing outside / running; Panel 4 (bottom-right): a person sleeping. Consistent simple style, centered, lots of whitespace, 1:1 square. No words, no captions, no watermark.",
               "options": [
-                { "id": 1, "text": "おさつ" },
-                { "id": 2, "text": "カード" },
-                { "id": 3, "text": "こまかい おかね" },
-                { "id": 4, "text": "けいたい" }
+                { "id": 1, "text": "しゅくだい" },
+                { "id": 2, "text": "テレビ" },
+                { "id": 3, "text": "そとあそび" },
+                { "id": 4, "text": "ねる" }
+              ],
+              "correct_option_id": 1,
+              "feedback": {
+                "reason": "女の子が「しゅくだいを してから あそびます」と言いました。",
+                "advice": "「〜てから」= after doing ~。Sequence: homework first, then play.",
+                "hint": "She says she'll do something BEFORE she plays — what is it?",
+                "trap": "Playing outside (そとあそび) happens later — she does homework FIRST."
+              },
+              "transcript": {
+                "pre_question": "おかあさんと おんなの こが はなして います。おんなの こは あとで なにを しますか。",
+                "dialogue": [
+                  { "speaker": "female", "text": "はなこ、そとで あそんで くる？" },
+                  { "speaker": "female", "text": "あとで！しゅくだいを してから あそびます。" },
+                  { "speaker": "female", "text": "えらいね。テレビは？" },
+                  { "speaker": "female", "text": "しゅくだいが おわったら みます。" }
+                ],
+                "post_question": "おんなの こは あとで なにを しますか。"
+              },
+              "social": {
+                "caption": "📚 しゅくだい、てれび、あそび…まず何をする？N5リスニング！\n「〜てから」の順番に注意👀",
+                "hashtags": ["#JLPT", "#N5", "#日本語", "#てから", "#japaneseshikhi"]
+              }
+            }
+          ]
+        },
+        {
+          "mondai_number": 2,
+          "problem_title": "もんだい２",
+          "problem_title_en": "Key Point Comprehension",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "パーティーは なんじに はじまりますか。",
+              "question_text_en": "What time does the party start?",
+              "image_file": "n5_t3_m2_q1.png",
+              "image_prompt": "A simple flat vector line illustration for a JLPT listening question, minimal color, white background, thin black outlines, no text. Scene: two people talking near a party decoration — balloons and a table with cake. Clean, friendly, lots of whitespace, 1:1 square. No words or watermark.",
+              "options": [
+                { "id": 1, "text": "ごじ" },
+                { "id": 2, "text": "ろくじ" },
+                { "id": 3, "text": "しちじ" },
+                { "id": 4, "text": "はちじ" }
               ],
               "correct_option_id": 2,
               "feedback": {
-                "reason": "おとこの ひとが「カードで おねがいします」と いいました。",
-                "advice": "「〜で」は ほうほうを いう ときに つかいます。",
-                "hint": "さいごに おとこの ひとが えらんだ はらいかたを ききましょう。",
-                "trap": "こまかい おかねが ないと いったので げんきんでは ありません。"
+                "reason": "「パーティーは ろくじに はじまります」と言いました。",
+                "advice": "Time + に + verb = action at a specific time。ろくじ = 6 o'clock。",
+                "hint": "Listen carefully for the time directly after 「パーティーは」。",
+                "trap": "5 o'clock (ごじ) is when they should arrive, not when the party starts."
               },
               "transcript": {
-                "pre_question": "コンビニで みせの ひとと おとこの ひとが はなして います。",
+                "pre_question": "おとこの ひとと おんなの ひとが はなして います。パーティーは なんじに はじまりますか。",
                 "dialogue": [
-                  { "speaker": "female", "text": "ぜんぶで せんえんです。" },
-                  { "speaker": "male", "text": "あ、こまかい おかねが ありません。" },
-                  { "speaker": "female", "text": "では、カードも つかえますよ。" },
-                  { "speaker": "male", "text": "じゃあ、カードで おねがいします。" }
+                  { "speaker": "male", "text": "あしたの パーティーに きますか。" },
+                  { "speaker": "female", "text": "はい！なんじに はじまりますか。" },
+                  { "speaker": "male", "text": "ろくじに はじまります。でも、じゅんびが あるので、ごじごろ きて ください。" },
+                  { "speaker": "female", "text": "わかりました。ろくじに はじまるんですね。" }
                 ],
-                "post_question": "おとこの ひとは なんで おかねを はらいますか。"
+                "post_question": "パーティーは なんじに はじまりますか。"
+              },
+              "social": {
+                "caption": "🎉 パーティーは何時から？時間の聞き取りN5練習！\nごじ？ろくじ？集中して聴こう🎧",
+                "hashtags": ["#JLPT", "#N5", "#時間", "#日本語", "#japaneseshikhi"]
+              }
+            },
+            {
+              "question_number": 2,
+              "question_text": "おとこの ひとの かばんは なにいろですか。",
+              "question_text_en": "What colour is the man's bag?",
+              "image_file": "n5_t3_m2_q2.png",
+              "image_prompt": "A simple flat vector line illustration for a JLPT listening question, minimal color, white background, thin black outlines, no text. Scene: two people at a lost-and-found counter, looking at bags on a shelf behind the staff. Clean, friendly, lots of whitespace, 1:1 square. No words or watermark.",
+              "options": [
+                { "id": 1, "text": "くろ" },
+                { "id": 2, "text": "あお" },
+                { "id": 3, "text": "ちゃいろ" },
+                { "id": 4, "text": "しろ" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "男の人が「ちゃいろの かばんです」と言いました。",
+                "advice": "Colour + の + noun: ちゃいろの かばん = brown bag。",
+                "hint": "He corrects a wrong guess — listen for the final colour he confirms.",
+                "trap": "Black (くろ) is mentioned first but denied. The correct colour is brown (ちゃいろ)."
+              },
+              "transcript": {
+                "pre_question": "おとこの ひとと てんいんが はなして います。おとこの ひとの かばんは なにいろですか。",
+                "dialogue": [
+                  { "speaker": "male", "text": "すみません、かばんを わすれて しまいました。" },
+                  { "speaker": "female", "text": "どんな かばんですか。くろですか。" },
+                  { "speaker": "male", "text": "いいえ、ちゃいろです。それほど おおきく ないです。" },
+                  { "speaker": "female", "text": "ちゃいろの かばんですね。すこし おまち ください。" }
+                ],
+                "post_question": "おとこの ひとの かばんは なにいろですか。"
+              },
+              "social": {
+                "caption": "🎒 かばんの色は？N5リスニング！くろ・あお・ちゃいろ・しろ\n色の単語も復習しよう🎨",
+                "hashtags": ["#JLPT", "#N5", "#いろ", "#日本語", "#japaneseshikhi"]
+              }
+            },
+            {
+              "question_number": 3,
+              "question_text": "おんなの ひとは どうやって がっこうに いきますか。",
+              "question_text_en": "How does the woman go to school?",
+              "image_file": "n5_t3_m2_q3.png",
+              "image_prompt": "A simple flat vector line illustration for a JLPT listening question, minimal color, white background, thin black outlines, no text. Scene: two students chatting outside a school gate, with a bicycle parked nearby. Clean, friendly, lots of whitespace, 1:1 square. No words or watermark.",
+              "options": [
+                { "id": 1, "text": "でんしゃ" },
+                { "id": 2, "text": "バス" },
+                { "id": 3, "text": "じてんしゃ" },
+                { "id": 4, "text": "あるいて" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "おんなの ひとが「じてんしゃで きます」と言いました。",
+                "advice": "Transport + で + きます/いきます = go by ~。じてんしゃ = bicycle。",
+                "hint": "She used to take the bus but changed recently — what does she use now?",
+                "trap": "She used to go by bus (バス) — past tense — but now rides a bicycle."
+              },
+              "transcript": {
+                "pre_question": "ふたりの がくせいが はなして います。おんなの ひとは どうやって がっこうに いきますか。",
+                "dialogue": [
+                  { "speaker": "male", "text": "まいにち でんしゃで がっこうに きますか。" },
+                  { "speaker": "female", "text": "いいえ、まえは バスで きて いましたが、いまは じてんしゃで きます。" },
+                  { "speaker": "male", "text": "じてんしゃで？はやいですね。" },
+                  { "speaker": "female", "text": "はい、けんこうにも いいし、たのしいです。" }
+                ],
+                "post_question": "おんなの ひとは どうやって がっこうに いきますか。"
+              },
+              "social": {
+                "caption": "🚲 でんしゃ？バス？じてんしゃ？N5リスニング！\n「まえは〜が、いまは〜」の変化に注意👂",
+                "hashtags": ["#JLPT", "#N5", "#のりもの", "#日本語", "#japaneseshikhi"]
+              }
+            }
+          ]
+        },
+        {
+          "mondai_number": 3,
+          "problem_title": "もんだい３",
+          "problem_title_en": "Verbal Expression",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "おみせで なにかを かいたいです。てんいんに なんと いいますか。",
+              "question_text_en": "You want to buy something at a shop. What do you say to the shop staff?",
+              "options": [
+                { "id": 1, "text": "これを みせて ください。" },
+                { "id": 2, "text": "これは いくらですか。" },
+                { "id": 3, "text": "これを ください。" },
+                { "id": 4, "text": "これは なんですか。" }
+              ],
+              "correct_option_id": 3,
+              "feedback": {
+                "reason": "「〜を ください」= Please give me ~ / I'll take this. Natural at a register.",
+                "advice": "ください after を is a purchase request. みせてください = show me (before buying).",
+                "hint": "You've decided to buy — now you want to pay.",
+                "trap": "みせてください means you want to see it first — not buy it yet."
+              },
+              "transcript": {
+                "pre_question": "おみせで なにかを かいたいです。てんいんに なんと いいますか。",
+                "dialogue": [],
+                "post_question": "１ これを みせてください。　２ これは いくらですか。　３ これをください。　４ これはなんですか。"
+              },
+              "social": {
+                "caption": "🛒 お店で何て言う？N5会話フレーズ！\n「ください」vs「みせてください」の違いわかる？",
+                "hashtags": ["#JLPT", "#N5", "#買い物", "#日本語", "#japaneseshikhi"]
+              }
+            },
+            {
+              "question_number": 2,
+              "question_text": "ともだちが 「さいきん、いそがしいですか」と きいています。あなたは いそがしくないです。なんと いいますか。",
+              "question_text_en": "A friend asks if you've been busy lately. You're not busy. What do you say?",
+              "options": [
+                { "id": 1, "text": "はい、とても いそがしいです。" },
+                { "id": 2, "text": "いいえ、あまり いそがしくないです。" },
+                { "id": 3, "text": "そうですね、すこし いそがしいです。" },
+                { "id": 4, "text": "いそがしいかも しれません。" }
+              ],
+              "correct_option_id": 2,
+              "feedback": {
+                "reason": "「あまり〜くないです」= not very ~。Polite negative for い-adjective。",
+                "advice": "いそがしい (busy) → いそがしくない (not busy) → あまり いそがしくないです.",
+                "hint": "You're NOT busy — choose the negative form.",
+                "trap": "Option 3 says 「すこし いそがしい」= a little busy — contradicts the situation."
+              },
+              "transcript": {
+                "pre_question": "ともだちが「さいきん、いそがしいですか」と きいています。あなたは いそがしくないです。なんと いいますか。",
+                "dialogue": [],
+                "post_question": "１ はい、とても いそがしいです。　２ いいえ、あまり いそがしくないです。　３ そうですね、すこし いそがしいです。　４ いそがしいかも しれません。"
+              },
+              "social": {
+                "caption": "😌 忙しくないときの答え方、N5で練習！\n「あまり〜くない」の使い方マスターしよう✨",
+                "hashtags": ["#JLPT", "#N5", "#日本語会話", "#japaneseshikhi", "#日本語"]
+              }
+            },
+            {
+              "question_number": 3,
+              "question_text": "えきで でんしゃに のりたいです。でも、どの でんしゃか わかりません。えきいんに なんと いいますか。",
+              "question_text_en": "You want to take a train at the station but don't know which one. What do you say to station staff?",
+              "options": [
+                { "id": 1, "text": "でんしゃは なんじですか。" },
+                { "id": 2, "text": "しんじゅくまでの でんしゃは どれですか。" },
+                { "id": 3, "text": "きっぷは いくらですか。" },
+                { "id": 4, "text": "でんしゃに のって ください。" }
+              ],
+              "correct_option_id": 2,
+              "feedback": {
+                "reason": "「〜までの でんしゃは どれですか」= Which train goes to ~? — the most natural question.",
+                "advice": "〜まで = up to / as far as ~。どれ = which one (among several)。",
+                "hint": "You need to identify WHICH train — use どれ。",
+                "trap": "Option 1 asks about time, not which train — doesn't solve the problem."
+              },
+              "transcript": {
+                "pre_question": "えきで でんしゃに のりたいです。どの でんしゃか わかりません。えきいんに なんと いいますか。",
+                "dialogue": [],
+                "post_question": "１ でんしゃは なんじですか。　２ しんじゅくまでの でんしゃは どれですか。　３ きっぷは いくらですか。　４ でんしゃに のって ください。"
+              },
+              "social": {
+                "caption": "🚃 駅でどう聞く？N5リスニング！\n「どれ」「どこ」「なんじ」の使い分け覚えてる？",
+                "hashtags": ["#JLPT", "#N5", "#でんしゃ", "#日本語", "#japaneseshikhi"]
+              }
+            }
+          ]
+        },
+        {
+          "mondai_number": 4,
+          "problem_title": "もんだい４",
+          "problem_title_en": "Quick Response",
+          "questions": [
+            {
+              "question_number": 1,
+              "question_text": "「この りんごを たべても いいですか。」",
+              "question_text_en": "\"May I eat this apple?\"",
+              "options": [
+                { "id": 1, "text": "どうぞ、めしあがって ください。" },
+                { "id": 2, "text": "はい、たべます。" },
+                { "id": 3, "text": "いいえ、りんごです。" },
+                { "id": 4, "text": "りんごは おいしいですね。" }
+              ],
+              "correct_option_id": 1,
+              "feedback": {
+                "reason": "「どうぞ、めしあがってください」= Please go ahead and eat。どうぞ grants permission naturally。",
+                "advice": "〜てもいいですか → どうぞ / ええ、どうぞ = the polite grant of permission。",
+                "hint": "The question asks for PERMISSION — respond by granting or denying it。",
+                "trap": "「はい、たべます」is a statement about the speaker eating — not a response to permission。"
+              },
+              "social": {
+                "caption": "🍎「たべてもいいですか」←正しい返し方は？N5クイック！\nどうぞの使い方マスターしよう🙌",
+                "hashtags": ["#JLPT", "#N5", "#もんだい４", "#日本語", "#japaneseshikhi"]
+              }
+            },
+            {
+              "question_number": 2,
+              "question_text": "「きのう、どこかに いきましたか。」",
+              "question_text_en": "\"Did you go anywhere yesterday?\"",
+              "options": [
+                { "id": 1, "text": "はい、でかけます。" },
+                { "id": 2, "text": "いいえ、どこにも いきませんでした。" },
+                { "id": 3, "text": "はい、いきたいです。" },
+                { "id": 4, "text": "あした、いきます。" }
+              ],
+              "correct_option_id": 2,
+              "feedback": {
+                "reason": "「どこにも いきませんでした」= didn't go anywhere。Past negative + どこにも。",
+                "advice": "きのう（past）→ answer must use 〜ませんでした (past negative)。",
+                "hint": "The question is about YESTERDAY — your answer tense must match。",
+                "trap": "「あした、いきます」is future tense — wrong time frame entirely。"
+              },
+              "social": {
+                "caption": "📅「きのう どこかに いきましたか」←なんて答える？\n時制のミスに注意！N5クイックレスポンス🎯",
+                "hashtags": ["#JLPT", "#N5", "#過去形", "#日本語", "#japaneseshikhi"]
+              }
+            },
+            {
+              "question_number": 3,
+              "question_text": "「すみません、えいごが わかりますか。」",
+              "question_text_en": "\"Excuse me, do you understand English?\"",
+              "options": [
+                { "id": 1, "text": "はい、すこし わかります。" },
+                { "id": 2, "text": "いいえ、えいごが すきです。" },
+                { "id": 3, "text": "えいごは むずかしいです。" },
+                { "id": 4, "text": "はい、にほんごを はなします。" }
+              ],
+              "correct_option_id": 1,
+              "feedback": {
+                "reason": "「はい、すこし わかります」= Yes, I understand a little。Directly answers the yes/no question。",
+                "advice": "わかりますか → はい、わかります / いいえ、わかりません。",
+                "hint": "The question asks CAN YOU UNDERSTAND — answer yes or no directly。",
+                "trap": "Option 4 says you speak Japanese — doesn't answer the English question。"
+              },
+              "social": {
+                "caption": "🗣️「えいごが わかりますか」←どう答える？N5！\n「わかります」の使い方チェック🔍",
+                "hashtags": ["#JLPT", "#N5", "#日本語会話", "#japaneseshikhi", "#もんだい４"]
               }
             },
             {
               "question_number": 4,
-              "question_text": "おんなの ひとは どれを かいますか。",
-              "question_text_en": "Which one will the woman buy?",
-              "image_file": "n5_t1_m1_q4.png",
+              "question_text": "「コーヒーと こうちゃ、どちらが すきですか。」",
+              "question_text_en": "\"Which do you prefer, coffee or tea?\"",
               "options": [
-                { "id": 1, "text": "ちいさい かさ" },
-                { "id": 2, "text": "おおきい かさ" },
-                { "id": 3, "text": "タオル" },
-                { "id": 4, "text": "ぼうし" }
+                { "id": 1, "text": "はい、すきです。" },
+                { "id": 2, "text": "どちらも すきです。" },
+                { "id": 3, "text": "コーヒーが すきです。" },
+                { "id": 4, "text": "いいえ、のみません。" }
               ],
-              "correct_option_id": 1,
+              "correct_option_id": 3,
               "feedback": {
-                "reason": "おんなの ひとが「ちいさいのを ください」と いいました。",
-                "advice": "「ちいさいの」の「の」は ものを あらわします。",
-                "hint": "かさの おおきさに きを つけて ききましょう。",
-                "trap": "おおきい かさは「おもい」と いって えらびませんでした。"
+                "reason": "「コーヒーが すきです」= I like coffee。Names one choice clearly — the natural response to どちら。",
+                "advice": "どちら = which of two。Answer with the preferred item + が + すきです。",
+                "hint": "Choose ONE of the two options given — or say both。",
+                "trap": "「はい、すきです」doesn't specify which — unclear and unnatural as a reply。"
               },
-              "transcript": {
-                "pre_question": "コンビニで おんなの ひとと みせの ひとが はなして います。",
-                "dialogue": [
-                  { "speaker": "female", "text": "あめが ふって きました。かさは ありますか。" },
-                  { "speaker": "male", "text": "はい。おおきいのと ちいさいのが あります。" },
-                  { "speaker": "female", "text": "おおきいのは おもいですね。" },
-                  { "speaker": "male", "text": "そうですね。ちいさいのは かるいですよ。" },
-                  { "speaker": "female", "text": "じゃあ、ちいさいのを ください。" }
-                ],
-                "post_question": "おんなの ひとは どれを かいますか。"
+              "social": {
+                "caption": "☕🍵 コーヒーと紅茶、どっちが好き？N5クイック！\n「どちら」の答え方マスターしよう🎓",
+                "hashtags": ["#JLPT", "#N5", "#どちら", "#日本語", "#japaneseshikhi"]
               }
             },
             {
               "question_number": 5,
-              "question_text": "おとこの ひとは おにぎりを いくつ かいますか。",
-              "question_text_en": "How many rice balls will the man buy?",
-              "image_file": "n5_t1_m1_q5.png",
+              "question_text": "「もう しゅくだいは おわりましたか。」",
+              "question_text_en": "\"Have you finished your homework yet?\"",
               "options": [
-                { "id": 1, "text": "ひとつ" },
-                { "id": 2, "text": "ふたつ" },
-                { "id": 3, "text": "みっつ" },
-                { "id": 4, "text": "よっつ" }
+                { "id": 1, "text": "いいえ、まだです。" },
+                { "id": 2, "text": "はい、おわります。" },
+                { "id": 3, "text": "しゅくだいは むずかしかったです。" },
+                { "id": 4, "text": "まだ おわって ください。" }
               ],
-              "correct_option_id": 3,
+              "correct_option_id": 1,
               "feedback": {
-                "reason": "おとこの ひとが「みっつ ください」と いいました。",
-                "advice": "ひとつ・ふたつ・みっつ の かぞえかたを おぼえましょう。",
-                "hint": "さいごに いった かずを ききましょう。",
-                "trap": "ふたつと いってから ひとつ ふやしたので みっつです。"
+                "reason": "「まだです」= Not yet。The classic reply to「もう〜ましたか」when the answer is no。",
+                "advice": "もう〜ましたか → はい、おわりました (yes) / いいえ、まだです (no)。",
+                "hint": "「もう」asks if something is ALREADY done — reply with まだ if not。",
+                "trap": "「はい、おわります」uses present/future tense — should be おわりました (past)。"
               },
-              "transcript": {
-                "pre_question": "コンビニで おとこの ひとと みせの ひとが はなして います。",
-                "dialogue": [
-                  { "speaker": "male", "text": "おにぎりを ふたつ ください。" },
-                  { "speaker": "female", "text": "はい、ふたつですね。" },
-                  { "speaker": "male", "text": "あ、ともだちのも いるから、もう ひとつ。" },
-                  { "speaker": "female", "text": "では、みっつですね。" },
-                  { "speaker": "male", "text": "はい、みっつ ください。" }
-                ],
-                "post_question": "おとこの ひとは おにぎりを いくつ かいますか。"
-              }
-            },
-            {
-              "question_number": 6,
-              "question_text": "ふたりは つぎに どこへ いきますか。",
-              "question_text_en": "Where will the two go next?",
-              "image_file": "n5_t1_m1_q6.png",
-              "options": [
-                { "id": 1, "text": "ぎんこう" },
-                { "id": 2, "text": "ゆうびんきょく" },
-                { "id": 3, "text": "こうえん" },
-                { "id": 4, "text": "えき" }
-              ],
-              "correct_option_id": 3,
-              "feedback": {
-                "reason": "おんなの ひとが「こうえんで たべましょう」と いいました。",
-                "advice": "「〜ましょう」は さそう ときの いいかたです。",
-                "hint": "かいものの あと どこへ いくか ききましょう。",
-                "trap": "ゆうびんきょくは「あした いく」と いったので きょうでは ありません。"
-              },
-              "transcript": {
-                "pre_question": "コンビニの まえで おんなの ひとと おとこの ひとが はなして います。",
-                "dialogue": [
-                  { "speaker": "male", "text": "パンを かいましたね。どこで たべますか。" },
-                  { "speaker": "female", "text": "ちかくの こうえんで たべましょう。" },
-                  { "speaker": "male", "text": "いいですね。ゆうびんきょくにも いきますか。" },
-                  { "speaker": "female", "text": "ゆうびんきょくは あした いきます。" }
-                ],
-                "post_question": "ふたりは つぎに どこへ いきますか。"
-              }
-            },
-            {
-              "question_number": 7,
-              "question_text": "みせの ひとは なにを つけますか。",
-              "question_text_en": "What will the clerk add?",
-              "image_file": "n5_t1_m1_q7.png",
-              "options": [
-                { "id": 1, "text": "ふくろ" },
-                { "id": 2, "text": "おはし" },
-                { "id": 3, "text": "スプーン" },
-                { "id": 4, "text": "フォーク" }
-              ],
-              "correct_option_id": 3,
-              "feedback": {
-                "reason": "みせの ひとが「スプーンを おつけします」と いいました。",
-                "advice": "たべものに あわせて どうぐが かわる ことを おぼえましょう。",
-                "hint": "プリンを たべる ときに つかう ものを かんがえましょう。",
-                "trap": "おはしは「いりません」と いったので こたえでは ありません。"
-              },
-              "transcript": {
-                "pre_question": "コンビニで おんなの ひとと みせの ひとが はなして います。",
-                "dialogue": [
-                  { "speaker": "female", "text": "この プリンを ください。" },
-                  { "speaker": "male", "text": "はい。おはしは いりますか。" },
-                  { "speaker": "female", "text": "おはしは いりません。" },
-                  { "speaker": "male", "text": "では、スプーンを おつけしますね。" },
-                  { "speaker": "female", "text": "はい、おねがいします。" }
-                ],
-                "post_question": "みせの ひとは なにを つけますか。"
+              "social": {
+                "caption": "📝「もう しゅくだい おわった？」←なんて言う？\n「もう」と「まだ」はN5必須ペア！覚えよう✍️",
+                "hashtags": ["#JLPT", "#N5", "#もう", "#まだ", "#japaneseshikhi"]
               }
             }
           ]

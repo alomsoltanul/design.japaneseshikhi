@@ -4,16 +4,19 @@
 // shipped in the repo.
 
 const DB_NAME = 'js-images'
+const DB_VERSION = 2 // bump to force the store-creating upgrade on older DBs
 const STORE = 'images'
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1)
+    const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE)
+      const db = req.result
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE)
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
+    req.onblocked = () => reject(new Error('image store blocked by another tab — close other tabs and retry'))
   })
 }
 
