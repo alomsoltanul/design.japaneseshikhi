@@ -101,6 +101,7 @@ export async function encodeReelMp4(opts: EncodeOpts): Promise<Blob> {
       numberOfFrames: n,
       numberOfChannels: channels,
       timestamp: Math.round((off / sampleRate) * 1e6),
+      duration: Math.round((n / sampleRate) * 1e6),
       data: planar,
     })
     audioEncoder.encode(ad)

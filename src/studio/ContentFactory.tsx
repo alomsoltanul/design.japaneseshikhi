@@ -3,7 +3,7 @@ import { LEVELS, panelsOf, hasPanels, type LevelFile, type LevelQuestion } from 
 import { getMergedLevel, addPasted, clearPasted, getPasted, countQuestions } from './content'
 import { ExportStage, type ExportJob } from './ExportStage'
 import { ReelButton } from './ReelButton'
-import { loadVoiceSettings, saveVoiceSettings, DEFAULT_VOICE, type VoiceSettings } from './reel/voiceSettings'
+import { loadVoiceSettings, saveVoiceSettings, DEFAULT_VOICE, applyJlptPreset, type VoiceSettings } from './reel/voiceSettings'
 import { listVoices } from './reel/voices'
 import { reelEnvBlocked } from '@/listening/voicevox'
 import { loadImageMap, addUpload, clearUploads, uploadedNames, resolveImage } from './imageStore'
@@ -167,7 +167,7 @@ export function ContentFactory() {
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 6, background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 5 }}>
           {LEVELS.map(l => (
-            <button key={l} onClick={() => setLevel(l)} style={{ background: level === l ? BRAND : 'transparent', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 15px', fontWeight: 800, cursor: 'pointer', fontSize: 14 }}>{l}</button>
+            <button key={l} onClick={() => { setLevel(l); setVoice(applyJlptPreset(l)) }} style={{ background: level === l ? BRAND : 'transparent', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 15px', fontWeight: 800, cursor: 'pointer', fontSize: 14 }}>{l}</button>
           ))}
         </div>
         <select value={testNo} onChange={e => setTestNo(Number(e.target.value))} style={sel} disabled={!file}>

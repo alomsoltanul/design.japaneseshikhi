@@ -121,6 +121,8 @@ export interface TrackContextValue {
   aiRewriteN4: () => void
   aiTranslateBangla: () => void
   aiSuggestDistractors: () => void
+  /** JLPT tuning */
+  applyJlptDefaults: () => void
   /** Social export */
   exportTrackAudio: () => Promise<Blob | null>
   exportLineAudio: (lineId: string) => Promise<Blob | null>

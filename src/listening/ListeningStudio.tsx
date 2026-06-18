@@ -4,6 +4,7 @@ import type { TrackLine } from './types'
 import { SocialExportModal } from './SocialExport'
 import { VOICEVOX_SPEAKERS, getSpeakerColor, searchSpeakers } from './voicevoxSpeakers'
 import type { VvSpeaker, VvStyle } from './voicevoxSpeakers'
+import { getJlptProfile } from './jlptConfig'
 import './listening.css'
 
 /* ── icons ── */
@@ -366,6 +367,7 @@ function Studio() {
     playLine, stopPlayback, playTrack, pausePlayback,
     updateLine, addLine, removeLine, synthesizeLine, synthesizeAll,
     aiGenerateQuestion, aiRewriteN4, aiTranslateBangla, aiSuggestDistractors,
+    applyJlptDefaults,
     vvConnected, updateTrackMeta, updateQuestion, exportLineAudio, setTweaks, assignSpeaker,
     publishTrack, publishedTracks, loadPublishedTrack,
     theme, setTheme,
@@ -615,8 +617,8 @@ function Studio() {
               value={Math.round(selectedLine.volume * 100)} min={0} max={200}
               onChange={v => updateLine(selectedLine.id, { volume: v / 100 })} />
             <Slider label="Pause after" display={`${selectedLine.pauseAfter}ms`}
-              value={Math.min(100, selectedLine.pauseAfter / 60)}
-              onChange={v => updateLine(selectedLine.id, { pauseAfter: Math.round(v * 60) })} />
+              value={Math.min(100, selectedLine.pauseAfter / 120)}
+              onChange={v => updateLine(selectedLine.id, { pauseAfter: Math.round(v * 120) })} />
 
             <div style={{ height: 10 }} />
             <div className="row gap-2">
@@ -630,6 +632,14 @@ function Studio() {
                 a.href = url; a.download = `shikhi-line-${selectedLine.id}.wav`; a.click(); URL.revokeObjectURL(url)
               }} title="Download"><Icon.download size={11} /></button>
               <button className="btn sm icon" onClick={() => removeLine(selectedLine.id)} title="Remove"><Icon.trash size={11} /></button>
+            </div>
+
+            <div style={{ height: 10 }} />
+            <button className="btn sm" onClick={applyJlptDefaults} style={{ width: '100%', justifyContent: 'center' }}>
+              <Icon.check size={10} /> Apply {track.level} defaults
+            </button>
+            <div style={{ fontSize: 10, color: 'var(--ink-3)', textAlign: 'center' }}>
+              Speed {getJlptProfile(track.level).speed.toFixed(2)}× · Pause {getJlptProfile(track.level).pauseBetweenLines}ms
             </div>
           </InspectorSection>
 

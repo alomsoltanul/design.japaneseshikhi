@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync *)",
+      "Bash(echo \"=SYNC_EXIT=$?\")",
+      "Bash(/Users/alomsoltanul/fish-speech/.venv/bin/python -c \"import torch; print\\('torch', torch.__version__, 'mps', torch.backends.mps.is_available\\(\\)\\)\")",
+      "Bash(chmod +x /Users/alomsoltanul/fish-speech/start-s2.sh)",
+      "Bash(PYTORCH_ENABLE_MPS_FALLBACK=1 ./start-s2.sh)",
+      "Bash(echo \"exited $?\")",
+      "Bash(sysctl -n hw.memsize)",
+      "Bash(awk '{print $1/1073741824\" GB\"}')",
+      "Bash(pkill -f api_server.py)",
+      "Bash(kill -9 50632)",
+      "Bash(brew uninstall *)",
+      "Bash(brew list *)",
+      "Bash(brew missing *)",
+      "Bash(brew deps *)"
+    ],
+    "additionalDirectories": [
+      "/Users/alomsoltanul/fish-speech"
+    ]
+  }
+}

@@ -63,7 +63,7 @@ function WaveformSVG({ color = '#E63946', bars = 40, seed = 1 }: { color?: strin
 /* ── single dialogue bubble for card ── */
 function DialogueBubble({ line, idx }: { line: TrackLine; idx: number }) {
   const meta = getSpeakerMeta(line.speaker)
-  const isNarrator = line.speaker === '春日部つむぎ'
+  const isNarrator = line.speaker === '九州そら'
   return (
     <div style={{
       display: 'flex',

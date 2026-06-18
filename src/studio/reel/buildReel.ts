@@ -44,8 +44,24 @@ export async function buildReel(
   const tr = q.transcript
   const lines: { text: string; voice: number; scene: SceneKind; chime?: boolean; tail?: number }[] = []
   lines.push({ text: [tr?.pre_question, q.question_text].filter(Boolean).join('、'), voice: voices.narrator, scene: 'question' })
+  // Track speaker turns so two women/men talking get different voices.
+  // We toggle between primary/alternate voices on every consecutive same-gender line
+  // so alternating dialogues (A-B-A-B) always get distinct speakers.
+  let lastSpeaker: string | null = null
+  let useAltFemale = false
+  let useAltMale = false
   for (const d of tr?.dialogue ?? []) {
-    const v = d.speaker === 'male' ? voices.male : d.speaker === 'female' ? voices.female : voices.narrator
+    let v: number
+    if (d.speaker === 'narrator') {
+      v = voices.narrator
+    } else if (d.speaker === 'male') {
+      useAltMale = lastSpeaker === 'male' ? !useAltMale : false
+      v = useAltMale ? voices.male2 : voices.male
+    } else {
+      useAltFemale = lastSpeaker === 'female' ? !useAltFemale : false
+      v = useAltFemale ? voices.female2 : voices.female
+    }
+    lastSpeaker = d.speaker
     lines.push({ text: d.text, voice: v, scene: 'listen' })
   }
   lines.push({ text: `せいかいは、${correct?.text ?? ''}、です。`, voice: voices.narrator, scene: 'answer', chime: true, tail: 0.8 })

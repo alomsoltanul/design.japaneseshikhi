@@ -75,13 +75,15 @@ export async function synthesize(query: VvAudioQuery, speakerId: number): Promis
 export async function synthesizeText(
   text: string,
   speakerId: number,
-  opts?: { speed?: number; pitch?: number; intonation?: number; volume?: number }
+  opts?: { speed?: number; pitch?: number; intonation?: number; volume?: number; prePhonemeLength?: number; postPhonemeLength?: number }
 ): Promise<ArrayBuffer> {
   const query = await audioQuery(text, speakerId)
   if (opts?.speed != null) query.speedScale = opts.speed
   if (opts?.pitch != null) query.pitchScale = opts.pitch
   if (opts?.intonation != null) query.intonationScale = opts.intonation
   if (opts?.volume != null) query.volumeScale = opts.volume
+  if (opts?.prePhonemeLength != null) query.prePhonemeLength = opts.prePhonemeLength
+  if (opts?.postPhonemeLength != null) query.postPhonemeLength = opts.postPhonemeLength
   return synthesize(query, speakerId)
 }
 

@@ -8,6 +8,8 @@ export interface AudioSeg {
   chime?: boolean
 }
 
+const FADE_S = 0.008 // 8 ms fade-in / fade-out kills boundary clicks
+
 function chime(ctx: BaseAudioContext, dest: AudioNode, at: number) {
   for (const [i, freq] of [659.25, 987.77].entries()) {
     const osc = ctx.createOscillator()
@@ -31,8 +33,16 @@ export async function mixTimeline(segs: AudioSeg[], total: number, sampleRate = 
     if (s.audio) {
       const src = octx.createBufferSource()
       src.buffer = s.audio
-      src.connect(octx.destination)
-      src.start(Math.max(0, s.start))
+      const gain = octx.createGain()
+      const t = Math.max(0, s.start)
+      const dur = s.audio.duration
+      // micro fade-in / fade-out to prevent pops at segment boundaries
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(1, t + FADE_S)
+      gain.gain.setValueAtTime(1, t + dur - FADE_S)
+      gain.gain.linearRampToValueAtTime(0, t + dur)
+      src.connect(gain).connect(octx.destination)
+      src.start(t)
     }
     if (s.chime) chime(octx, octx.destination, s.start)
   }

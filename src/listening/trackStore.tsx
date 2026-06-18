@@ -7,6 +7,7 @@ import { synthesizeText, checkHealth } from './voicevox'
 import { AudioEngine } from './audioEngine'
 import { getScenarioImage, getDefaultScenarioImage } from './scenarios'
 import { VOICEVOX_SPEAKERS, getDefaultVoiceId, getSpeakerColor } from './voicevoxSpeakers'
+import { getJlptProfile, computePauseForLine } from './jlptConfig'
 
 const TrackContext = createContext<TrackContextValue | null>(null)
 
@@ -20,20 +21,50 @@ export const useTrack = () => {
 const PREFIX_MAP: Record<string, { name: string; voiceId: number }> = {
   '店員': { name: '雨晴はう', voiceId: 10 },
   'shop': { name: '雨晴はう', voiceId: 10 },
-  '女': { name: '四国めたん', voiceId: 2 },
-  'woman': { name: '四国めたん', voiceId: 2 },
+  // Female variants — spread across different voices so two women never clash by default
+  '女': { name: '春日部つむぎ', voiceId: 8 },
+  'woman': { name: '雨晴はう', voiceId: 10 },
   'female': { name: '四国めたん', voiceId: 2 },
+  'female1': { name: '四国めたん', voiceId: 2 },
+  'female2': { name: '雨晴はう', voiceId: 10 },
+  'female3': { name: '春日部つむぎ', voiceId: 8 },
+  'woman1': { name: '雨晴はう', voiceId: 10 },
+  'woman2': { name: '冥鳴ひまり', voiceId: 14 },
+  '女1': { name: '春日部つむぎ', voiceId: 8 },
+  '女2': { name: '冥鳴ひまり', voiceId: 14 },
+  // Male variants
   '男': { name: '玄野武宏', voiceId: 11 },
-  'man': { name: '玄野武宏', voiceId: 11 },
+  'man': { name: '青山龍星', voiceId: 13 },
   'male': { name: '玄野武宏', voiceId: 11 },
-  '先生': { name: '九州そら', voiceId: 16 },
-  'teacher': { name: '九州そら', voiceId: 16 },
-  'ナレーター': { name: '春日部つむぎ', voiceId: 8 },
-  'narrator': { name: '春日部つむぎ', voiceId: 8 },
-  'n': { name: '春日部つむぎ', voiceId: 8 },
+  'male1': { name: '玄野武宏', voiceId: 11 },
+  'male2': { name: '青山龍星', voiceId: 13 },
+  'man1': { name: '青山龍星', voiceId: 13 },
+  'man2': { name: '白上虎太郎', voiceId: 12 },
+  '男1': { name: '玄野武宏', voiceId: 11 },
+  '男2': { name: '青山龍星', voiceId: 13 },
+  // Other roles
+  '先生': { name: '冥鳴ひまり', voiceId: 14 },
+  'teacher': { name: '冥鳴ひまり', voiceId: 14 },
+  'ナレーター': { name: '九州そら', voiceId: 16 },
+  'narrator': { name: '九州そら', voiceId: 16 },
+  'n': { name: '九州そら', voiceId: 16 },
   'ずんだもん': { name: 'ずんだもん', voiceId: 3 },
   'zundamon': { name: 'ずんだもん', voiceId: 3 },
 }
+
+/* ── rotation pool for unknown prefixes ── */
+const VOICE_POOL = [
+  { name: '四国めたん', voiceId: 2 },
+  { name: '玄野武宏', voiceId: 11 },
+  { name: '雨晴はう', voiceId: 10 },
+  { name: '青山龍星', voiceId: 13 },
+  { name: '春日部つむぎ', voiceId: 8 },
+  { name: '白上虎太郎', voiceId: 12 },
+  { name: '冥鳴ひまり', voiceId: 14 },
+  { name: '九州そら', voiceId: 16 },
+  { name: '波音リツ', voiceId: 9 },
+  { name: 'ちび式じい', voiceId: 42 },
+]
 
 /* ── templates ── */
 interface LineTemplate { speaker: string; style: string; voiceId: number; jp: string; bn: string; pauseAfter: number }
@@ -58,11 +89,11 @@ const TEMPLATES: Templates = {
       title_jp: '会議の準備', title_bn: 'মিটিং প্রস্তুতি', mondai: 'もんだい1 · 課題理解',
       scenarioImage: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80',
       lines: [
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '会社で男の人と女の人が話しています。男の人はこのあと何をしますか。', bn: 'অফিসে এক পুরুষ ও মহিলা কথা বলছেন। পুরুষটি এরপর কী করবেন?', pauseAfter: 800 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '会社で男の人と女の人が話しています。男の人はこのあと何をしますか。', bn: 'অফিসে এক পুরুষ ও মহিলা কথা বলছেন। পুরুষটি এরপর কী করবেন?', pauseAfter: 800 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: '田中さん、会議の資料はもうコピーしましたか。', bn: 'তানাকা সান, মিটিংয়ের ডকুমেন্ট কপি করেছেন?', pauseAfter: 600 },
         { speaker: '玄野武宏', style: 'ノーマル', voiceId: 11, jp: 'すみません、まだです。今からします。', bn: 'দুঃখিত, এখনো করিনি। এখনই করছি।', pauseAfter: 600 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: 'コピーの前に、参加者にメールを送ってください。', bn: 'কপি করার আগে অংশগ্রহণকারীদের ইমেইল পাঠান।', pauseAfter: 1400 },
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '男の人はこのあとまず何をしますか。', bn: 'পুরুষটি প্রথমে কী করবেন?', pauseAfter: 6000 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '男の人はこのあとまず何をしますか。', bn: 'পুরুষটি প্রথমে কী করবেন?', pauseAfter: 6000 },
       ],
       question: {
         jp: '男の人はこのあとまず何をしますか。',
@@ -81,12 +112,12 @@ const TEMPLATES: Templates = {
       title_jp: '喫茶店で', title_bn: 'কফি শপে অর্ডার', mondai: 'もんだい2 · ポイント理解',
       scenarioImage: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1200&q=80',
       lines: [
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '喫茶店で女の人と店員が話しています。', bn: 'কফি শপে এক মহিলা এবং দোকানদার কথা বলছেন।', pauseAfter: 800 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '喫茶店で女の人と店員が話しています。', bn: 'কফি শপে এক মহিলা এবং দোকানদার কথা বলছেন।', pauseAfter: 800 },
         { speaker: '雨晴はう', style: 'ノーマル', voiceId: 10, jp: 'いらっしゃいませ。ご注文はお決まりですか。', bn: 'স্বাগতম। অর্ডার ঠিক করেছেন?', pauseAfter: 500 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: 'はい、ホットコーヒーを一つお願いします。', bn: 'হ্যাঁ, একটা হট কফি দিন।', pauseAfter: 500 },
         { speaker: '雨晴はう', style: 'ノーマル', voiceId: 10, jp: 'かしこまりました。サイズはどうなさいますか。', bn: 'ঠিক আছে। সাইজ কী হবে?', pauseAfter: 500 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: 'Mサイズで、ミルクは入れないでください。', bn: 'M সাইজ, দুধ ছাড়া।', pauseAfter: 1400 },
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '女の人は何を注文しましたか。', bn: 'মহিলা কী অর্ডার করেছেন?', pauseAfter: 6000 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '女の人は何を注文しましたか。', bn: 'মহিলা কী অর্ডার করেছেন?', pauseAfter: 6000 },
       ],
       question: {
         jp: '女の人は何を注文しましたか。',
@@ -103,14 +134,14 @@ const TEMPLATES: Templates = {
       title_jp: '駅で道を聞く', title_bn: 'স্টেশনে রাস্তা জিজ্ঞেস', mondai: 'もんだい2 · ポイント理解',
       scenarioImage: 'https://images.unsplash.com/photo-1535535112387-56ffe8db21ff?w=1200&q=80',
       lines: [
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '駅で女の人と男の人が話しています。', bn: 'স্টেশনে এক মহিলা ও পুরুষ কথা বলছেন।', pauseAfter: 800 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '駅で女の人と男の人が話しています。', bn: 'স্টেশনে এক মহিলা ও পুরুষ কথা বলছেন।', pauseAfter: 800 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: 'すみません、東京駅へ行きたいんですが。', bn: 'মাফ করবেন, আমি টোকিও স্টেশন যেতে চাই।', pauseAfter: 500 },
         { speaker: '玄野武宏', style: 'ノーマル', voiceId: 11, jp: 'あ、それなら、ここから2番線です。', bn: 'আহ্, তাহলে এখান থেকে ২ নম্বর প্ল্যাটফর্ম।', pauseAfter: 500 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: '何分くらいかかりますか。', bn: 'কত মিনিট লাগবে?', pauseAfter: 500 },
         { speaker: '玄野武宏', style: 'ノーマル', voiceId: 11, jp: 'えっと、急行で15分くらいですね。', bn: 'উঁহু, এক্সপ্রেসে প্রায় ১৫ মিনিট।', pauseAfter: 500 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: '次の電車は何時ですか。', bn: 'পরের ট্রেন কখন?', pauseAfter: 500 },
         { speaker: '玄野武宏', style: 'ノーマル', voiceId: 11, jp: '3時12分の発車です。', bn: '৩টা ১২ মিনিটে ছাড়বে।', pauseAfter: 1400 },
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '次の電車は何時に出ますか。', bn: 'পরের ট্রেন কখন ছাড়বে?', pauseAfter: 6000 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '次の電車は何時に出ますか。', bn: 'পরের ট্রেন কখন ছাড়বে?', pauseAfter: 6000 },
       ],
       question: {
         jp: '次の電車は何時に出ますか。',
@@ -129,12 +160,12 @@ const TEMPLATES: Templates = {
       title_jp: 'お知らせ', title_bn: 'ঘোষণা', mondai: 'もんだい3 · 概要理解',
       scenarioImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=1200&q=80',
       lines: [
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: 'スーパーで店内放送が流れています。', bn: 'সুপারমার্কেটে ইনস্টোর ঘোষণা চলছে।', pauseAfter: 800 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: 'スーパーで店内放送が流れています。', bn: 'সুপারমার্কেটে ইনস্টোর ঘোষণা চলছে।', pauseAfter: 800 },
         { speaker: '雨晴はう', style: 'ノーマル', voiceId: 10, jp: 'お客様にお知らせいたします。', bn: 'গ্রাহকদের জন্য ঘোষণা।', pauseAfter: 400 },
         { speaker: '雨晴はう', style: 'ノーマル', voiceId: 10, jp: '本日3時より、地下1階の鮮魚売り場で、', bn: 'আজ ৩টা থেকে আন্ডারগ্রাউন্ড ১-এর মাছের সেকশনে,', pauseAfter: 400 },
         { speaker: '雨晴はう', style: 'ノーマル', voiceId: 10, jp: '北海道直送のホタテを特別価格で販売いたします。', bn: 'হোক্কাইডো থেকে আনা স্ক্যালপ বিশেষ দামে বিক্রি হবে।', pauseAfter: 400 },
         { speaker: '雨晴はう', style: 'ノーマル', voiceId: 10, jp: 'なお、お一人様3パックまでとさせていただきます。', bn: 'একজন সর্বোচ্চ ৩ প্যাক নিতে পারবেন।', pauseAfter: 1400 },
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: 'このお知らせは何についてですか。', bn: 'এই ঘোষণা কী সম্পর্কে?', pauseAfter: 6000 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: 'このお知らせは何についてですか。', bn: 'এই ঘোষণা কী সম্পর্কে?', pauseAfter: 6000 },
       ],
       question: {
         jp: 'このお知らせは何についてですか。',
@@ -153,7 +184,7 @@ const TEMPLATES: Templates = {
       title_jp: '即時応答', title_bn: 'তাৎক্ষণিক প্রতিক্রিয়া', mondai: 'もんだい4 · 即時応答',
       scenarioImage: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200&q=80',
       lines: [
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '会社で同僚に声をかけられました。何と答えますか。', bn: 'অফিসে সহকর্মী ডাকল। কী উত্তর দেবেন?', pauseAfter: 600 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '会社で同僚に声をかけられました。何と答えますか。', bn: 'অফিসে সহকর্মী ডাকল। কী উত্তর দেবেন?', pauseAfter: 600 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: 'お先に失礼します。', bn: 'আমি আগে যাচ্ছি।', pauseAfter: 4000 },
       ],
       question: {
@@ -172,14 +203,14 @@ const TEMPLATES: Templates = {
       title_jp: '旅行の計画', title_bn: 'ভ্রমণ পরিকল্পনা', mondai: 'もんだい5 · 統合理解',
       scenarioImage: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80',
       lines: [
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '家族で旅行の計画を話し合っています。', bn: 'পরিবার ভ্রমণের পরিকল্পনা করছে।', pauseAfter: 800 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '家族で旅行の計画を話し合っています。', bn: 'পরিবার ভ্রমণের পরিকল্পনা করছে।', pauseAfter: 800 },
         { speaker: '玄野武宏', style: 'ノーマル', voiceId: 11, jp: '今年の夏はどこに行く?海とか温泉とかいろいろあるけど。', bn: 'এ গ্রীষ্মে কোথায় যাব? সমুদ্র, গরম স্প্রিং, অনেক কিছু আছে।', pauseAfter: 500 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: '私は去年も海に行ったから、今年は温泉がいいな。', bn: 'গত বছর তো সমুদ্রে গেছি, এবার গরম স্প্রিং ভালো হবে।', pauseAfter: 500 },
-        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '温泉もいいけど、子どもが退屈するんじゃない?', bn: 'গরম স্প্রিং ভালো, কিন্তু বাচ্চারা বিরক্ত হবে না?', pauseAfter: 500 },
+        { speaker: '冥鳴ひまり', style: 'ノーマル', voiceId: 14, jp: '温泉もいいけど、子どもが退屈するんじゃない?', bn: 'গরম স্প্রিং ভালো, কিন্তু বাচ্চারা বিরক্ত হবে না?', pauseAfter: 500 },
         { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: 'じゃあ、温泉とテーマパークの両方ある所はどう?', bn: 'তাহলে দুটোই আছে এমন জায়গা কেমন?', pauseAfter: 500 },
         { speaker: '玄野武宏', style: 'ノーマル', voiceId: 11, jp: 'いいね、箱根なら近いし、両方楽しめる。', bn: 'ভালো, হাকোনে কাছে, দুটোই উপভোগ করা যাবে।', pauseAfter: 500 },
-        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: 'じゃあ、箱根に決めましょう。', bn: 'তাহলে হাকোনে ঠিক করি।', pauseAfter: 1400 },
-        { speaker: '春日部つむぎ', style: 'ノーマル', voiceId: 8, jp: '家族はどこに行くことにしましたか。', bn: 'পরিবার কোথায় যাবে ঠিক করল?', pauseAfter: 6000 },
+        { speaker: '冥鳴ひまり', style: 'ノーマル', voiceId: 14, jp: 'じゃあ、箱根に決めましょう。', bn: 'তাহলে হাকোনে ঠিক করি।', pauseAfter: 1400 },
+        { speaker: '九州そら', style: 'ノーマル', voiceId: 16, jp: '家族はどこに行くことにしましたか。', bn: 'পরিবার কোথায় যাবে ঠিক করল?', pauseAfter: 6000 },
       ],
       question: {
         jp: '家族はどこへ行くことにしましたか。',
@@ -204,7 +235,7 @@ function adjustLength(lines: LineTemplate[], length: TrackLength): LineTemplate[
   const targets = { short: 6, medium: 8, long: 12 }
   const target = targets[length]
   if (lines.length >= target) return lines.slice(0, target)
-  const middle = lines.filter(l => l.speaker !== '春日部つむぎ')
+  const middle = lines.filter(l => l.speaker !== '九州そら')
   const padding: LineTemplate[] = []
   for (let i = lines.length; i < target; i++) {
     padding.push({ ...middle[i % middle.length], pauseAfter: 500 })
@@ -212,31 +243,54 @@ function adjustLength(lines: LineTemplate[], length: TrackLength): LineTemplate[
   return [...lines.slice(0, lines.length - 1), ...padding, lines[lines.length - 1]]
 }
 
-function parseSource(text: string): LineTemplate[] | null {
+function parseSource(text: string, level: JlptLevel = 'N5'): LineTemplate[] | null {
   if (!text.trim()) return null
-  return text.split('\n').map((line, i) => {
+  const profile = getJlptProfile(level)
+  const seen = new Map<string, { name: string; voiceId: number }>()
+  let unknownIndex = 0
+
+  const lines = text.split('\n').map((line, i) => {
     const m = line.trim().match(/^([^:：]+)[:：]\s*(.+)$/)
     if (m) {
       const prefix = m[1].trim()
+      const cached = seen.get(prefix)
+      if (cached) {
+        return { speaker: cached.name, style: 'ノーマル', voiceId: cached.voiceId, jp: m[2].trim(), bn: '— (translate)', pauseAfter: profile.pauseBetweenLines }
+      }
       const mapped = PREFIX_MAP[prefix]
       if (mapped) {
-        return { speaker: mapped.name, style: 'ノーマル', voiceId: mapped.voiceId, jp: m[2].trim(), bn: '— (translate)', pauseAfter: 500 }
+        seen.set(prefix, mapped)
+        return { speaker: mapped.name, style: 'ノーマル', voiceId: mapped.voiceId, jp: m[2].trim(), bn: '— (translate)', pauseAfter: profile.pauseBetweenLines }
       }
-      return { speaker: '四国めたん', style: 'ノーマル', voiceId: 2, jp: m[2].trim(), bn: '— (translate)', pauseAfter: 500 }
+      // Unknown prefix — rotate through the voice pool so A:/B:/C: never all sound the same
+      const pick = VOICE_POOL[unknownIndex % VOICE_POOL.length]
+      unknownIndex++
+      seen.set(prefix, pick)
+      return { speaker: pick.name, style: 'ノーマル', voiceId: pick.voiceId, jp: m[2].trim(), bn: '— (translate)', pauseAfter: profile.pauseBetweenLines }
     }
-    return { speaker: (i === 0 ? '春日部つむぎ' : '四国めたん'), style: 'ノーマル', voiceId: i === 0 ? 8 : 2, jp: line.trim(), bn: '— (translate)', pauseAfter: 500 }
+    // No prefix: first line = narrator, rest rotate through pool as well
+    const fallback = i === 0 ? { name: '九州そら', voiceId: 16 } : VOICE_POOL[unknownIndex % VOICE_POOL.length]
+    if (i !== 0) unknownIndex++
+    return { speaker: fallback.name, style: 'ノーマル', voiceId: fallback.voiceId, jp: line.trim(), bn: '— (translate)', pauseAfter: profile.pauseBetweenLines }
   }).filter(l => l.jp)
+
+  // Re-compute pauses based on narrator position
+  return lines.map((l, i) => ({
+    ...l,
+    pauseAfter: computePauseForLine(i, lines, profile),
+  }))
 }
 
-function buildLinesFromTweaks(tweaks: Tweaks): TrackLine[] {
+function buildLinesFromTweaks(tweaks: Tweaks, level: JlptLevel = 'N5'): TrackLine[] {
   const tpl = pickTemplate(tweaks.mondai, tweaks.length)
   let rawLines: LineTemplate[]
-  const parsed = parseSource(tweaks.sourceText)
+  const parsed = parseSource(tweaks.sourceText, level)
   if (parsed && parsed.length) {
     rawLines = parsed
   } else {
     rawLines = adjustLength(tpl.lines, tweaks.length)
   }
+  const profile = getJlptProfile(level)
   return rawLines.map((l, i) => ({
     id: `l${i + 1}`,
     speaker: l.speaker,
@@ -244,19 +298,19 @@ function buildLinesFromTweaks(tweaks: Tweaks): TrackLine[] {
     voiceId: l.voiceId,
     jp: l.jp,
     bn: l.bn,
-    pauseAfter: l.pauseAfter,
+    pauseAfter: computePauseForLine(i, rawLines, profile),
     audio: 'queued' as const,
-    speed: 1.0,
-    pitch: 0.0,
-    intonation: 1.0,
-    volume: 1.0,
+    speed: profile.speed,
+    pitch: profile.pitch,
+    intonation: profile.intonation,
+    volume: profile.volume,
   }))
 }
 
 /* ── AI heuristics ── */
 function extractFacts(lines: TrackLine[]): { type: string; fact: string; context: string }[] {
   const facts: { type: string; fact: string; context: string }[] = []
-  const nonNarrator = lines.filter(l => l.speaker !== '春日部つむぎ' && l.jp.length > 3)
+  const nonNarrator = lines.filter(l => l.speaker !== '九州そら' && l.jp.length > 3)
 
   for (const line of nonNarrator) {
     const jp = line.jp
@@ -283,8 +337,8 @@ function extractFacts(lines: TrackLine[]): { type: string; fact: string; context
 }
 
 function generateQuestionFromScript(lines: TrackLine[]): Question {
-  const nonNarrator = lines.filter(l => l.speaker !== '春日部つむぎ')
-  const lastNarrator = lines.filter(l => l.speaker === '春日部つむぎ').pop()
+  const nonNarrator = lines.filter(l => l.speaker !== '九州そら')
+  const lastNarrator = lines.filter(l => l.speaker === '九州そら').pop()
   const facts = extractFacts(lines)
 
   // Build question based on the most specific fact found
@@ -427,7 +481,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
   const initialLines = buildLinesFromTweaks({
     sourceText: '', mondai: 2, length: 'short',
     density: 'comfortable', showBN: true, status: 'draft',
-  })
+  }, 'N5')
 
   const initialTpl = pickTemplate(2, 'short')
 
@@ -469,32 +523,49 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
   const audioBuffersRef = useRef<Map<string, AudioBuffer>>(new Map())
   const audioBlobsRef = useRef<Map<string, Blob>>(new Map())
   const playbackScheduleRef = useRef<{ lineId: string; start: number; end: number }[]>([])
-  const playbackStartRef = useRef(0)
+  const playbackGenRef = useRef(0)
   const rafRef = useRef(0)
 
-  // Regenerate when template settings change
+  // Regenerate when template settings or JLPT level change
   useEffect(() => {
-    const newLines = buildLinesFromTweaks(tweaks)
+    const newLines = buildLinesFromTweaks(tweaks, meta.level)
     setTrackLines(prev => {
       const byJp = new Map(prev.map(l => [l.jp, l]))
       return newLines.map(l => {
         const existing = byJp.get(l.jp)
-        if (existing) return { ...existing, id: l.id }
+        if (existing) {
+          const paramsChanged =
+            existing.speed !== l.speed ||
+            existing.pitch !== l.pitch ||
+            existing.intonation !== l.intonation ||
+            existing.volume !== l.volume ||
+            existing.pauseAfter !== l.pauseAfter
+          return {
+            ...existing,
+            id: l.id,
+            speed: l.speed,
+            pitch: l.pitch,
+            intonation: l.intonation,
+            volume: l.volume,
+            pauseAfter: l.pauseAfter,
+            audio: paramsChanged ? ('queued' as const) : existing.audio,
+            audioUrl: paramsChanged ? undefined : existing.audioUrl,
+            duration: paramsChanged ? undefined : existing.duration,
+          }
+        }
         return l
       })
     })
     const tpl = pickTemplate(tweaks.mondai, tweaks.length)
     setQuestion(tpl.question)
-    const level: JlptLevel = tweaks.length === 'long' ? 'N4' : 'N5'
-    setMeta({
+    setMeta(prev => ({
+      ...prev,
       title_jp: tpl.title_jp,
       title_bn: tpl.title_bn,
       mondai: tpl.mondai,
-      level,
       scenarioImage: tpl.scenarioImage ?? getScenarioImage(tpl.title_jp) ?? getDefaultScenarioImage(),
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tweaks.mondai, tweaks.length, tweaks.sourceText])
+    }))
+  }, [tweaks.mondai, tweaks.length, tweaks.sourceText, meta.level])
 
   // Check VOICEVOX health
   useEffect(() => {
@@ -561,6 +632,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
         return Math.max(m, n)
       }, 0)
       const prevLine = prev[idx] ?? prev[0]
+      const profile = getJlptProfile(track.level)
       const newLine: TrackLine = {
         id: `l${maxNum + 1}`,
         speaker: prevLine?.speaker ?? '四国めたん',
@@ -568,18 +640,22 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
         voiceId: prevLine?.voiceId ?? 2,
         jp: '（新しいセリフ）',
         bn: '(নতুন লাইন)',
-        pauseAfter: 500,
+        pauseAfter: profile.pauseBetweenLines,
         audio: 'queued',
-        speed: 1.0,
-        pitch: 0.0,
-        intonation: 1.0,
-        volume: 1.0,
+        speed: profile.speed,
+        pitch: profile.pitch,
+        intonation: profile.intonation,
+        volume: profile.volume,
       }
       const next = [...prev]
       next.splice(insertAt, 0, newLine)
-      return next
+      // Recompute pauses for all lines so narrator/question timing stays correct
+      return next.map((l, i) => ({
+        ...l,
+        pauseAfter: computePauseForLine(i, next, profile),
+      }))
     })
-  }, [])
+  }, [track.level])
 
   const removeLine = useCallback((lineId: string) => {
     setTrackLines(prev => {
@@ -594,6 +670,25 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
 
   const updateTrackMeta = useCallback((patch: Partial<Pick<Track, 'title_jp' | 'title_bn' | 'level' | 'scenarioImage'>>) => {
     setMeta(prev => ({ ...prev, ...patch }))
+    if (patch.level) {
+      const profile = getJlptProfile(patch.level)
+      setTrackLines(prev => {
+        const next = prev.map((l, i) => ({
+          ...l,
+          speed: profile.speed,
+          pitch: profile.pitch,
+          intonation: profile.intonation,
+          volume: profile.volume,
+          pauseAfter: computePauseForLine(i, prev, profile),
+          audio: 'queued' as const,
+          audioUrl: undefined,
+          duration: undefined,
+        }))
+        audioBuffersRef.current.clear()
+        audioBlobsRef.current.clear()
+        return next
+      })
+    }
   }, [])
 
   const synthesizeLine = useCallback(async (lineId: string) => {
@@ -606,11 +701,14 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     setTrackLines(prev => prev.map(l => l.id === lineId ? { ...l, audio: 'rendering' as const } : l))
     setSynthesisQueue(prev => [...prev.filter(id => id !== lineId), lineId])
     try {
+      const profile = getJlptProfile(track.level)
       const buf = await synthesizeText(line.jp, line.voiceId, {
         speed: line.speed,
         pitch: line.pitch,
         intonation: line.intonation,
         volume: line.volume,
+        prePhonemeLength: profile.prePhonemeLength,
+        postPhonemeLength: profile.postPhonemeLength,
       })
       const engine = audioEngineRef.current
       const audioBuf = await engine.decode(buf)
@@ -629,7 +727,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSynthesisQueue(prev => prev.filter(id => id !== lineId))
     }
-  }, [trackLines, vvConnected])
+  }, [trackLines, vvConnected, track.level])
 
   const synthesizeAll = useCallback(async () => {
     for (const line of trackLines) {
@@ -640,6 +738,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
   }, [trackLines, synthesizeLine])
 
   const stopPlayback = useCallback(() => {
+    playbackGenRef.current++
     audioEngineRef.current.stop()
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     setPlaying(false)
@@ -649,16 +748,18 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
 
   const startPlaybackLoop = useCallback(() => {
     const tick = () => {
-      const elapsed = (performance.now() - playbackStartRef.current) / 1000
+      const elapsed = audioEngineRef.current.playbackTime
       const schedule = playbackScheduleRef.current
       const total = schedule.length ? schedule[schedule.length - 1].end : 1
       const item = schedule.find(s => elapsed >= s.start && elapsed < s.end)
       setPlayingLineId(item?.lineId ?? null)
       setPlayhead(Math.min(1, elapsed / total))
-      if (elapsed >= total) {
-        setPlaying(false)
-        setPlayhead(0)
-        setPlayingLineId(null)
+      if (!audioEngineRef.current.playing || elapsed >= total) {
+        if (elapsed >= total) {
+          setPlaying(false)
+          setPlayhead(0)
+          setPlayingLineId(null)
+        }
         return
       }
       rafRef.current = requestAnimationFrame(tick)
@@ -687,31 +788,36 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
 
   const playTrack = useCallback(async () => {
     stopPlayback()
-    const ready = trackLines.filter(l => l.audio === 'ready')
-    if (!ready.length) await synthesizeAll()
-    const items: { buffer: AudioBuffer; speed: number; pitch: number; pauseAfter: number }[] = []
+    const gen = playbackGenRef.current
+    const notReady = trackLines.filter(l => l.audio !== 'ready')
+    if (notReady.length) await synthesizeAll()
+    if (gen !== playbackGenRef.current) return // aborted during synthesis
+    const items: { buffer: AudioBuffer; speed: number; pitch: number; pauseAfter: number; onStart?: () => void }[] = []
     const schedule: { lineId: string; start: number; end: number }[] = []
     let t = 0
     for (const line of trackLines) {
       const buf = audioBuffersRef.current.get(line.id)
       if (!buf) continue
       const dur = buf.duration / line.speed
-      items.push({ buffer: buf, speed: line.speed, pitch: line.pitch, pauseAfter: line.pauseAfter / 1000 })
+      items.push({
+        buffer: buf,
+        speed: line.speed,
+        pitch: line.pitch,
+        pauseAfter: line.pauseAfter / 1000,
+        onStart: () => setPlayingLineId(line.id),
+      })
       schedule.push({ lineId: line.id, start: t, end: t + dur })
       t += dur + line.pauseAfter / 1000
     }
     if (!items.length) return
     playbackScheduleRef.current = schedule
-    playbackStartRef.current = performance.now()
     setPlaying(true)
     audioEngineRef.current.setOnEnded(() => {
       setPlaying(false)
       setPlayhead(0)
       setPlayingLineId(null)
     })
-    audioEngineRef.current.schedule(items, (idx) => {
-      setPlayingLineId(trackLines[idx]?.id ?? null)
-    })
+    audioEngineRef.current.schedule(items)
     startPlaybackLoop()
   }, [trackLines, synthesizeAll, stopPlayback, startPlaybackLoop])
 
@@ -723,17 +829,16 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
 
   const resumePlayback = useCallback(() => {
     audioEngineRef.current.resume()
-    playbackStartRef.current = performance.now()
     setPlaying(true)
     startPlaybackLoop()
   }, [startPlaybackLoop])
 
   const exportTrackAudio = useCallback(async () => {
-    const items: { buffer: AudioBuffer; speed: number; pauseAfter: number }[] = []
+    const items: { buffer: AudioBuffer; speed: number; pitch: number; pauseAfter: number }[] = []
     for (const line of trackLines) {
       const buf = audioBuffersRef.current.get(line.id)
       if (!buf) continue
-      items.push({ buffer: buf, speed: line.speed, pauseAfter: line.pauseAfter / 1000 })
+      items.push({ buffer: buf, speed: line.speed, pitch: line.pitch, pauseAfter: line.pauseAfter / 1000 })
     }
     if (!items.length) return null
     return audioEngineRef.current.exportWav(items)
@@ -747,6 +852,27 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     await synthesizeLine(lineId)
     return audioBlobsRef.current.get(lineId) ?? null
   }, [trackLines, synthesizeLine])
+
+  const applyJlptDefaults = useCallback(() => {
+    const profile = getJlptProfile(track.level)
+    setTrackLines(prev => {
+      const next = prev.map((l, i) => ({
+        ...l,
+        speed: profile.speed,
+        pitch: profile.pitch,
+        intonation: profile.intonation,
+        volume: profile.volume,
+        pauseAfter: computePauseForLine(i, prev, profile),
+        audio: 'queued' as const,
+        audioUrl: undefined,
+        duration: undefined,
+      }))
+      // clear cached buffers so they re-synth with new breathing params
+      audioBuffersRef.current.clear()
+      audioBlobsRef.current.clear()
+      return next
+    })
+  }, [track.level])
 
   const generateCaptions = useCallback(() => {
     const srtLines: string[] = []
@@ -900,6 +1026,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     aiRewriteN4,
     aiTranslateBangla,
     aiSuggestDistractors,
+    applyJlptDefaults,
     exportTrackAudio,
     exportLineAudio,
     generateCaptions,
@@ -911,7 +1038,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     stopPlayback, pausePlayback, resumePlayback, updateLine, addLine, removeLine,
     updateQuestion, updateTrackMeta, assignSpeaker, vvConnected, synthesisQueue,
     aiGenerateQuestion, aiRewriteN4, aiTranslateBangla, aiSuggestDistractors,
-    exportTrackAudio, exportLineAudio, generateCaptions,
+    applyJlptDefaults, exportTrackAudio, exportLineAudio, generateCaptions,
     publishTrack, publishedTracks, loadPublishedTrack,
     customMondais, addCustomMondai, removeCustomMondai,
   ])

@@ -6,7 +6,9 @@ import type { VoiceSettings } from './voiceSettings'
 export interface Voices {
   narrator: number
   female: number
+  female2: number
   male: number
+  male2: number
 }
 
 let speakerCache: VvSpeaker[] | null = null
@@ -15,18 +17,30 @@ export async function listVoices(): Promise<VvSpeaker[]> {
   return speakerCache
 }
 
-/** Resolve role → style id, honoring explicit picks from settings. */
+/** Resolve role → style id, honoring explicit picks from settings.
+ *  Picks a second distinct voice per gender so two women/men talking don't sound identical.
+ */
 export async function resolveVoices(settings: VoiceSettings): Promise<Voices> {
-  const fallback: Voices = { narrator: 2, female: 2, male: 11 }
+  const fallback: Voices = { narrator: 16, female: 2, female2: 10, male: 11, male2: 13 }
   try {
     const speakers = await listVoices()
     const styleOf = (re: RegExp) => speakers.find(s => re.test(s.name))?.styles?.[0]?.id ?? null
     const female = settings.female ?? styleOf(/めたん|つむぎ|ナナ|ミコ/) ?? speakers[0]?.styles?.[0]?.id ?? fallback.female
+    let female2 = styleOf(/はう|ひまり|リツ|ナナ|ミコ/) ?? fallback.female2
+    if (female2 === female) female2 = [10, 8, 14, 9, 54].find(id => id !== female) ?? fallback.female2
     const male = settings.male ?? styleOf(/武宏|龍星|つるぎ|そら/) ?? speakers[1]?.styles?.[0]?.id ?? fallback.male
-    const narrator = settings.narrator ?? styleOf(/つむぎ|めたん/) ?? female
-    return { narrator, female, male }
+    let male2 = styleOf(/虎太郎|ちび|朱司|宗麟|龍星/) ?? fallback.male2
+    if (male2 === male) male2 = [13, 12, 42, 52, 53].find(id => id !== male) ?? fallback.male2
+    const narrator = settings.narrator ?? styleOf(/そら|つむぎ|めたん/) ?? female
+    return { narrator, female, female2, male, male2 }
   } catch {
-    return { narrator: settings.narrator ?? fallback.narrator, female: settings.female ?? fallback.female, male: settings.male ?? fallback.male }
+    return {
+      narrator: settings.narrator ?? fallback.narrator,
+      female: settings.female ?? fallback.female,
+      female2: fallback.female2,
+      male: settings.male ?? fallback.male,
+      male2: fallback.male2,
+    }
   }
 }
 

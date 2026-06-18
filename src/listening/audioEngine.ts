@@ -1,17 +1,31 @@
 /**
  * Web Audio API playback engine for the Listening Studio.
  * Handles single-line preview, sequential track playback, and WAV export.
+ *
+ * Timing is fully driven by AudioContext.currentTime so that pause/resume
+ * and UI highlighting stay perfectly in sync — no wall-clock drift.
  */
+
+export interface ScheduleItem {
+  buffer: AudioBuffer
+  speed: number
+  pitch: number
+  pauseAfter: number
+  /** Called (via rAF polling against audio time) when this item starts playing */
+  onStart?: () => void
+}
 
 export class AudioEngine {
   ctx: AudioContext | null = null
   private gain: GainNode | null = null
   private sources: AudioBufferSourceNode[] = []
-  private scheduled: number[] = []
-  private startTime = 0
-  private pausedAt = 0
   private isPlaying = false
   private onEndedCb: (() => void) | null = null
+
+  /* schedule tracking */
+  private scheduleStart = 0          // ctx.currentTime when schedule() was called
+  private scheduledCbs: { when: number; cb: () => void; fired: boolean }[] = []
+  private rafId = 0
 
   private ensureCtx() {
     if (!this.ctx) {
@@ -30,22 +44,39 @@ export class AudioEngine {
     return ctx.decodeAudioData(arrayBuffer.slice(0))
   }
 
-  playBuffer(buf: AudioBuffer, speed = 1.0, pitch = 0.0, when = 0): void {
+  /** Playback position in seconds. AudioContext.currentTime naturally pauses
+   *  when the context is suspended, so no extra bookkeeping is needed. */
+  get playbackTime(): number {
+    if (!this.ctx) return 0
+    return Math.max(0, this.ctx.currentTime - this.scheduleStart)
+  }
+
+  get playing() {
+    return this.isPlaying
+  }
+
+  get currentTime(): number {
+    return this.ctx?.currentTime ?? 0
+  }
+
+  setOnEnded(cb: (() => void) | null) {
+    this.onEndedCb = cb
+  }
+
+  setVolume(v: number): void {
+    if (this.gain) this.gain.gain.value = v
+  }
+
+  private playBuffer(buf: AudioBuffer, speed = 1.0, pitch = 0.0, when = 0): void {
     const ctx = this.ensureCtx()
     const source = ctx.createBufferSource()
     source.buffer = buf
-
-    // Speed change via playbackRate
     source.playbackRate.value = speed
-
-    // Pitch shift via detune (cents)
     source.detune.value = pitch * 100
-
     const gain = ctx.createGain()
     gain.gain.value = 1.0
     source.connect(gain)
     gain.connect(this.gain!)
-
     source.start(when)
     this.sources.push(source)
 
@@ -62,54 +93,61 @@ export class AudioEngine {
   async play(buf: AudioBuffer, speed = 1.0, pitch = 0.0): Promise<void> {
     this.stop()
     this.isPlaying = true
-    this.ensureCtx()
-    this.playBuffer(buf, speed, pitch, this.ctx!.currentTime)
+    const ctx = this.ensureCtx()
+    this.scheduleStart = ctx.currentTime
+    this.playBuffer(buf, speed, pitch, ctx.currentTime)
   }
 
   /** Schedule sequential playback of multiple buffers with pauses (in seconds) */
-  schedule(
-    items: { buffer: AudioBuffer; speed: number; pitch: number; pauseAfter: number }[],
-    onLineStart?: (index: number) => void
-  ): void {
+  schedule(items: ScheduleItem[]): void {
     this.stop()
     this.isPlaying = true
     const ctx = this.ensureCtx()
+    this.scheduleStart = ctx.currentTime
+    this.scheduledCbs = []
     let t = ctx.currentTime
 
-    items.forEach((item, i) => {
-      const source = ctx.createBufferSource()
-      source.buffer = item.buffer
-      source.playbackRate.value = item.speed
-      source.detune.value = item.pitch * 100
-      const gain = ctx.createGain()
-      gain.gain.value = 1.0
-      source.connect(gain)
-      gain.connect(this.gain!)
-
+    items.forEach(item => {
       const when = Math.max(t, ctx.currentTime)
-      const mark = window.setTimeout(() => onLineStart?.(i), Math.max(0, (when - ctx.currentTime) * 1000))
-      this.scheduled.push(mark)
+      const dur = item.buffer.duration / item.speed
+      this.playBuffer(item.buffer, item.speed, item.pitch, when)
 
-      source.start(when)
-      t = when + item.buffer.duration / item.speed + item.pauseAfter
-      this.sources.push(source)
+      if (item.onStart) {
+        this.scheduledCbs.push({ when, cb: item.onStart, fired: false })
+      }
 
-      source.onended = () => {
-        this.sources = this.sources.filter(s => s !== source)
-        if (this.sources.length === 0 && this.isPlaying) {
-          this.isPlaying = false
-          this.onEndedCb?.()
+      t = when + dur + item.pauseAfter
+    })
+
+    this._poll()
+  }
+
+  /** rAF loop that fires onStart callbacks exactly when AudioContext reaches them */
+  private _poll() {
+    const tick = () => {
+      if (!this.isPlaying || !this.ctx) return
+      const now = this.ctx.currentTime
+      for (const sc of this.scheduledCbs) {
+        if (!sc.fired && now >= sc.when) {
+          sc.fired = true
+          sc.cb()
         }
       }
-    })
+      if (this.sources.length > 0) {
+        this.rafId = requestAnimationFrame(tick)
+      }
+    }
+    this.rafId = requestAnimationFrame(tick)
   }
 
   pause(): void {
     this.ctx?.suspend()
+    cancelAnimationFrame(this.rafId)
   }
 
   resume(): void {
     this.ctx?.resume()
+    this._poll()
   }
 
   stop(): void {
@@ -117,30 +155,14 @@ export class AudioEngine {
       try { s.stop() } catch {}
     })
     this.sources = []
-    this.scheduled.forEach(id => clearTimeout(id))
-    this.scheduled = []
+    cancelAnimationFrame(this.rafId)
+    this.rafId = 0
     this.isPlaying = false
-    this.pausedAt = 0
-  }
-
-  setVolume(v: number): void {
-    if (this.gain) this.gain.gain.value = v
-  }
-
-  get currentTime(): number {
-    return this.ctx?.currentTime ?? 0
-  }
-
-  setOnEnded(cb: (() => void) | null) {
-    this.onEndedCb = cb
-  }
-
-  get playing() {
-    return this.isPlaying
+    this.scheduledCbs = []
   }
 
   /** Export multiple buffers into a single WAV file */
-  async exportWav(items: { buffer: AudioBuffer; speed: number; pauseAfter: number }[]): Promise<Blob> {
+  async exportWav(items: { buffer: AudioBuffer; speed: number; pitch: number; pauseAfter: number }[]): Promise<Blob> {
     const ctx = this.ensureCtx()
     const sampleRate = ctx.sampleRate
     const channels = 1
@@ -159,6 +181,7 @@ export class AudioEngine {
       const src = offline.createBufferSource()
       src.buffer = item.buffer
       src.playbackRate.value = item.speed
+      src.detune.value = item.pitch * 100
       const gain = offline.createGain()
       gain.gain.value = 1.0
       src.connect(gain)
