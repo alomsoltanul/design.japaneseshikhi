@@ -20,7 +20,7 @@ import type { Accent, Format, FxState } from '@/types'
 const STORAGE_KEY = 'js-poster-studio-v2'
 const VIEW_STORAGE_KEY = 'js-poster-studio-view'
 
-export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import'
+export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import' | 'reel-studio'
 
 interface StoredState {
   tpl: string
@@ -54,6 +54,7 @@ function buildDefaultDatas() {
 
 function getInitialView(): AppView {
   const path = window.location.pathname
+  if (path.startsWith('/reel-studio')) return 'reel-studio'
   if (path.startsWith('/poster-maker')) return 'poster-maker'
   if (path.startsWith('/listening')) return 'listening'
   if (path.startsWith('/json-import')) return 'json-import'
@@ -110,7 +111,7 @@ export default function App() {
   }, [tpl, accent, fmt, datas, fx, accents])
 
   useEffect(() => {
-    if (view !== 'poster-maker' && view !== 'listening') {
+    if (view !== 'poster-maker' && view !== 'listening' && view !== 'reel-studio') {
       localStorage.setItem(VIEW_STORAGE_KEY, view)
     }
   }, [view])
@@ -124,6 +125,7 @@ export default function App() {
   const handleChangeView = useCallback((next: AppView) => {
     setView(next)
     const target =
+      next === 'reel-studio' ? '/reel-studio' :
       next === 'poster-maker' ? '/poster-maker' :
       next === 'listening' ? '/listening' :
       next === 'json-import' ? '/json-import' :
@@ -257,6 +259,7 @@ export default function App() {
                   { id: 'prompt' as AppView, label: 'Prompt Extractor', desc: 'Extract image prompts from JSON data.', icon: '🖼️' },
                   { id: 'poster-maker' as AppView, label: 'Poster Maker', desc: 'Create custom posters with templates.', icon: '🖌️' },
                   { id: 'listening' as AppView, label: 'Listening Studio', desc: 'Build and edit listening practice tracks.', icon: '🎧' },
+                  { id: 'reel-studio' as AppView, label: 'Reel Studio', desc: 'Animate vocab/grammar/kanji cards into a 9:16 video — single or word-of-the-day multi-card reel.', icon: '🎬' },
                 ].map(tool => (
                   <button key={tool.id} className="home-card" onClick={() => handleChangeView(tool.id)}>
                     <div className="home-card-icon">{tool.icon}</div>
@@ -276,6 +279,16 @@ export default function App() {
           </ErrorBoundary>
           <ErrorBoundary>
             {view === 'poster-maker' && <PosterMaker />}
+          </ErrorBoundary>
+          <ErrorBoundary>
+            {view === 'reel-studio' && (
+              <iframe
+                src="/tools/learning-reel-studio.html"
+                title="Learning Reel Studio"
+                allow="autoplay"
+                style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+              />
+            )}
           </ErrorBoundary>
           <ErrorBoundary>
             {view === 'listening' && (
