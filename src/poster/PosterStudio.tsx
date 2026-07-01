@@ -111,7 +111,7 @@ interface Props {
   onExitToHome?: () => void
 }
 
-export function PosterStudio({ onExitToHome }: Props) {
+export function PosterStudio(_props: Props) {
   const saved = loadStored()
 
   const [tpl, setTpl] = useState<string>(saved.tpl || 'grammar')
@@ -370,31 +370,10 @@ export function PosterStudio({ onExitToHome }: Props) {
   const previewW = Math.round(fmt.w * previewScale)
   const previewH = Math.round(fmt.h * previewScale)
 
+  const expectedCols = (TEMPLATE_FIELD_ORDER[tpl] ?? Object.keys(TEMPLATE_MAP[tpl].defaultData)).join('\t')
+
   return (
     <div className="ps-root">
-      <header className="ps-header">
-        <div className="ps-brand" onClick={onExitToHome} style={{ cursor: onExitToHome ? 'pointer' : 'default' }}>
-          <div className="ps-brand-icon">あ</div>
-          <div className="ps-brand-text">
-            <span className="ps-brand-name">Japanese Shikhi</span>
-            <span className="ps-brand-sub">Content Studio</span>
-          </div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="ps-steps">
-          {[
-            { n: '1', label: 'Template' },
-            { n: '2', label: 'Data' },
-            { n: '3', label: 'Export' },
-          ].map(s => (
-            <div key={s.n} className="ps-step">
-              <span className="ps-step-dot">{s.n}</span>
-              <span className="ps-step-label">{s.label}</span>
-            </div>
-          ))}
-        </div>
-      </header>
-
       {isNarrow && (
         <div className="ps-mobile-toggle">
           <button className={mobileView === 'edit' ? 'on' : ''} onClick={() => setMobileView('edit')}>1·2 Edit</button>
@@ -406,6 +385,47 @@ export function PosterStudio({ onExitToHome }: Props) {
         {/* LEFT */}
         <section className={`ps-left${!showLeft ? ' hidden-mobile' : ''}`}>
           <div className="ps-left-inner">
+            {/* WORKFLOW GUIDE */}
+            <details className="ps-workflow" open>
+              <summary>
+                <span className="ps-workflow-badge">Workflow</span>
+                Sheet → Poster in 4 steps
+              </summary>
+              <ol className="ps-workflow-list">
+                <li>
+                  <b>Open your Google Sheet or Excel</b> with one row per poster.
+                  Column headers optional — first row auto-detected.
+                </li>
+                <li>
+                  <b>Copy the rows</b> (⌘/Ctrl+C). Tabs between columns are preserved.
+                </li>
+                <li>
+                  <b>Pick a template</b> below, then paste (⌘/Ctrl+V) into the Paste box.
+                  All rows load instantly.
+                </li>
+                <li>
+                  <b>Preview each row</b> with ‹ › on the right, then hit
+                  <b> ⬇ PNG</b> for one or <b>Export all →</b> for the whole batch.
+                </li>
+              </ol>
+              <div className="ps-workflow-cols">
+                <div className="ps-workflow-cols-label">
+                  Expected column order for <b>{tplMeta.jp} · {tplMeta.en}</b>
+                </div>
+                <code className="ps-workflow-cols-code">{expectedCols}</code>
+                <button
+                  className="ps-btn-ghost"
+                  style={{ marginTop: 8, padding: '6px 12px', fontSize: 12 }}
+                  onClick={() => {
+                    navigator.clipboard?.writeText(expectedCols)
+                    showToast('Column headers copied')
+                  }}
+                >
+                  Copy headers row
+                </button>
+              </div>
+            </details>
+
             {/* STEP 1 */}
             <div className="ps-section-head">
               <span className="ps-num">1</span>

@@ -32,15 +32,82 @@
 .ps-root input,
 .ps-root button { font-family: inherit; }
 
-.ps-header {
-  flex: none;
+/* legacy internal header removed — GlobalNav is the only nav */
+
+.ps-workflow {
+  background: #fff;
+  border: 1px solid var(--js-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  box-shadow: var(--js-shadow-sm);
+}
+.ps-workflow > summary {
+  cursor: pointer;
+  list-style: none;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 20px;
-  height: 60px;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--js-secondary);
+}
+.ps-workflow > summary::-webkit-details-marker { display: none; }
+.ps-workflow > summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--js-fg-3);
+  font-size: 12px;
+  transition: transform 160ms var(--js-ease);
+}
+.ps-workflow:not([open]) > summary::after { transform: rotate(-90deg); }
+.ps-workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(230,57,70,.08);
+  color: var(--js-primary);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.ps-workflow-list {
+  margin: 12px 0 0;
+  padding-left: 22px;
+  color: var(--js-fg-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.ps-workflow-list li { margin-bottom: 6px; }
+.ps-workflow-list li b { color: var(--js-fg-1); }
+.ps-workflow-cols {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--js-surface-alt);
+  border-radius: 10px;
+  border: 1px dashed var(--js-border);
+}
+.ps-workflow-cols-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--js-fg-3);
+  margin-bottom: 6px;
+}
+.ps-workflow-cols-code {
+  display: block;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  color: var(--js-secondary);
   background: #fff;
-  border-bottom: 1px solid var(--js-border);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--js-border);
+  overflow-x: auto;
+  white-space: pre;
 }
 .ps-brand {
   display: flex;
