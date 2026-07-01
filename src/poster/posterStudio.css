@@ -115,7 +115,7 @@
 }
 
 .ps-left {
-  flex: 1 1 0;
+  flex: 0 0 30%;
   min-width: 0;
   overflow-y: auto;
   background: #EEF0F4;
@@ -472,7 +472,7 @@
 .ps-right {
   display: flex;
   flex-direction: column;
-  flex: 0 0 560px;
+  flex: 0 0 70%;
   min-width: 0;
   background: linear-gradient(160deg,#11131d,#0c0e16);
 }
