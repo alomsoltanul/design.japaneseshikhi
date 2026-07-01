@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toPng, toJpeg } from 'html-to-image'
+import { toPng, toJpeg, toBlob } from 'html-to-image'
+import JSZip from 'jszip'
 import { BASE_ACCENTS, FORMATS } from '@/themes'
 import { TEMPLATES, TEMPLATE_MAP } from '@/templates'
 import type { Accent, Format, FxState } from '@/types'
@@ -222,6 +223,7 @@ export function PosterStudio(_props: Props) {
   const [dragging, setDragging] = useState(false)
   const [toast, setToast] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null)
   const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit')
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 900)
 
@@ -395,31 +397,61 @@ export function PosterStudio(_props: Props) {
     return `js-${tpl}-${safe}`
   }
 
-  const snap = async (type: 'png' | 'jpg') => {
+  const waitForFonts = async () => {
+    if (document.fonts?.ready) {
+      try { await document.fonts.ready } catch {}
+    }
+  }
+
+  const snapUrl = async (type: 'png' | 'jpg') => {
     const node = hiddenRef.current
     if (!node) return null
-    if (document.fonts?.ready) { try { await document.fonts.ready } catch {} }
-    const base = { width: fmt.w, height: fmt.h, pixelRatio: 2, cacheBust: true }
+    await waitForFonts()
+    const base = {
+      width: fmt.w,
+      height: fmt.h,
+      pixelRatio: 2,
+      cacheBust: true,
+      style: { transform: 'none', margin: '0' } as Record<string, string>,
+    }
     return type === 'jpg'
       ? toJpeg(node, { ...base, quality: 0.95, backgroundColor: '#0b0b14' })
       : toPng(node, base)
   }
 
-  const download = (dataUrl: string, name: string) => {
+  const snapBlob = async (): Promise<Blob | null> => {
+    const node = hiddenRef.current
+    if (!node) return null
+    await waitForFonts()
+    return toBlob(node, {
+      width: fmt.w,
+      height: fmt.h,
+      pixelRatio: 2,
+      cacheBust: true,
+      style: { transform: 'none', margin: '0' },
+    })
+  }
+
+  const triggerDownload = (blobOrUrl: Blob | string, name: string) => {
+    const url = typeof blobOrUrl === 'string' ? blobOrUrl : URL.createObjectURL(blobOrUrl)
     const a = document.createElement('a')
-    a.href = dataUrl
+    a.href = url
     a.download = name
     document.body.appendChild(a)
     a.click()
     a.remove()
+    if (typeof blobOrUrl !== 'string') {
+      // release object URL on next tick
+      setTimeout(() => URL.revokeObjectURL(url), 4000)
+    }
   }
 
   const exportOne = async (type: 'png' | 'jpg') => {
     setExporting(true)
     try {
-      const url = await snap(type)
+      const url = await snapUrl(type)
       if (url) {
-        download(url, `${fileBase()}.${type}`)
+        triggerDownload(url, `${fileBase()}.${type}`)
         showToast(`Exported ${type.toUpperCase()}`)
       }
     } catch (e) {
@@ -430,22 +462,52 @@ export function PosterStudio(_props: Props) {
     }
   }
 
+  /**
+   * Batch export uses JSZip: single download, no browser
+   * "download 25 files?" interruption, no per-row user gesture.
+   * Fonts are awaited once; each row waits ~2 rAF instead of a
+   * fixed 400ms to keep the batch as fast as the browser can
+   * render.
+   */
   const exportAll = async () => {
     if (!rows.length) return
     setExporting(true)
-    for (let i = 0; i < rows.length; i++) {
-      goTo(i)
-      await new Promise(r => setTimeout(r, 420))
-      try {
-        const url = await snap('png')
-        if (url) download(url, `${fileBase()}.png`)
-      } catch (e) {
-        console.error(e)
+    setBatchProgress({ done: 0, total: rows.length })
+    const zip = new JSZip()
+    const originalIdx = rowIndex
+    try {
+      await waitForFonts()
+      for (let i = 0; i < rows.length; i++) {
+        // apply row synchronously by writing state
+        setIdxByTpl(prev => ({ ...prev, [tpl]: i }))
+        setDatasByTpl(d => ({ ...d, [tpl]: rows[i] }))
+        // wait 2 animation frames for React commit + paint
+        await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())))
+        // tiny extra tick for fonts on newly rendered kanji glyphs
+        await new Promise(r => setTimeout(r, 90))
+        const blob = await snapBlob()
+        if (blob) {
+          const row = rows[i] as Record<string, unknown>
+          const tag = String(
+            row.patternRomaji || row.romaji || row.kanji || row.wordJp || row.word_jp || row.title || row.headline || `row${i + 1}`
+          ).replace(/[^\w぀-ヿ一-鿿-]+/g, '').slice(0, 24) || `row${i + 1}`
+          zip.file(`js-${tpl}-${String(i + 1).padStart(3, '0')}-${tag}.png`, blob)
+        }
+        setBatchProgress({ done: i + 1, total: rows.length })
       }
-      await new Promise(r => setTimeout(r, 160))
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      triggerDownload(zipBlob, `japanese-shikhi-${tpl}-${Date.now()}.zip`)
+      showToast(`Exported ${rows.length} posters as ZIP`)
+    } catch (e) {
+      showToast('Batch export failed — see console')
+      console.error(e)
+    } finally {
+      // restore original index
+      setIdxByTpl(prev => ({ ...prev, [tpl]: originalIdx }))
+      setDatasByTpl(d => ({ ...d, [tpl]: rows[originalIdx] }))
+      setExporting(false)
+      setBatchProgress(null)
     }
-    setExporting(false)
-    showToast(`Exported ${rows.length} posters`)
   }
 
   const hasRows = rows.length > 0
@@ -583,20 +645,32 @@ Rules:
             </div>
 
             {/* Accent + Effects */}
-            <div className="ps-accent-row">
-              {accents.map(a => (
-                <div
-                  key={a.id}
-                  className={`ps-accent-swatch${accent.id === a.id ? ' on' : ''}`}
-                  style={{
-                    background: a.id === 'light'
-                      ? 'linear-gradient(135deg,#F9FAFB,#E5E7EB)'
-                      : `linear-gradient(135deg,${a.p},${a.s})`,
-                  }}
-                  onClick={() => setAccent(a)}
-                  title={a.id}
-                />
-              ))}
+            <div className="ps-accent-block">
+              <div className="ps-accent-head">
+                <span className="ps-accent-badge">Palette</span>
+                <span className="ps-accent-hint">Red · Amber · Teal · Purple (design-system tokens)</span>
+              </div>
+              <div className="ps-accent-row">
+                {accents.map(a => (
+                  <button
+                    type="button"
+                    key={a.id}
+                    className={`ps-accent-chip${accent.id === a.id ? ' on' : ''}`}
+                    onClick={() => setAccent(a)}
+                    title={`${a.id} · ${a.p}`}
+                  >
+                    <span
+                      className="ps-accent-swatch-inner"
+                      style={{
+                        background: a.id === 'light'
+                          ? 'linear-gradient(135deg,#F9FAFB,#E5E7EB)'
+                          : `linear-gradient(135deg,${a.p},${a.s})`,
+                      }}
+                    />
+                    <span className="ps-accent-name">{a.id}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="ps-fx-row">
               <button className={`ps-fx-btn${fx.petals ? ' on' : ''}`} onClick={() => setFx(v => ({ ...v, petals: !v.petals }))}>Sakura</button>
@@ -793,8 +867,18 @@ Rules:
             <button className="ps-export-btn" onClick={() => exportOne('png')} disabled={exporting}>⬇ PNG</button>
             <button className="ps-export-btn jpg" onClick={() => exportOne('jpg')} disabled={exporting}>⬇ JPG</button>
             <div style={{ flex: 1 }} />
+            {batchProgress && (
+              <div className="ps-batch-progress">
+                <div className="ps-batch-bar">
+                  <div className="ps-batch-fill" style={{ width: `${(batchProgress.done / batchProgress.total) * 100}%` }} />
+                </div>
+                <span>{batchProgress.done} / {batchProgress.total}</span>
+              </div>
+            )}
             <button className="ps-export-all" onClick={exportAll} disabled={exporting || rows.length < 2}>
-              {exporting ? 'Exporting…' : rows.length > 1 ? `Export all ${rows.length} →` : 'Export all →'}
+              {exporting && batchProgress
+                ? `Zipping ${batchProgress.done}/${batchProgress.total}…`
+                : rows.length > 1 ? `Export all ${rows.length} as ZIP →` : 'Export all →'}
             </button>
           </div>
         </section>
