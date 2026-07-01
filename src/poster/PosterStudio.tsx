@@ -67,6 +67,37 @@ function parseSpreadsheet(text: string): string[][] {
   return lines.map(l => l.indexOf('\t') >= 0 ? l.split('\t') : splitCsvLine(l))
 }
 
+/** Sample rows shown/loaded per template (tab-separated). */
+const TEMPLATE_SAMPLES: Record<string, string[][]> = {
+  grammar: [
+    ['〜とはいえ', 'to wa ie', 'যদিও ~; তবুও ~; একটা সত্য যে ~ কিন্তু তারপরও', 'Even though ~; That said, ~', '[Plain sentence / Noun / な-adj] + とはいえ、[unexpected result]', 'とはいえ、', '春とはいえ、寒い。', 'বসন্ত হলেও, শীত।', '好きとはいえ、食べない。', 'পছন্দ হলেও, খাই না।'],
+    ['〜はもとより', 'wa moto yori', '~ তো বটেই; ~ তো বলাই বাহুল্য, তার উপরে ~', 'Not only ~ (as a matter of course); let alone ~', '[Noun A] + はもとより、[Noun B] + も〜', 'はもとより、…も〜', '英語はもとより、中国語もできる。', 'ইংরেজি তো বটেই, চীনা ভাষাও পারে।', '味はもとより、見た目もいい。', 'স্বাদ তো বটেই, দেখতেও ভালো।'],
+    ['〜に即して', 'ni sokushite', '~ অনুযায়ী; ~ মেনে; বাস্তবতার ভিত্তিতে', 'In accordance with ~; based strictly on ~', '[Noun (facts / reality)] + に即して / に即した + [action]', 'に即して / に即した', '事実に即して、話す。', 'সত্যের ভিত্তিতে কথা বলি।', 'ルールに即して、決める。', 'নিয়ম অনুযায়ী সিদ্ধান্ত নিই।'],
+  ],
+  kanji: [
+    ['例', 'レイ', 'たと(える)', 'উদাহরণ', 'Example, instance', '例えば', 'উদাহরণস্বরূপ', ''],
+    ['勉', 'ベン', '—', 'অধ্যবসায় / প্রচেষ্টা', 'Exertion, diligence', '勉強', 'পড়াশোনা', ''],
+  ],
+  vocab: [
+    ['勉強', 'べんきょう', 'benkyō', 'পড়াশোনা', 'Study', '毎日日本語を勉強します。', 'প্রতিদিন জাপানি পড়ি।'],
+    ['約束', 'やくそく', 'yakusoku', 'প্রতিশ্রুতি', 'Promise', '友達と約束した。', 'বন্ধুর সাথে প্রতিশ্রুতি দিয়েছি।'],
+  ],
+  word: [
+    ['大丈夫', 'だいじょうぶ', 'daijōbu', 'ঠিক আছে / নিরাপদ', 'Okay, all right', '一人でも大丈夫。', 'একা হলেও ঠিক আছে।', ''],
+  ],
+  tip: [['ছোট ছোট বাক্য পড়ুন', 'প্রতিদিন ৩টি ছোট বাক্য জোরে পড়লে উচ্চারণ ও মুখস্থ দুটোই দ্রুত ভালো হয়।']],
+  challenge: [['この漢字の読み方は？「雨」', 'জাপানে অনেক হয় এই জিনিসটি!']],
+  'kanji-quiz': [['「犬」の意味は？', 'A. বিড়াল  B. কুকুর  C. পাখি']],
+  announce: [['নতুন N3 কোর্স শুরু!', '১৫ জুলাই থেকে লাইভ ক্লাস। এখনই এনরোল করুন।']],
+  promo: [['Pro প্ল্যান', '৩০% ছাড়', 'এখনই শুরু করুন']],
+  newstxt: [['JLPT রেজিস্ট্রেশন খুলেছে', 'ডিসেম্বর সেশনের জন্য আবেদন শুরু হয়েছে। আসন সীমিত।']],
+  newswire: [['বাংলায় জাপানি শিখুন', 'N5 থেকে N1']],
+  newsflash: [['桜', 'sakura — চেরি ফুল']],
+  newspanel: [['সাপ্তাহিক রিভিউ', 'এই সপ্তাহে শেখা ৪০টি শব্দ']],
+  imgbg: [['জাপানে কাজের স্বপ্ন', 'আজই শুরু করুন']],
+  imgcard: [['আজকের শব্দ', '桃 — momo — পিচ ফল']],
+}
+
 /** Template-aware ordered field keys — matches column order from Content Studio design. */
 const TEMPLATE_FIELD_ORDER: Record<string, string[]> = {
   grammar: ['pattern', 'patternRomaji', 'meaningBn', 'meaningEn', 'structureFormula', 'parts', 'ex1jp', 'ex1bn', 'ex2jp', 'ex2bn'],
@@ -371,6 +402,39 @@ export function PosterStudio(_props: Props) {
   const previewH = Math.round(fmt.h * previewScale)
 
   const expectedCols = (TEMPLATE_FIELD_ORDER[tpl] ?? Object.keys(TEMPLATE_MAP[tpl].defaultData)).join('\t')
+  const sampleRowsText = (TEMPLATE_SAMPLES[tpl] || []).map(r => r.join('\t')).join('\n')
+  const sampleSheet = sampleRowsText ? `${expectedCols}\n${sampleRowsText}` : ''
+  const claudePrompt = `Give me 10 more rows for a Japanese Shikhi "${tplMeta.en}" (${tplMeta.jp}) poster.
+
+Return ONLY a tab-separated table (no code fences, no commentary).
+
+Column order (exactly this, in this order):
+${expectedCols}
+
+Example row for shape/tone:
+${(TEMPLATE_SAMPLES[tpl]?.[0] || []).join('\t')}
+
+Rules:
+- One row per line, columns separated by a single TAB
+- Do NOT include the header row in your output
+- Bangla in Bangla script, Japanese in kanji/kana, romaji lowercase
+- Keep each cell short enough for a poster (no paragraphs)
+`
+
+  const loadSample = () => {
+    if (!sampleSheet) { showToast('No sample for this template'); return }
+    setPasteText(sampleSheet)
+    loadRows(parseIntoRows(tpl, sampleSheet), 'sample')
+  }
+  const copySample = async () => {
+    if (!sampleSheet) return
+    await navigator.clipboard?.writeText(sampleSheet)
+    showToast('Sample sheet copied — paste into Google Sheets')
+  }
+  const copyClaudePrompt = async () => {
+    await navigator.clipboard?.writeText(claudePrompt)
+    showToast('Claude prompt copied — paste into Claude chat')
+  }
 
   return (
     <div className="ps-root">
@@ -501,7 +565,7 @@ export function PosterStudio(_props: Props) {
             {tab === 'paste' && (
               <div>
                 <p className="ps-help-text">
-                  Copy the rows straight from Google&nbsp;Sheets or Excel and paste below — columns are detected automatically.{' '}
+                  Copy rows from Google&nbsp;Sheets or Excel and paste below — columns are detected automatically.{' '}
                   <span className="ps-muted">No formatting is lost.</span>
                 </p>
                 <textarea
@@ -514,8 +578,30 @@ export function PosterStudio(_props: Props) {
                 />
                 <div className="ps-actions-row">
                   <button className="ps-btn-primary" onClick={onParse}>Parse &amp; load rows</button>
+                  <button className="ps-btn-ghost" onClick={loadSample} disabled={!sampleSheet}>Load sample</button>
                   <span className="ps-status">{parseStatus}</span>
                 </div>
+
+                {sampleSheet && (
+                  <div className="ps-sample">
+                    <div className="ps-sample-head">
+                      <span className="ps-sample-badge">Sample sheet</span>
+                      <span className="ps-sample-title">
+                        {tplMeta.jp} · {tplMeta.en} — copy this into Google Sheets, then edit
+                      </span>
+                    </div>
+                    <pre className="ps-sample-code">{sampleSheet}</pre>
+                    <div className="ps-sample-actions">
+                      <button className="ps-btn-ghost" onClick={copySample}>Copy sample sheet</button>
+                      <button className="ps-btn-ghost" onClick={copyClaudePrompt}>Copy Claude prompt (make 10 more)</button>
+                    </div>
+                    <p className="ps-sample-hint">
+                      Flow: <b>Copy Claude prompt</b> → paste in Claude chat → Claude returns rows →
+                      paste rows into your Google Sheet → your employee copies whole sheet back into
+                      the Paste box above → hit <b>Parse &amp; load rows</b>.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
