@@ -67,6 +67,58 @@ function parseSpreadsheet(text: string): string[][] {
   return lines.map(l => l.indexOf('\t') >= 0 ? l.split('\t') : splitCsvLine(l))
 }
 
+/** Font size sliders shown per template (mirrors legacy CtrlComp sliders). */
+interface FontSizeCtrl {
+  field: string
+  label: string
+  min: number
+  max: number
+  def: number
+}
+const TEMPLATE_FONT_SIZES: Record<string, FontSizeCtrl[]> = {
+  grammar: [
+    { field: 'ptSize', label: 'Pattern', min: 40, max: 140, def: 96 },
+    { field: 'exSize', label: 'Examples', min: 16, max: 60, def: 30 },
+  ],
+  kanji: [{ field: 'kanjiSize', label: 'Kanji', min: 80, max: 320, def: 220 }],
+  vocab: [
+    { field: 'hlSize', label: 'Headline', min: 24, max: 80, def: 44 },
+    { field: 'jpSize', label: 'JP Words', min: 18, max: 64, def: 38 },
+  ],
+  word: [
+    { field: 'jpSize', label: 'JP Word', min: 60, max: 240, def: 150 },
+    { field: 'bnSize', label: 'BN Meaning', min: 24, max: 80, def: 46 },
+  ],
+  tip: [{ field: 'tipSize', label: 'Tip', min: 28, max: 100, def: 56 }],
+  challenge: [{ field: 'qSize', label: 'Question', min: 28, max: 110, def: 72 }],
+  announce: [
+    { field: 'h1Size', label: 'Headline 1', min: 40, max: 150, def: 88 },
+    { field: 'h2Size', label: 'Headline 2', min: 40, max: 150, def: 88 },
+  ],
+  promo: [
+    { field: 'h1Size', label: 'Headline 1', min: 36, max: 140, def: 88 },
+    { field: 'h2Size', label: 'Headline 2', min: 36, max: 140, def: 88 },
+  ],
+  newstxt: [{ field: 'hlSize', label: 'Headline', min: 28, max: 120, def: 74 }],
+  newswire: [{ field: 'hlSize', label: 'Section Headline', min: 24, max: 80, def: 48 }],
+  newsflash: [
+    { field: 'overlayDark', label: 'Darkness', min: 0, max: 95, def: 70 },
+    { field: 'hlSize', label: 'Headline', min: 28, max: 120, def: 74 },
+  ],
+  newspanel: [{ field: 'hlSize', label: 'Headline', min: 24, max: 100, def: 60 }],
+  imgbg: [
+    { field: 'overlayDark', label: 'Darkness', min: 0, max: 95, def: 70 },
+    { field: 'h1Size', label: 'Headline 1', min: 36, max: 140, def: 80 },
+    { field: 'h2Size', label: 'Headline 2', min: 36, max: 140, def: 90 },
+    { field: 'bodySize', label: 'Body', min: 16, max: 48, def: 26 },
+  ],
+  imgcard: [
+    { field: 'h1Size', label: 'Heading', min: 36, max: 140, def: 80 },
+    { field: 'h2Size', label: 'Sub-heading', min: 18, max: 64, def: 40 },
+    { field: 'bodySize', label: 'Body', min: 16, max: 48, def: 26 },
+  ],
+}
+
 /** Sample rows shown/loaded per template (tab-separated). */
 const TEMPLATE_SAMPLES: Record<string, string[][]> = {
   grammar: [
@@ -291,16 +343,20 @@ export function PosterStudio(_props: Props) {
     readFile(e.dataTransfer.files?.[0])
   }
 
-  const updateField = (key: string, val: string) => {
+  const updateField = (key: string, val: string | number) => {
+    // font-size sliders send strings — coerce known numeric fields
+    const sizeCtrls = TEMPLATE_FONT_SIZES[tpl] || []
+    const numeric = sizeCtrls.some(c => c.field === key)
+    const nextVal: string | number = numeric ? Number(val) : val
     if (rows.length) {
       setRowsByTpl(prev => {
         const arr = (prev[tpl] || []).slice()
-        arr[rowIndex] = { ...arr[rowIndex], [key]: val }
+        arr[rowIndex] = { ...arr[rowIndex], [key]: nextVal }
         setDatasByTpl(d => ({ ...d, [tpl]: arr[rowIndex] }))
         return { ...prev, [tpl]: arr }
       })
     } else {
-      setDatasByTpl(prev => ({ ...prev, [tpl]: { ...prev[tpl], [key]: val } }))
+      setDatasByTpl(prev => ({ ...prev, [tpl]: { ...prev[tpl], [key]: nextVal } }))
     }
   }
 
@@ -547,6 +603,34 @@ Rules:
               <button className={`ps-fx-btn${fx.orbs ? ' on' : ''}`} onClick={() => setFx(v => ({ ...v, orbs: !v.orbs }))}>Orbs</button>
               <ImageUpload bgImage={bgImage} onChange={setBgImage} />
             </div>
+
+            {(TEMPLATE_FONT_SIZES[tpl] || []).length > 0 && (
+              <div className="ps-fontsize-block">
+                <div className="ps-fontsize-head">
+                  <span className="ps-fontsize-badge">Font sizes</span>
+                  <span className="ps-fontsize-hint">Live-updates the current poster</span>
+                </div>
+                {(TEMPLATE_FONT_SIZES[tpl] || []).map(ctrl => {
+                  const raw = (currentRow as Record<string, unknown>)[ctrl.field]
+                  const val = typeof raw === 'number' ? raw : (raw ? Number(raw) : ctrl.def)
+                  const safe = Number.isFinite(val) ? val : ctrl.def
+                  return (
+                    <label key={ctrl.field} className="ps-slider-row">
+                      <span className="ps-slider-label">{ctrl.label}</span>
+                      <input
+                        type="range"
+                        min={ctrl.min}
+                        max={ctrl.max}
+                        value={safe}
+                        onChange={e => updateField(ctrl.field, e.target.value)}
+                        className="ps-slider-input"
+                      />
+                      <span className="ps-slider-val">{safe}px</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
 
             {/* STEP 2 */}
             <div className="ps-section-head">
