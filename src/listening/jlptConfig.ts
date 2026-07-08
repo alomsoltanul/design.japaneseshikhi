@@ -1,90 +1,84 @@
 /**
  * JLPT listening exam audio standards.
  *
- * Reference speeds (character rates):
- *   N5: ~120–160 chars/min  → speedScale ~0.85–0.92
- *   N4: ~160–200 chars/min  → speedScale ~0.92–0.98
- *   N3: ~200–260 chars/min  → speedScale ~0.98–1.02
- *   N2: ~240–300 chars/min  → speedScale ~1.00–1.05
- *   N1: ~280–350 chars/min  → speedScale ~1.02–1.08
+ * `speed` picks a deliberate exam pace. `pauseLengthScale` widens 、/。
+ * pauses so clause breaks read as intentional beats without introducing
+ * word-level choppiness (that job belongs to `synthesizeJlpt`).
  *
- * Pause guidelines (JLPT official practice materials):
- *   N5: longer breathing room, very deliberate gaps
- *   N4: slightly reduced but still generous
- *   N3: natural conversational pacing
- *   N2: tight, near-native gaps
- *   N1: native speed, minimal gaps
+ * Reference speeds (character rates → speedScale):
+ *   N5: ~120–150 chars/min  → 0.78
+ *   N4: ~150–190 chars/min  → 0.85
+ *   N3: ~200–260 chars/min  → 0.95
+ *   N2: ~240–300 chars/min  → 1.02
+ *   N1: ~280–350 chars/min  → 1.05
  */
 
 export type JlptLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
 
 export interface JlptAudioProfile {
   level: JlptLevel
-  /** VOICEVOX speedScale */
   speed: number
-  /** VOICEVOX pitchScale (0 = natural for the speaker) */
   pitch: number
-  /** VOICEVOX intonationScale */
   intonation: number
-  /** VOICEVOX volumeScale */
   volume: number
-  /** VOICEVOX pre-phoneme breathing length (seconds) */
   prePhonemeLength: number
-  /** VOICEVOX post-phoneme breathing length (seconds) */
   postPhonemeLength: number
-  /** Pause between normal conversation lines (ms) */
+  /** Multiplier applied to every surviving `pause_mora` (comma/period). */
+  pauseLengthScale: number
   pauseBetweenLines: number
-  /** Pause before the final question prompt (ms) */
   pauseBeforeQuestion: number
-  /** Extra pause after narrator/instruction lines (ms) */
   pauseAfterNarrator: number
 }
 
 export const JLPT_PROFILES: Record<JlptLevel, JlptAudioProfile> = {
   N5: {
     level: 'N5',
-    speed: 0.88,
+    speed: 0.78,
     pitch: 0.0,
-    intonation: 1.1,
+    intonation: 1.10,
     volume: 1.0,
     prePhonemeLength: 0.04,
     postPhonemeLength: 0.04,
+    pauseLengthScale: 1.55,
     pauseBetweenLines: 700,
     pauseBeforeQuestion: 5500,
     pauseAfterNarrator: 900,
   },
   N4: {
     level: 'N4',
-    speed: 0.94,
+    speed: 0.82,
     pitch: 0.0,
     intonation: 1.05,
     volume: 1.0,
     prePhonemeLength: 0.03,
     postPhonemeLength: 0.03,
+    pauseLengthScale: 1.50,
     pauseBetweenLines: 550,
     pauseBeforeQuestion: 4500,
     pauseAfterNarrator: 700,
   },
   N3: {
     level: 'N3',
-    speed: 1.0,
+    speed: 0.95,
     pitch: 0.0,
     intonation: 1.0,
     volume: 1.0,
     prePhonemeLength: 0.02,
     postPhonemeLength: 0.02,
+    pauseLengthScale: 1.20,
     pauseBetweenLines: 450,
     pauseBeforeQuestion: 3500,
     pauseAfterNarrator: 550,
   },
   N2: {
     level: 'N2',
-    speed: 1.03,
+    speed: 1.02,
     pitch: 0.0,
     intonation: 0.97,
     volume: 1.0,
     prePhonemeLength: 0.015,
     postPhonemeLength: 0.015,
+    pauseLengthScale: 1.05,
     pauseBetweenLines: 350,
     pauseBeforeQuestion: 3000,
     pauseAfterNarrator: 400,
@@ -97,6 +91,7 @@ export const JLPT_PROFILES: Record<JlptLevel, JlptAudioProfile> = {
     volume: 1.0,
     prePhonemeLength: 0.01,
     postPhonemeLength: 0.01,
+    pauseLengthScale: 1.0,
     pauseBetweenLines: 250,
     pauseBeforeQuestion: 2500,
     pauseAfterNarrator: 300,

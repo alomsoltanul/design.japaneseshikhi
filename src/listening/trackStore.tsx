@@ -3,7 +3,7 @@ import type {
   TrackContextValue, Tweaks, Track, TrackLine,
   MondaiType, TrackLength, TrackStatus, JlptLevel, Theme, Question, CustomMondai
 } from './types'
-import { synthesizeText, checkHealth } from './voicevox'
+import { synthesizeJlpt, checkHealth } from './voicevox'
 import { AudioEngine } from './audioEngine'
 import { getScenarioImage, getDefaultScenarioImage } from './scenarios'
 import { VOICEVOX_SPEAKERS, getDefaultVoiceId, getSpeakerColor } from './voicevoxSpeakers'
@@ -702,13 +702,16 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     setSynthesisQueue(prev => [...prev.filter(id => id !== lineId), lineId])
     try {
       const profile = getJlptProfile(track.level)
-      const buf = await synthesizeText(line.jp, line.voiceId, {
+      // Pass raw Japanese; synthesizeJlpt normalizes it and strips spurious
+      // junction pauses inside accent_phrases before hitting /synthesis.
+      const buf = await synthesizeJlpt(line.jp, line.voiceId, {
         speed: line.speed,
         pitch: line.pitch,
         intonation: line.intonation,
         volume: line.volume,
         prePhonemeLength: profile.prePhonemeLength,
         postPhonemeLength: profile.postPhonemeLength,
+        pauseLengthScale: profile.pauseLengthScale,
       })
       const engine = audioEngineRef.current
       const audioBuf = await engine.decode(buf)
