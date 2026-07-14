@@ -12,14 +12,16 @@ import { PosterStudio } from '@/poster/PosterStudio'
 import { ListeningStudio } from '@/listening/ListeningStudio'
 import { StudioMode } from '@/studio/StudioMode'
 import { ContentFactory } from '@/studio/ContentFactory'
+import { KanjiStudio } from '@/kanji/KanjiStudio'
 
 const STORAGE_KEY = 'js-poster-studio-v2'
 const VIEW_STORAGE_KEY = 'js-poster-studio-view'
 
-export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import' | 'reel-studio'
+export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import' | 'reel-studio' | 'kanji'
 
 function getInitialView(): AppView {
   const path = window.location.pathname
+  if (path.startsWith('/kanji')) return 'kanji'
   if (path.startsWith('/reel-studio')) return 'reel-studio'
   if (path.startsWith('/poster-maker')) return 'poster-maker'
   if (path.startsWith('/listening')) return 'listening'
@@ -45,7 +47,7 @@ export default function App() {
   const [view, setView] = useState<AppView>(getInitialView)
 
   useEffect(() => {
-    if (view !== 'poster-maker' && view !== 'listening' && view !== 'reel-studio') {
+    if (view !== 'poster-maker' && view !== 'listening' && view !== 'reel-studio' && view !== 'kanji') {
       localStorage.setItem(VIEW_STORAGE_KEY, view)
     }
   }, [view])
@@ -59,6 +61,7 @@ export default function App() {
   const handleChangeView = useCallback((next: AppView) => {
     setView(next)
     const target =
+      next === 'kanji' ? '/kanji' :
       next === 'reel-studio' ? '/reel-studio' :
       next === 'poster-maker' ? '/poster-maker' :
       next === 'listening' ? '/listening' :
@@ -118,6 +121,7 @@ export default function App() {
                   { id: 'poster-maker' as AppView, label: 'Poster Maker', desc: 'Create custom posters with templates.', icon: '🖌️' },
                   { id: 'listening' as AppView, label: 'Listening Studio', desc: 'Build and edit listening practice tracks.', icon: '🎧' },
                   { id: 'reel-studio' as AppView, label: 'Reel Studio', desc: 'Animate vocab/grammar/kanji cards into a 9:16 video — single or word-of-the-day multi-card reel.', icon: '🎬' },
+                  { id: 'kanji' as AppView, label: 'Kanji Mind Map', desc: 'One kanji, eight words — animated map with quiz + Reel/FB/YouTube video export.', icon: '🧠' },
                 ].map(tool => (
                   <button key={tool.id} className="home-card" onClick={() => handleChangeView(tool.id)}>
                     <div className="home-card-icon">{tool.icon}</div>
@@ -164,6 +168,9 @@ export default function App() {
 
           <ErrorBoundary>
             {view === 'poster' && <PosterStudio onExitToHome={() => handleChangeView('home')} />}
+          </ErrorBoundary>
+          <ErrorBoundary>
+            {view === 'kanji' && <KanjiStudio />}
           </ErrorBoundary>
         </div>
       </div>

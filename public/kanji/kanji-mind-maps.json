@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "kanji": [
+    {
+      "id": "shoku-eat",
+      "kanji": "食",
+      "onYomi": "ショク・ジキ",
+      "kunYomi": "た（べる）・く（う）",
+      "meaningEn": "eat · food",
+      "meaningBn": "খাওয়া · খাদ্য",
+      "jlpt": "N5",
+      "compounds": [
+        { "word": "朝食", "kana": "ちょうしょく", "en": "breakfast", "bn": "সকালের নাশতা", "exampleJp": "毎朝、朝食を食べます。", "exampleBn": "আমি প্রতিদিন সকালে নাশতা খাই।" },
+        { "word": "昼食", "kana": "ちゅうしょく", "en": "lunch", "bn": "দুপুরের খাবার", "exampleJp": "昼食は十二時です。", "exampleBn": "দুপুরের খাবার বারোটায়।" },
+        { "word": "夕食", "kana": "ゆうしょく", "en": "dinner", "bn": "রাতের খাবার", "exampleJp": "家族と夕食を食べました。", "exampleBn": "পরিবারের সাথে রাতের খাবার খেয়েছি।" },
+        { "word": "食事", "kana": "しょくじ", "en": "meal", "bn": "খাবার", "exampleJp": "食事の前に手を洗います。", "exampleBn": "খাবারের আগে হাত ধুই।" },
+        { "word": "食堂", "kana": "しょくどう", "en": "dining hall", "bn": "খাবার ঘর", "exampleJp": "学校の食堂で食べます。", "exampleBn": "স্কুলের ক্যাফেটেরিয়ায় খাই।" },
+        { "word": "食べ物", "kana": "たべもの", "en": "food", "bn": "খাদ্য", "exampleJp": "好きな食べ物は何ですか。", "exampleBn": "আপনার প্রিয় খাবার কী?" },
+        { "word": "和食", "kana": "わしょく", "en": "Japanese food", "bn": "জাপানি খাবার", "exampleJp": "和食が大好きです。", "exampleBn": "আমি জাপানি খাবার খুব পছন্দ করি।" },
+        { "word": "食品", "kana": "しょくひん", "en": "food product", "bn": "খাদ্যপণ্য", "exampleJp": "食品売り場は地下です。", "exampleBn": "খাদ্যপণ্যের দোকান নিচতলায়।" }
+      ]
+    },
+    {
+      "id": "gaku-study",
+      "kanji": "学",
+      "onYomi": "ガク",
+      "kunYomi": "まな（ぶ）",
+      "meaningEn": "study · learning",
+      "meaningBn": "পড়া · শেখা",
+      "jlpt": "N5",
+      "compounds": [
+        { "word": "学校", "kana": "がっこう", "en": "school", "bn": "স্কুল", "exampleJp": "毎日学校へ行きます。", "exampleBn": "আমি প্রতিদিন স্কুলে যাই।" },
+        { "word": "学生", "kana": "がくせい", "en": "student", "bn": "ছাত্রছাত্রী", "exampleJp": "私は学生です。", "exampleBn": "আমি একজন ছাত্র।" },
+        { "word": "大学", "kana": "だいがく", "en": "university", "bn": "বিশ্ববিদ্যালয়", "exampleJp": "大学で日本語を勉強します。", "exampleBn": "বিশ্ববিদ্যালয়ে জাপানি ভাষা পড়ি।" },
+        { "word": "入学", "kana": "にゅうがく", "en": "school admission", "bn": "ভর্তি", "exampleJp": "四月に入学します。", "exampleBn": "এপ্রিলে ভর্তি হব।" },
+        { "word": "学ぶ", "kana": "まなぶ", "en": "to learn", "bn": "শেখা", "exampleJp": "日本の文化を学びます。", "exampleBn": "জাপানের সংস্কৃতি শিখি।" },
+        { "word": "留学", "kana": "りゅうがく", "en": "study abroad", "bn": "বিদেশে পড়া", "exampleJp": "日本に留学したいです。", "exampleBn": "জাপানে পড়তে যেতে চাই।" },
+        { "word": "科学", "kana": "かがく", "en": "science", "bn": "বিজ্ঞান", "exampleJp": "科学の本を読みます。", "exampleBn": "বিজ্ঞানের বই পড়ি।" },
+        { "word": "学年", "kana": "がくねん", "en": "school year", "bn": "শিক্ষাবর্ষ", "exampleJp": "新しい学年が始まりました。", "exampleBn": "নতুন শিক্ষাবর্ষ শুরু হয়েছে।" }
+      ]
+    },
+    {
+      "id": "nichi-day",
+      "kanji": "日",
+      "onYomi": "ニチ・ジツ",
+      "kunYomi": "ひ・か",
+      "meaningEn": "day · sun",
+      "meaningBn": "দিন · সূর্য",
+      "jlpt": "N5",
+      "compounds": [
+        { "word": "日曜日", "kana": "にちようび", "en": "Sunday", "bn": "রবিবার", "exampleJp": "日曜日は休みです。", "exampleBn": "রবিবার ছুটি।" },
+        { "word": "毎日", "kana": "まいにち", "en": "every day", "bn": "প্রতিদিন", "exampleJp": "毎日日本語を勉強します。", "exampleBn": "প্রতিদিন জাপানি ভাষা পড়ি।" },
+        { "word": "今日", "kana": "きょう", "en": "today", "bn": "আজ", "exampleJp": "今日はいい天気です。", "exampleBn": "আজ আবহাওয়া ভালো।" },
+        { "word": "日本", "kana": "にほん", "en": "Japan", "bn": "জাপান", "exampleJp": "日本に住んでいます。", "exampleBn": "আমি জাপানে থাকি।" },
+        { "word": "誕生日", "kana": "たんじょうび", "en": "birthday", "bn": "জন্মদিন", "exampleJp": "明日は母の誕生日です。", "exampleBn": "আগামীকাল মায়ের জন্মদিন।" },
+        { "word": "休日", "kana": "きゅうじつ", "en": "holiday", "bn": "ছুটির দিন", "exampleJp": "休日に公園へ行きます。", "exampleBn": "ছুটির দিনে পার্কে যাই।" },
+        { "word": "日記", "kana": "にっき", "en": "diary", "bn": "ডায়েরি", "exampleJp": "毎晩日記を書きます。", "exampleBn": "প্রতি রাতে ডায়েরি লিখি।" },
+        { "word": "朝日", "kana": "あさひ", "en": "morning sun", "bn": "ভোরের সূর্য", "exampleJp": "朝日がとてもきれいです。", "exampleBn": "ভোরের সূর্য খুব সুন্দর।" }
+      ]
+    },
+    {
+      "id": "sui-water",
+      "kanji": "水",
+      "onYomi": "スイ",
+      "kunYomi": "みず",
+      "meaningEn": "water",
+      "meaningBn": "পানি",
+      "jlpt": "N5",
+      "compounds": [
+        { "word": "水曜日", "kana": "すいようび", "en": "Wednesday", "bn": "বুধবার", "exampleJp": "水曜日にテストがあります。", "exampleBn": "বুধবার পরীক্ষা আছে।" },
+        { "word": "水泳", "kana": "すいえい", "en": "swimming", "bn": "সাঁতার", "exampleJp": "水泳が好きです。", "exampleBn": "আমি সাঁতার পছন্দ করি।" },
+        { "word": "海水", "kana": "かいすい", "en": "seawater", "bn": "সমুদ্রের পানি", "exampleJp": "海水は塩辛いです。", "exampleBn": "সমুদ্রের পানি লবণাক্ত।" },
+        { "word": "水道", "kana": "すいどう", "en": "tap water", "bn": "পানির লাইন", "exampleJp": "水道の水は安全です。", "exampleBn": "কলের পানি নিরাপদ।" },
+        { "word": "水着", "kana": "みずぎ", "en": "swimsuit", "bn": "সাঁতারের পোশাক", "exampleJp": "新しい水着を買いました。", "exampleBn": "নতুন সাঁতারের পোশাক কিনেছি।" },
+        { "word": "水分", "kana": "すいぶん", "en": "hydration", "bn": "পানীয় জল", "exampleJp": "水分をたくさん取ってください。", "exampleBn": "প্রচুর পানি পান করুন।" },
+        { "word": "香水", "kana": "こうすい", "en": "perfume", "bn": "সুগন্ধি", "exampleJp": "香水をつけています。", "exampleBn": "আমি সুগন্ধি ব্যবহার করি।" },
+        { "word": "水色", "kana": "みずいろ", "en": "light blue", "bn": "আকাশি রং", "exampleJp": "水色のシャツが好きです。", "exampleBn": "আকাশি রঙের শার্ট পছন্দ করি।" }
+      ]
+    },
+    {
+      "id": "jin-person",
+      "kanji": "人",
+      "onYomi": "ジン・ニン",
+      "kunYomi": "ひと",
+      "meaningEn": "person",
+      "meaningBn": "মানুষ",
+      "jlpt": "N5",
+      "compounds": [
+        { "word": "日本人", "kana": "にほんじん", "en": "Japanese person", "bn": "জাপানি", "exampleJp": "先生は日本人です。", "exampleBn": "শিক্ষক জাপানি।" },
+        { "word": "外国人", "kana": "がいこくじん", "en": "foreigner", "bn": "বিদেশি", "exampleJp": "この町は外国人が多いです。", "exampleBn": "এই শহরে অনেক বিদেশি।" },
+        { "word": "大人", "kana": "おとな", "en": "adult", "bn": "প্রাপ্তবয়স্ক", "exampleJp": "大人は千円です。", "exampleBn": "প্রাপ্তবয়স্কদের জন্য এক হাজার ইয়েন।" },
+        { "word": "人気", "kana": "にんき", "en": "popularity", "bn": "জনপ্রিয়তা", "exampleJp": "この歌は人気があります。", "exampleBn": "এই গানটি জনপ্রিয়।" },
+        { "word": "一人", "kana": "ひとり", "en": "one person · alone", "bn": "একজন · একা", "exampleJp": "一人で東京に住んでいます。", "exampleBn": "আমি একা টোকিওতে থাকি।" },
+        { "word": "三人", "kana": "さんにん", "en": "three people", "bn": "তিনজন", "exampleJp": "家族は三人です。", "exampleBn": "আমার পরিবারে তিনজন।" },
+        { "word": "友人", "kana": "ゆうじん", "en": "friend", "bn": "বন্ধু", "exampleJp": "友人と旅行に行きます。", "exampleBn": "বন্ধুর সাথে ভ্রমণে যাই।" },
+        { "word": "人々", "kana": "ひとびと", "en": "people", "bn": "মানুষজন", "exampleJp": "町の人々は親切です。", "exampleBn": "শহরের মানুষজন সদয়।" }
+      ]
+    }
+  ]
+}

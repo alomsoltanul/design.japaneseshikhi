@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useTheme } from '@/ThemeContext'
 import { useAuth } from '@/auth/AuthContext'
 
-export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import' | 'reel-studio'
+export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import' | 'reel-studio' | 'kanji'
 
 export function GlobalNav({
   view,
@@ -35,6 +35,7 @@ export function GlobalNav({
     { id: 'poster-maker', label: 'Poster Maker', icon: '🖌️' },
     { id: 'listening', label: 'Listening Studio', icon: '🎧' },
     { id: 'reel-studio', label: 'Reel Studio', icon: '🎬' },
+    { id: 'kanji', label: 'Kanji Mind Map', icon: '🧠' },
     { id: 'prompt', label: 'Prompts', icon: '🖼️' },
     { id: 'json-import', label: 'JSON Import', icon: '📋' },
   ]
