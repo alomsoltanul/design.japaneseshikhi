@@ -128,50 +128,50 @@ const TEMPLATE_SAMPLES: Record<string, string[][]> = {
     ['〜に即して', 'ni sokushite', '~ অনুযায়ী; ~ মেনে; বাস্তবতার ভিত্তিতে', 'In accordance with ~; based strictly on ~', '[Noun (facts / reality)] + に即して / に即した + [action]', 'に即して / に即した', '事実に即して、話す。', 'সত্যের ভিত্তিতে কথা বলি।', 'ルールに即して、決める。', 'নিয়ম অনুযায়ী সিদ্ধান্ত নিই।'],
   ],
   kanji: [
-    ['例', 'レイ', 'たと(える)', 'উদাহরণ', 'Example, instance', '例えば', 'উদাহরণস্বরূপ', ''],
-    ['勉', 'ベン', '—', 'অধ্যবসায় / প্রচেষ্টা', 'Exertion, diligence', '勉強', 'পড়াশোনা', ''],
+    ['山', 'サン', 'やま', 'Mountain', 'পাহাড়', '富士山に登った。', 'Fujisan ni nobotta', 'ফুজি পর্বতে উঠেছি।', '3'],
+    ['水', 'スイ', 'みず', 'Water', 'পানি', '水を飲みます。', 'Mizu o nomimasu', 'পানি খাই।', '4'],
   ],
   vocab: [
-    ['勉強', 'べんきょう', 'benkyō', 'পড়াশোনা', 'Study', '毎日日本語を勉強します。', 'প্রতিদিন জাপানি পড়ি।'],
-    ['約束', 'やくそく', 'yakusoku', 'প্রতিশ্রুতি', 'Promise', '友達と約束した。', 'বন্ধুর সাথে প্রতিশ্রুতি দিয়েছি।'],
+    ['N5', 'আজকের Vocabulary', '৬টি গুরুত্বপূর্ণ শব্দ — আজই শিখুন'],
   ],
   word: [
-    ['大丈夫', 'だいじょうぶ', 'daijōbu', 'ঠিক আছে / নিরাপদ', 'Okay, all right', '一人でも大丈夫。', 'একা হলেও ঠিক আছে।', ''],
+    ['大丈夫', 'daijōbu', 'ঠিক আছে / নিরাপদ', '一人でも大丈夫。', 'একা হলেও ঠিক আছে।', '大=big 丈夫=sturdy — একসাথে "ঠিক আছে"'],
   ],
-  tip: [['ছোট ছোট বাক্য পড়ুন', 'প্রতিদিন ৩টি ছোট বাক্য জোরে পড়লে উচ্চারণ ও মুখস্থ দুটোই দ্রুত ভালো হয়।']],
-  challenge: [['この漢字の読み方は？「雨」', 'জাপানে অনেক হয় এই জিনিসটি!']],
-  'kanji-quiz': [['「犬」の意味は？', 'A. বিড়াল  B. কুকুর  C. পাখি']],
-  announce: [['নতুন N3 কোর্স শুরু!', '১৫ জুলাই থেকে লাইভ ক্লাস। এখনই এনরোল করুন।']],
-  promo: [['Pro প্ল্যান', '৩০% ছাড়', 'এখনই শুরু করুন']],
+  tip: [['পড়াশোনার টিপস', 'প্রতিদিন মাত্র ১৫ মিনিট রিভিউ করলেই JLPT-তে সফল হওয়া সম্ভব।', 'SRS পদ্ধতিতে শিখলে কম সময়ে বেশি শব্দ মনে থাকে।']],
+  challenge: [['N5', 'শূন্যস্থানে কোনটি সঠিক?', '私___学生です。', 'が, は, を, に', '1', '「は」 হলো topic marker — তাই এখানে 「は」 সঠিক।']],
+  'kanji-quiz': [['N5', '犬', 'এই কানজির অর্থ কী?', 'Dog', 'Cat', 'Bird', 'Fish', '0']],
+  announce: [['🎉 নতুন ব্যাচ শুরু', 'N3 কোর্স', 'চালু হচ্ছে', '৳৩,৫৯৯', 'সম্পূর্ণ বাংলায় JLPT N3 প্রস্তুতি', 'ভর্তি চলছে · সীমিত আসন', 'এখনই ভর্তি হন']],
+  promo: [['বাংলায় শিখুন', 'জাপানি ভাষা', 'N5 থেকে N1 — সম্পূর্ণ বাংলায়। AI টিউটর, SRS ফ্ল্যাশকার্ড ও মক পরীক্ষা।', 'AI বাংলা টিউটর', 'বিনামূল্যে শুরু করুন']],
   newstxt: [['JLPT রেজিস্ট্রেশন খুলেছে', 'ডিসেম্বর সেশনের জন্য আবেদন শুরু হয়েছে। আসন সীমিত।']],
-  newswire: [['বাংলায় জাপানি শিখুন', 'N5 থেকে N1']],
-  newsflash: [['桜', 'sakura — চেরি ফুল']],
-  newspanel: [['সাপ্তাহিক রিভিউ', 'এই সপ্তাহে শেখা ৪০টি শব্দ']],
-  imgbg: [['জাপানে কাজের স্বপ্ন', 'আজই শুরু করুন']],
-  imgcard: [['আজকের শব্দ', '桃 — momo — পিচ ফল']],
+  newswire: [["TODAY'S HIGHLIGHTS", 'New N5 Grammar module with 40+ sentences now live', 'Mock exam scores up 35% with daily SRS', 'Bengali learner community hits 10,000 members']],
+  newsflash: [['EXCLUSIVE', 'NEW N5 GRAMMAR MODULE NOW AVAILABLE FOR ALL LEARNERS', 'July 14, 2026']],
+  newspanel: [['EDUCATION', 'সাপ্তাহিক রিভিউ — এই সপ্তাহে শেখা ৪০টি শব্দ', 'July 14, 2026']],
+  imgbg: [['JLPT Preparation', 'জাপানে কাজের স্বপ্ন', 'আজই শুরু করুন', 'N5 থেকে N1 — সম্পূর্ণ বাংলায়।', 'বিনামূল্যে শুরু করুন']],
+  imgcard: [['N5', 'আজকের শব্দ', '桃', 'momo — পিচ ফল', '桃 (もも) মানে পিচ ফল — জাপানে খুব জনপ্রিয়।']],
 }
 
 /** Template-aware ordered field keys — matches column order from Content Studio design. */
 const TEMPLATE_FIELD_ORDER: Record<string, string[]> = {
   grammar: ['pattern', 'patternRomaji', 'meaningBn', 'meaningEn', 'structureFormula', 'parts', 'ex1jp', 'ex1bn', 'ex2jp', 'ex2bn'],
-  kanji: ['kanji', 'on', 'kun', 'meaningEn', 'meaningBn', 'example_jp', 'example_bn', 'strokes'],
-  vocab: ['wordJp', 'reading', 'romaji', 'meaningBn', 'meaningEn', 'exampleJp', 'exampleBn'],
-  word: ['word_jp', 'romaji', 'meaning_bn', 'example_jp', 'example_bn', 'tip'],
-  tip: ['title', 'body'],
-  challenge: ['question', 'hint'],
-  'kanji-quiz': ['question', 'options'],
-  announce: ['headline', 'detail'],
-  promo: ['headline', 'offer', 'cta'],
+  kanji: ['kanji', 'on', 'kun', 'meaningEn', 'meaningBn', 'exJp', 'exRomaji', 'exBn', 'strokes'],
+  // vocab's 6-word grid (data.words[]) is not flat — only these flat fields are batch-pasteable
+  vocab: ['level', 'headline', 'sub'],
+  word: ['jp', 'romaji', 'bn', 'exJp', 'exBn', 'tip'],
+  tip: ['category', 'tip', 'sub'],
+  challenge: ['level', 'qBn', 'q', 'opts', 'answer', 'exBn'],
+  'kanji-quiz': ['level', 'kanji', 'question', 'opt1', 'opt2', 'opt3', 'opt4', 'correctIndex'],
+  announce: ['badge', 'h1', 'h2', 'price', 'sub', 'detail', 'cta'],
+  promo: ['h1', 'h2', 'body', 'bullets', 'cta'],
   newstxt: ['headline', 'body'],
-  newswire: ['headline', 'kicker'],
-  newsflash: ['word', 'caption'],
-  newspanel: ['title', 'body'],
-  imgbg: ['headline', 'caption'],
-  imgcard: ['title', 'body'],
+  newswire: ['headline', 'story1', 'story2', 'story3'],
+  newsflash: ['category', 'headline', 'date'],
+  newspanel: ['category', 'headline', 'date'],
+  imgbg: ['eyebrow', 'h1', 'h2', 'body', 'cta'],
+  imgcard: ['level', 'eyebrow', 'h1', 'h2', 'body'],
 }
 
 /** Header keywords that mark row 1 as a header row. */
-const HEADER_KEYWORDS = /pattern|meaning|kanji|word|reading|romaji|example|formula|structure|headline|title|parts|on.yomi|kun.yomi|kicker|caption|body|hint|option|offer|cta|detail/
+const HEADER_KEYWORDS = /pattern|meaning|kanji|word|reading|romaji|example|formula|structure|headline|title|parts|on.yomi|kun.yomi|kicker|caption|body|hint|\bopt|offer|cta|detail|strokes|category|badge|price|bullet|eyebrow|story|question|answer|correct|\blevel\b|\bsub\b|\btip\b|\bdate\b/
 
 function parseIntoRows(tplId: string, text: string): Record<string, unknown>[] {
   const cells = parseSpreadsheet(text)
@@ -726,6 +726,14 @@ Rules:
                   Copy rows from Google&nbsp;Sheets or Excel and paste below — columns are detected automatically.{' '}
                   <span className="ps-muted">No formatting is lost.</span>
                 </p>
+                {tpl === 'vocab' && (
+                  <p className="ps-help-text">
+                    <span className="ps-muted">
+                      Note: for Vocab, batch paste sets <b>level / headline / sub</b> only — the 6-word grid
+                      keeps its current words and can't be batch-pasted yet.
+                    </span>
+                  </p>
+                )}
                 <textarea
                   className="ps-textarea"
                   value={pasteText}
