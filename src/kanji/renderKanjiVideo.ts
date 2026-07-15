@@ -5,6 +5,7 @@ import { encodeReelMp4, webcodecsSupported } from '../studio/reel/encodeMp4'
 import { kanjiReveal, pillPops, nodeReveal, chime } from './sfx'
 import { toBn } from './KanjiMindMap'
 import type { KanjiEntry } from './types'
+import { getKanjiTheme, type KanjiTheme, type PillTokens } from './themes'
 
 export type KanjiAspect = 'reel' | 'fb' | 'youtube'
 
@@ -68,6 +69,7 @@ export interface KanjiVideoOptions {
   secondsPerWord: number
   sfxVolume: number
   holdSeconds?: number
+  themeId?: string
 }
 
 export interface KanjiVideoProgress {
@@ -125,13 +127,14 @@ export async function buildKanjiVideo(
   onProgress: (p: KanjiVideoProgress) => void,
 ): Promise<KanjiVideoResult> {
   const l = LAYOUTS[opts.aspect]
+  const T = getKanjiTheme(opts.themeId)
   const pts = nodePoints(l)
   const tl = buildTimeline(opts.secondsPerWord, opts.holdSeconds ?? 2.6)
   const vol = opts.sfxVolume
   const data = entry.compounds.slice(0, 8)
 
   await ensureFonts(entry)
-  const logo = await loadImage('/assets/logo-light.webp')
+  const logo = await loadImage(T.logo)
 
   // ── audio ──
   onProgress({ stage: 'audio', ratio: 0.2, note: 'Mixing sound effects' })
@@ -146,7 +149,13 @@ export async function buildKanjiVideo(
   // ── frame drawer ──
   const draw = (ctx: CanvasRenderingContext2D, t: number) => {
     ctx.clearRect(0, 0, l.W, l.H)
-    ctx.fillStyle = '#FAFAFA'
+    if (T.stageStops) {
+      const g = ctx.createLinearGradient(0, 0, 0, l.H)
+      T.stageStops.forEach((c, i) => g.addColorStop(i / (T.stageStops!.length - 1), c))
+      ctx.fillStyle = g
+    } else {
+      ctx.fillStyle = T.stage
+    }
     ctx.fillRect(0, 0, l.W, l.H)
 
     // connector lines (under cards)
@@ -154,7 +163,7 @@ export async function buildKanjiVideo(
       const p = easeOutQuint(clamp01((t - tl.tNode[i]) / 0.6))
       if (p <= 0) continue
       const [nx, ny] = pts[i]
-      ctx.strokeStyle = '#D1D5DB'
+      ctx.strokeStyle = T.connector
       ctx.lineWidth = 1.5
       ctx.beginPath()
       ctx.moveTo(l.hub.x, l.hub.y)
@@ -162,10 +171,10 @@ export async function buildKanjiVideo(
       ctx.stroke()
     }
 
-    drawHeader(ctx, l, entry)
-    drawFooter(ctx, l, logo)
-    drawHub(ctx, l, entry, t, tl)
-    for (let i = 0; i < 8; i++) drawNode(ctx, pts[i], data[i], clamp01((t - (tl.tNode[i] + 0.15)) / 0.45))
+    drawHeader(ctx, l, entry, T)
+    drawFooter(ctx, l, logo, T)
+    drawHub(ctx, l, entry, t, tl, T)
+    for (let i = 0; i < 8; i++) drawNode(ctx, pts[i], data[i], clamp01((t - (tl.tNode[i] + 0.15)) / 0.45), T)
   }
 
   const durationSec = tl.total
@@ -182,13 +191,13 @@ export async function buildKanjiVideo(
 
 // ── drawing pieces ────────────────────────────────────────
 
-function drawHeader(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry) {
+function drawHeader(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry, T: KanjiTheme) {
   const cy = l.headerTop + 15
   ctx.save()
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
   ctx.font = `600 13px ${FUI}`
-  ctx.fillStyle = '#6B7280'
+  ctx.fillStyle = T.sub
   try { (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '1.8px' } catch { /* older browsers */ }
   ctx.fillText('KANJI MIND MAP', l.inset, cy)
   try { (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px' } catch { /* ignore */ }
@@ -202,20 +211,20 @@ function drawHeader(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry
   const wordsW = ctx.measureText(wordsText).width + 32
   const h = 30
   let x = l.W - l.inset - jlptW / 2
-  pill(ctx, x, cy, jlptW, h, 'rgba(230,57,70,0.08)', 'rgba(230,57,70,0.2)')
+  pill(ctx, x, cy, jlptW, h, T.redPill.bg, T.redPill.border)
   ctx.textAlign = 'center'
   ctx.font = `700 14px ${FUI}`
-  ctx.fillStyle = '#E63946'
+  ctx.fillStyle = T.redPill.text
   ctx.fillText(jlptText, x, cy + 1)
   x -= jlptW / 2 + 10 + wordsW / 2
-  pill(ctx, x, cy, wordsW, h, 'rgba(42,157,143,0.09)', 'rgba(42,157,143,0.25)')
+  pill(ctx, x, cy, wordsW, h, T.tealPill.bg, T.tealPill.border)
   ctx.font = `700 14px ${FBN}`
-  ctx.fillStyle = '#2A9D8F'
+  ctx.fillStyle = T.tealPill.text
   ctx.fillText(wordsText, x, cy + 1)
   ctx.restore()
 }
 
-function drawFooter(ctx: CanvasRenderingContext2D, l: KLayout, logo: HTMLImageElement | null) {
+function drawFooter(ctx: CanvasRenderingContext2D, l: KLayout, logo: HTMLImageElement | null, T: KanjiTheme) {
   const cy = l.H - l.footerBottom - 13
   ctx.save()
   if (logo) {
@@ -226,7 +235,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, l: KLayout, logo: HTMLImageEl
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'right'
   ctx.font = `500 14px ${FBN}`
-  ctx.fillStyle = '#6B7280'
+  ctx.fillStyle = T.sub
   ctx.fillText('প্রতিদিন একটি কাঞ্জি 🎌', l.W - l.inset, cy)
   ctx.restore()
 }
@@ -234,7 +243,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, l: KLayout, logo: HTMLImageEl
 const HUB_W = 330
 const HUB_H = 358
 
-function drawHub(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry, t: number, tl: Timeline) {
+function drawHub(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry, t: number, tl: Timeline, T: KanjiTheme) {
   const p = easeOutQuint(clamp01((t - tl.tHub) / 0.55))
   if (p <= 0) return
   const scale = 0.6 + 0.4 * p
@@ -245,15 +254,17 @@ function drawHub(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry, t
 
   // card
   ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,0.12)'
-  ctx.shadowBlur = 24
-  ctx.shadowOffsetY = 10
+  if (!T.glassy) {
+    ctx.shadowColor = 'rgba(0,0,0,0.12)'
+    ctx.shadowBlur = 24
+    ctx.shadowOffsetY = 10
+  }
   rr(ctx, -HUB_W / 2, -HUB_H / 2, HUB_W, HUB_H, 24)
-  ctx.fillStyle = '#FFFFFF'
+  ctx.fillStyle = T.card
   ctx.fill()
   ctx.restore()
   rr(ctx, -HUB_W / 2, -HUB_H / 2, HUB_W, HUB_H, 24)
-  ctx.strokeStyle = '#F3F4F6'
+  ctx.strokeStyle = T.cardBorder
   ctx.lineWidth = 1
   ctx.stroke()
 
@@ -262,15 +273,15 @@ function drawHub(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry, t
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   ctx.font = `700 148px ${FJP}`
-  ctx.fillStyle = '#1D3557'
+  ctx.fillStyle = T.heading
   ctx.fillText(entry.kanji, 0, y - 8)
   y += 148 + 10
   ctx.font = `600 21px ${FUI}`
-  ctx.fillStyle = '#111827'
+  ctx.fillStyle = T.enStrong
   ctx.fillText(entry.meaningEn, 0, y)
   y += 26 + 10
   ctx.font = `400 18px ${FBN}`
-  ctx.fillStyle = '#6B7280'
+  ctx.fillStyle = T.bn
   ctx.fillText(entry.meaningBn, 0, y)
   y += 26 + 8
 
@@ -280,23 +291,23 @@ function drawHub(ctx: CanvasRenderingContext2D, l: KLayout, entry: KanjiEntry, t
     ctx.save()
     ctx.globalAlpha = p * pp
     ctx.translate(0, (1 - pp) * 10)
-    drawReadingPill(ctx, y + 16, '音 ON', entry.onYomi, '#E63946', 'rgba(230,57,70,0.08)', 'rgba(230,57,70,0.2)')
-    drawReadingPill(ctx, y + 16 + 33 + 8, '訓 KUN', entry.kunYomi, '#2A9D8F', 'rgba(42,157,143,0.09)', 'rgba(42,157,143,0.25)')
+    drawReadingPill(ctx, y + 16, '音 ON', entry.onYomi, T.onPill)
+    drawReadingPill(ctx, y + 16 + 33 + 8, '訓 KUN', entry.kunYomi, T.kunPill)
     ctx.restore()
   }
   ctx.restore()
 }
 
-function drawReadingPill(ctx: CanvasRenderingContext2D, cy: number, tag: string, reading: string, color: string, fill: string, stroke: string) {
+function drawReadingPill(ctx: CanvasRenderingContext2D, cy: number, tag: string, reading: string, tokens: PillTokens) {
   ctx.font = `700 11px ${FUI}`
   const tagW = ctx.measureText(tag).width
   ctx.font = `500 17px ${FJP}`
   const readW = ctx.measureText(reading).width
   const w = 16 + tagW + 8 + readW + 16
-  pill(ctx, 0, cy, w, 33, fill, stroke)
+  pill(ctx, 0, cy, w, 33, tokens.bg, tokens.border)
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
-  ctx.fillStyle = color
+  ctx.fillStyle = tokens.text
   let x = -w / 2 + 16
   ctx.font = `700 11px ${FUI}`
   ctx.fillText(tag, x, cy + 1)
@@ -315,6 +326,7 @@ function drawNode(
   pt: [number, number],
   d: { word: string; kana: string; en: string; bn: string },
   raw: number,
+  T: KanjiTheme,
 ) {
   const p = easeOutQuint(raw)
   if (p <= 0) return
@@ -325,15 +337,17 @@ function drawNode(
   ctx.scale(scale, scale)
 
   ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,0.07)'
-  ctx.shadowBlur = 6
-  ctx.shadowOffsetY = 2
+  if (!T.glassy) {
+    ctx.shadowColor = 'rgba(0,0,0,0.07)'
+    ctx.shadowBlur = 6
+    ctx.shadowOffsetY = 2
+  }
   rr(ctx, -NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H, 16)
-  ctx.fillStyle = '#FFFFFF'
+  ctx.fillStyle = T.card
   ctx.fill()
   ctx.restore()
   rr(ctx, -NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H, 16)
-  ctx.strokeStyle = '#F3F4F6'
+  ctx.strokeStyle = T.cardBorder
   ctx.lineWidth = 1
   ctx.stroke()
 
@@ -341,19 +355,19 @@ function drawNode(
   ctx.textBaseline = 'top'
   let y = -NODE_H / 2 + 14
   ctx.font = `700 30px ${FJP}`
-  ctx.fillStyle = '#1D3557'
+  ctx.fillStyle = T.heading
   ctx.fillText(d.word, 0, y)
   y += 36 + 2
   ctx.font = `500 15px ${FJP}`
-  ctx.fillStyle = '#E63946'
+  ctx.fillStyle = T.kana
   ctx.fillText(d.kana, 0, y)
   y += 18 + 6
   ctx.font = `600 14px ${FUI}`
-  ctx.fillStyle = '#374151'
+  ctx.fillStyle = T.en
   ctx.fillText(d.en, 0, y)
   y += 17 + 2
   ctx.font = `400 14px ${FBN}`
-  ctx.fillStyle = '#6B7280'
+  ctx.fillStyle = T.bn
   ctx.fillText(d.bn, 0, y)
   ctx.restore()
 }

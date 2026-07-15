@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KanjiEntry } from './types'
 import { KanjiSfx } from './sfx'
 import { loadLearned, saveLearned } from './kanjiStore'
+import { KANJI_THEMES, type KanjiTheme } from './themes'
 
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 export const HUB = { x: 540, y: 700 }
@@ -22,12 +23,14 @@ interface Props {
   entry: KanjiEntry
   secondsPerWord?: number
   sfxVolume?: number
+  theme?: KanjiTheme
 }
 
 type Phase = 'explore' | 'quiz'
 interface Feedback { i: number; ok: boolean }
 
-export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Props) {
+export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7, theme = KANJI_THEMES.light }: Props) {
+  const T = theme
   const [step, setStep] = useState(0)
   const [mode, setMode] = useState<'step' | 'auto'>('step')
   const [playing, setPlaying] = useState(false)
@@ -203,14 +206,18 @@ export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Pro
     transition: 'background 180ms ease, color 180ms ease',
   })
 
+  const cardShadow = T.glassy ? 'none' : '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)'
+  const nodeShadow = T.glassy ? 'none' : '0 1px 2px 0 rgba(0,0,0,0.05)'
+  const glassBlur = T.glassy ? 'blur(8px)' : undefined
+
   const stage = (
-    <div style={{ position: 'absolute', inset: 0, background: '#FAFAFA', overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', inset: 0, background: T.stage, overflow: 'hidden' }}>
       <svg width="1080" height="1350" viewBox="0 0 1080 1350" style={{ position: 'absolute', inset: 0 }}>
         {data.map((_, i) => {
           const [x, y] = PTS[i]
           const vis = step >= i + 3
           return (
-            <path key={i} d={`M${HUB.x} ${HUB.y} L${x} ${y}`} fill="none" stroke="#D1D5DB" strokeWidth={1.5}
+            <path key={i} d={`M${HUB.x} ${HUB.y} L${x} ${y}`} fill="none" stroke={T.connector} strokeWidth={1.5}
               style={{ strokeDasharray: 900, strokeDashoffset: vis ? 0 : 900, transition: 'stroke-dashoffset 600ms ease' }} />
           )
         })}
@@ -218,12 +225,12 @@ export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Pro
 
       {/* header */}
       <div style={{ position: 'absolute', top: 48, left: 64, right: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ font: "600 13px 'Inter', sans-serif", letterSpacing: '0.14em', textTransform: 'uppercase', color: '#6B7280' }}>Kanji mind map</div>
+        <div style={{ font: "600 13px 'Inter', sans-serif", letterSpacing: '0.14em', textTransform: 'uppercase', color: T.sub }}>Kanji mind map</div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ background: 'rgba(42,157,143,0.09)', color: '#2A9D8F', border: '1px solid rgba(42,157,143,0.25)', fontFamily: "'Noto Sans Bengali', 'Inter', sans-serif", fontSize: 14, fontWeight: 700, padding: '6px 16px', borderRadius: 9999 }}>
+          <div style={{ background: T.tealPill.bg, color: T.tealPill.text, border: `1px solid ${T.tealPill.border}`, fontFamily: "'Noto Sans Bengali', 'Inter', sans-serif", fontSize: 14, fontWeight: 700, padding: '6px 16px', borderRadius: 9999 }}>
             ⚡ {toBn(learned.length)}/{toBn(8)} শেখা হয়েছে
           </div>
-          <div style={{ background: 'rgba(230,57,70,0.08)', color: '#E63946', border: '1px solid rgba(230,57,70,0.2)', font: "700 14px 'Inter', sans-serif", padding: '6px 16px', borderRadius: 9999 }}>
+          <div style={{ background: T.redPill.bg, color: T.redPill.text, border: `1px solid ${T.redPill.border}`, font: "700 14px 'Inter', sans-serif", padding: '6px 16px', borderRadius: 9999 }}>
             JLPT {entry.jlpt}
           </div>
         </div>
@@ -235,22 +242,22 @@ export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Pro
         transform: `translate(-50%,-50%) scale(${step >= 1 ? 1 : 0.6})`, opacity: step >= 1 ? 1 : 0,
         transition: `opacity 550ms ease, transform 550ms ${EASE}`,
       }}>
-        <div style={{ background: '#FFFFFF', border: '1px solid #F3F4F6', borderRadius: 24, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '30px 24px 26px' }}>
-          <div style={{ font: "700 148px/1 'Noto Sans JP', sans-serif", color: '#1D3557' }}>{entry.kanji}</div>
-          <div style={{ font: "600 21px 'Inter', sans-serif", color: '#111827' }}>{entry.meaningEn}</div>
-          <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 18, color: '#6B7280' }}>{entry.meaningBn}</div>
+        <div style={{ background: T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 24, boxShadow: cardShadow, backdropFilter: glassBlur, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '30px 24px 26px' }}>
+          <div style={{ font: "700 148px/1 'Noto Sans JP', sans-serif", color: T.heading }}>{entry.kanji}</div>
+          <div style={{ font: "600 21px 'Inter', sans-serif", color: T.enStrong }}>{entry.meaningEn}</div>
+          <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 18, color: T.bn }}>{entry.meaningBn}</div>
           <div style={{
             display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8, alignItems: 'center',
             opacity: step >= 2 ? 1 : 0, transform: step >= 2 ? 'translateY(0)' : 'translateY(10px)',
             transition: `opacity 450ms ease, transform 450ms ${EASE}`,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(230,57,70,0.08)', border: '1px solid rgba(230,57,70,0.2)', borderRadius: 9999, padding: '6px 16px' }}>
-              <span style={{ font: "700 11px 'Inter', sans-serif", letterSpacing: '0.1em', color: '#E63946' }}>音 ON</span>
-              <span style={{ font: "500 17px 'Noto Sans JP', sans-serif", color: '#E63946' }}>{entry.onYomi}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.onPill.bg, border: `1px solid ${T.onPill.border}`, borderRadius: 9999, padding: '6px 16px' }}>
+              <span style={{ font: "700 11px 'Inter', sans-serif", letterSpacing: '0.1em', color: T.onPill.text }}>音 ON</span>
+              <span style={{ font: "500 17px 'Noto Sans JP', sans-serif", color: T.onPill.text }}>{entry.onYomi}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(42,157,143,0.09)', border: '1px solid rgba(42,157,143,0.25)', borderRadius: 9999, padding: '6px 16px' }}>
-              <span style={{ font: "700 11px 'Inter', sans-serif", letterSpacing: '0.1em', color: '#2A9D8F' }}>訓 KUN</span>
-              <span style={{ font: "500 17px 'Noto Sans JP', sans-serif", color: '#2A9D8F' }}>{entry.kunYomi}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.kunPill.bg, border: `1px solid ${T.kunPill.border}`, borderRadius: 9999, padding: '6px 16px' }}>
+              <span style={{ font: "700 11px 'Inter', sans-serif", letterSpacing: '0.1em', color: T.kunPill.text }}>訓 KUN</span>
+              <span style={{ font: "500 17px 'Noto Sans JP', sans-serif", color: T.kunPill.text }}>{entry.kunYomi}</span>
             </div>
           </div>
         </div>
@@ -272,17 +279,17 @@ export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Pro
             opacity: vis ? 1 : 0, cursor: 'pointer',
             transition: `opacity 450ms ease ${vis ? '150ms' : '0ms'}, transform 450ms ${EASE} ${vis && !pulsed ? '150ms' : '0ms'}, box-shadow 200ms ease`,
           }}>
-            <div className="kmm-node-card" style={{ position: 'relative', background: '#FFFFFF', border: '1px solid #F3F4F6', borderRadius: 16, boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '16px 12px 14px', transition: 'box-shadow 250ms ease, transform 250ms ease' }}>
+            <div className="kmm-node-card" style={{ position: 'relative', background: T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 16, boxShadow: nodeShadow, backdropFilter: glassBlur, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '16px 12px 14px', transition: 'box-shadow 250ms ease, transform 250ms ease' }}>
               <div style={{
                 position: 'absolute', top: -9, right: -9, width: 24, height: 24, borderRadius: '50%',
                 background: '#2A9D8F', color: '#fff', font: "700 13px/24px 'Inter', sans-serif", textAlign: 'center',
                 opacity: isLearned ? 1 : 0, transform: isLearned ? 'scale(1)' : 'scale(0.4)',
                 transition: `opacity 250ms ease, transform 300ms ${EASE}`,
               }}>✓</div>
-              <div style={{ font: "700 30px/1.2 'Noto Sans JP', sans-serif", color: '#1D3557' }}>{d.word}</div>
-              <div style={{ font: "500 15px 'Noto Sans JP', sans-serif", color: '#E63946' }}>{d.kana}</div>
-              <div style={{ font: "600 14px 'Inter', sans-serif", color: '#374151', marginTop: 4 }}>{d.en}</div>
-              <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 14, color: '#6B7280' }}>{d.bn}</div>
+              <div style={{ font: "700 30px/1.2 'Noto Sans JP', sans-serif", color: T.heading }}>{d.word}</div>
+              <div style={{ font: "500 15px 'Noto Sans JP', sans-serif", color: T.kana }}>{d.kana}</div>
+              <div style={{ font: "600 14px 'Inter', sans-serif", color: T.en, marginTop: 4 }}>{d.en}</div>
+              <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 14, color: T.bn }}>{d.bn}</div>
             </div>
           </div>
         )
@@ -290,24 +297,24 @@ export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Pro
 
       {/* footer */}
       <div style={{ position: 'absolute', bottom: 44, left: 64, right: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <img src="/assets/logo-light.webp" alt="Japanese Shikhi" style={{ height: 26 }} />
-        <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 14, color: '#6B7280' }}>প্রতিদিন একটি কাঞ্জি 🎌</div>
+        <img src={T.logo} alt="Japanese Shikhi" style={{ height: 26 }} />
+        <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 14, color: T.sub }}>প্রতিদিন একটি কাঞ্জি 🎌</div>
       </div>
 
       {/* detail popover */}
       {sel && !inQuiz && !recording && (
-        <div style={{ position: 'absolute', left: 540, bottom: 104, transform: 'translateX(-50%)', width: 760, background: '#FFFFFF', border: '1px solid #F3F4F6', borderRadius: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', padding: '22px 26px', display: 'flex', gap: 24, alignItems: 'center', zIndex: 5 }}>
+        <div style={{ position: 'absolute', left: 540, bottom: 104, transform: 'translateX(-50%)', width: 760, background: T.glassy ? 'rgba(20,18,42,0.88)' : T.card, border: `1px solid ${T.cardBorder}`, borderRadius: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', backdropFilter: glassBlur, padding: '22px 26px', display: 'flex', gap: 24, alignItems: 'center', zIndex: 5 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 150 }}>
-            <div style={{ font: "700 58px/1.1 'Noto Sans JP', sans-serif", color: '#1D3557' }}>{sel.word}</div>
-            <div style={{ font: "500 17px 'Noto Sans JP', sans-serif", color: '#E63946' }}>{sel.kana}</div>
-            <div style={{ font: "600 14px 'Inter', sans-serif", color: '#374151' }}>{sel.en}</div>
-            <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 14, color: '#6B7280' }}>{sel.bn}</div>
+            <div style={{ font: "700 58px/1.1 'Noto Sans JP', sans-serif", color: T.heading }}>{sel.word}</div>
+            <div style={{ font: "500 17px 'Noto Sans JP', sans-serif", color: T.kana }}>{sel.kana}</div>
+            <div style={{ font: "600 14px 'Inter', sans-serif", color: T.en }}>{sel.en}</div>
+            <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 14, color: T.bn }}>{sel.bn}</div>
           </div>
-          <div style={{ width: 1, alignSelf: 'stretch', background: '#E5E7EB' }} />
+          <div style={{ width: 1, alignSelf: 'stretch', background: T.connector }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-            <div style={{ font: "600 11px 'Inter', sans-serif", letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6B7280' }}>Example</div>
-            <div style={{ font: "500 22px/1.5 'Noto Sans JP', sans-serif", color: '#111827' }}>{sel.exampleJp}</div>
-            <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 15, color: '#6B7280' }}>{sel.exampleBn}</div>
+            <div style={{ font: "600 11px 'Inter', sans-serif", letterSpacing: '0.12em', textTransform: 'uppercase', color: T.sub }}>Example</div>
+            <div style={{ font: "500 22px/1.5 'Noto Sans JP', sans-serif", color: T.enStrong }}>{sel.exampleJp}</div>
+            <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontSize: 15, color: T.bn }}>{sel.exampleBn}</div>
             <button onClick={toggleLearned} style={{
               alignSelf: 'flex-start', marginTop: 6, font: FBN_UI,
               background: selLearned ? '#2A9D8F' : 'rgba(42,157,143,0.1)', color: selLearned ? '#fff' : '#2A9D8F',
@@ -317,7 +324,7 @@ export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Pro
               {selLearned ? '✓ শেখা হয়েছে' : 'শিখেছি বলে চিহ্নিত করুন'}
             </button>
           </div>
-          <button onClick={() => setSelected(-1)} style={{ position: 'absolute', top: 12, right: 14, background: 'transparent', border: 'none', font: "600 16px 'Inter', sans-serif", color: '#9CA3AF', cursor: 'pointer' }}>✕</button>
+          <button onClick={() => setSelected(-1)} style={{ position: 'absolute', top: 12, right: 14, background: 'transparent', border: 'none', font: "600 16px 'Inter', sans-serif", color: T.sub, cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
@@ -349,7 +356,7 @@ export function KanjiMindMap({ entry, secondsPerWord = 3, sfxVolume = 0.7 }: Pro
     <div ref={wrapRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <style>{`.kmm-node-card:hover { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1) !important; transform: translateY(-2px); }`}</style>
       <div style={recording
-        ? { position: 'fixed', inset: 0, zIndex: 1000, background: '#EEF0F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+        ? { position: 'fixed', inset: 0, zIndex: 1000, background: T.glassy || T.id === 'slate' ? '#06070d' : '#EEF0F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }
         : { width: 1080 * scale, height: 1350 * scale, position: 'relative' }}>
         <div style={{
           position: recording ? 'relative' : 'absolute', left: 0, top: 0, width: 1080, height: 1350,

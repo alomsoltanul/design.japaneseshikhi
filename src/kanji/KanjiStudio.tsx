@@ -5,6 +5,7 @@ import { KanjiMindMap } from './KanjiMindMap'
 import { addPasted, loadLibrary, removeCustom, type KanjiLibrary } from './kanjiStore'
 import { CLAUDE_PROMPT_TEMPLATE, type KanjiEntry } from './types'
 import { buildKanjiVideo, KANJI_ASPECTS, type KanjiAspect, type KanjiVideoProgress } from './renderKanjiVideo'
+import { getKanjiTheme, KANJI_THEME_LIST } from './themes'
 
 const PREFS_KEY = 'js-kanji-studio-prefs-v1'
 
@@ -13,14 +14,15 @@ interface Prefs {
   secondsPerWord: number
   sfxVolume: number
   kanjiId?: string
+  theme: string
 }
 
 function loadPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
-    if (raw) return { aspect: 'reel', secondsPerWord: 2, sfxVolume: 0.7, ...JSON.parse(raw) }
+    if (raw) return { aspect: 'reel', secondsPerWord: 2, sfxVolume: 0.7, theme: 'light', ...JSON.parse(raw) }
   } catch { /* defaults */ }
-  return { aspect: 'reel', secondsPerWord: 2, sfxVolume: 0.7 }
+  return { aspect: 'reel', secondsPerWord: 2, sfxVolume: 0.7, theme: 'light' }
 }
 
 export function KanjiStudio() {
@@ -32,7 +34,7 @@ export function KanjiStudio() {
   const [pasteMsg, setPasteMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [building, setBuilding] = useState(false)
   const [prog, setProg] = useState<KanjiVideoProgress | null>(null)
-  const [result, setResult] = useState<{ url: string; ext: string; durationSec: number; aspect: KanjiAspect } | null>(null)
+  const [result, setResult] = useState<{ url: string; ext: string; durationSec: number; aspect: KanjiAspect; theme: string } | null>(null)
   const [buildError, setBuildError] = useState('')
   const resultUrlRef = useRef<string | null>(null)
 
@@ -80,10 +82,11 @@ export function KanjiStudio() {
         aspect: prefs.aspect,
         secondsPerWord: prefs.secondsPerWord,
         sfxVolume: prefs.sfxVolume,
+        themeId: prefs.theme,
       }, setProg)
       const url = URL.createObjectURL(r.video)
       resultUrlRef.current = url
-      setResult({ url, ext: r.ext, durationSec: r.durationSec, aspect: prefs.aspect })
+      setResult({ url, ext: r.ext, durationSec: r.durationSec, aspect: prefs.aspect, theme: prefs.theme })
     } catch (e) {
       setBuildError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -188,6 +191,28 @@ export function KanjiStudio() {
             </div>
           </div>
           <div>
+            <div style={{ ...label, marginBottom: 6 }}>Theme</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {KANJI_THEME_LIST.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setPrefs(p => ({ ...p, theme: t.id }))}
+                  title={t.label}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+                    fontSize: 12.5, fontWeight: 600,
+                    border: `1px solid ${prefs.theme === t.id ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                    background: prefs.theme === t.id ? 'rgba(244,162,97,0.14)' : 'var(--bg-input)',
+                    color: prefs.theme === t.id ? 'var(--accent-amber)' : 'var(--text-secondary)',
+                  }}
+                >
+                  <span style={{ width: 14, height: 14, borderRadius: '50%', background: t.swatch, border: '1px solid rgba(128,128,128,0.45)', display: 'inline-block' }} />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <div style={{ ...label, marginBottom: 6 }}>Seconds per word · {prefs.secondsPerWord}s</div>
             <input type="range" min={1} max={8} step={0.5} value={prefs.secondsPerWord}
               onChange={e => setPrefs(p => ({ ...p, secondsPerWord: Number(e.target.value) }))} style={{ width: 160 }} />
@@ -224,7 +249,7 @@ export function KanjiStudio() {
                 </div>
                 <a
                   href={result.url}
-                  download={`kanji-mindmap-${entry.id}-${result.aspect}.${result.ext}`}
+                  download={`kanji-mindmap-${entry.id}-${result.aspect}-${result.theme}.${result.ext}`}
                   style={{ alignSelf: 'flex-start', padding: '9px 18px', borderRadius: 10, background: 'var(--accent-teal)', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
                 >⬇ Download</a>
               </div>
@@ -234,7 +259,7 @@ export function KanjiStudio() {
 
         {/* the mind map */}
         {entry && (
-          <KanjiMindMap entry={entry} secondsPerWord={prefs.secondsPerWord} sfxVolume={prefs.sfxVolume} />
+          <KanjiMindMap entry={entry} secondsPerWord={prefs.secondsPerWord} sfxVolume={prefs.sfxVolume} theme={getKanjiTheme(prefs.theme)} />
         )}
       </div>
     </div>
