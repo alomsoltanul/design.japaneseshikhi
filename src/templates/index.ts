@@ -15,6 +15,7 @@ import { newsWireDefaults, NewsWirePoster, NewsWireCtrl } from './newswire'
 import { newsFlashDefaults, NewsFlashPoster, NewsFlashCtrl } from './newsflash'
 import { newsPanelDefaults, NewsPanelPoster, NewsPanelCtrl } from './newspanel'
 import { kanjiQuizDefaults, KanjiQuizPoster, KanjiQuizCtrl } from './kanji-quiz'
+import { youtubeDefaults, YoutubePoster, YoutubeCtrl } from './youtube'
 
 export const TEMPLATES = [
   { id: 'grammar',   jp: '文法',    en: 'Grammar'   },
@@ -32,6 +33,7 @@ export const TEMPLATES = [
   { id: 'newswire',  jp: '见出し',  en: 'Wire'      },
   { id: 'newsflash', jp: '速写',    en: 'Img Flash' },
   { id: 'newspanel', jp: '面板',    en: 'Img Panel' },
+  { id: 'youtube',   jp: 'ユーチューブ', en: 'YouTube' },
 ]
 
 export const TEMPLATE_MAP: Record<string, TemplateDef> = {
@@ -50,4 +52,5 @@ export const TEMPLATE_MAP: Record<string, TemplateDef> = {
   newswire:   { meta: TEMPLATES[12], defaultData: newsWireDefaults as Record<string, unknown>,   Poster: NewsWirePoster,   Controls: NewsWireCtrl   },
   newsflash:  { meta: TEMPLATES[13], defaultData: newsFlashDefaults as Record<string, unknown>,  Poster: NewsFlashPoster,  Controls: NewsFlashCtrl  },
   newspanel:  { meta: TEMPLATES[14], defaultData: newsPanelDefaults as Record<string, unknown>,  Poster: NewsPanelPoster,  Controls: NewsPanelCtrl  },
+  youtube:    { meta: TEMPLATES[15], defaultData: youtubeDefaults as Record<string, unknown>,    Poster: YoutubePoster,    Controls: YoutubeCtrl    },
 }
