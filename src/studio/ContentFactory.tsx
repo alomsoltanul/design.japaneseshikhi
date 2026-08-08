@@ -239,12 +239,24 @@ export function ContentFactory() {
       {/* Voice panel */}
       {panel === 'voice' && (
         <Panel title="Voice settings (saved automatically)">
+          {/* Full VOICEVOX slider set — same order as the VOICEVOX app:
+              話速 / 音高 / 抑揚 / 音量 / 間の長さ / 開始無音 / 終了無音 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
-            <Slider label={`Speed ${voice.speed.toFixed(2)}×`} min={0.5} max={1.6} step={0.05} value={voice.speed} onChange={v => updateVoice({ speed: v })} />
-            <Slider label={`Volume ${voice.volume.toFixed(2)}`} min={0.6} max={2} step={0.05} value={voice.volume} onChange={v => updateVoice({ volume: v })} />
-            <Slider label={`Intonation ${voice.intonation.toFixed(2)}`} min={0} max={1.6} step={0.05} value={voice.intonation} onChange={v => updateVoice({ intonation: v })} />
-            <Slider label={`Gap ${voice.gapSeconds.toFixed(2)}s`} min={0} max={1.2} step={0.05} value={voice.gapSeconds} onChange={v => updateVoice({ gapSeconds: v })} />
-            <Slider label={`Think ${voice.thinkSeconds}s`} min={2} max={10} step={1} value={voice.thinkSeconds} onChange={v => updateVoice({ thinkSeconds: v })} />
+            <Slider label={`Speed (話速) ${voice.speed.toFixed(2)}×`} min={0.5} max={1.6} step={0.01} value={voice.speed} onChange={v => updateVoice({ speed: v })} />
+            <Slider label={`Pitch (音高) ${voice.pitch >= 0 ? '+' : ''}${voice.pitch.toFixed(2)}`} min={-0.15} max={0.15} step={0.01} value={voice.pitch} onChange={v => updateVoice({ pitch: v })} />
+            <Slider label={`Intonation (抑揚) ${voice.intonation.toFixed(2)}`} min={0} max={1.6} step={0.05} value={voice.intonation} onChange={v => updateVoice({ intonation: v })} />
+            <Slider label={`Volume (音量) ${voice.volume.toFixed(2)}`} min={0.6} max={2} step={0.05} value={voice.volume} onChange={v => updateVoice({ volume: v })} />
+            <Slider label={`Pause length (間の長さ) ${voice.pauseScale.toFixed(2)}×`} min={0.5} max={2} step={0.05} value={voice.pauseScale} onChange={v => updateVoice({ pauseScale: v })} />
+            <Slider label={`Start silence (開始無音) ${voice.prePadding.toFixed(2)}s`} min={0} max={0.6} step={0.01} value={voice.prePadding} onChange={v => updateVoice({ prePadding: v })} />
+            <Slider label={`End silence (終了無音) ${voice.postPadding.toFixed(2)}s`} min={0} max={0.8} step={0.01} value={voice.postPadding} onChange={v => updateVoice({ postPadding: v })} />
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, marginTop: 12 }}>
+            <Slider label={`Gap between lines ${voice.gapSeconds.toFixed(2)}s`} min={0} max={1.2} step={0.05} value={voice.gapSeconds} onChange={v => updateVoice({ gapSeconds: v })} />
+            <Slider label={`Think time ${voice.thinkSeconds}s`} min={2} max={10} step={1} value={voice.thinkSeconds} onChange={v => updateVoice({ thinkSeconds: v })} />
+          </div>
+          <div style={{ fontSize: 11.5, opacity: 0.55, marginTop: 10 }}>
+            Pause length stretches 、/。 pauses inside a line. Picking a JLPT level above resets these to exam pacing
+            (N5 0.88× → N3 1.00× → N1 1.05×); tune freely after.
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14 }}>
             {(['narrator', 'female', 'male'] as const).map(role => (

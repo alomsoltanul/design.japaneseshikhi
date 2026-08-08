@@ -1,14 +1,21 @@
-// VOICEVOX narration for reels. Reuses the repo's VOICEVOX client and applies
-// consistent, user-tunable params so speakers don't sound fast/slow/quiet.
-import { getSpeakers, audioQuery, synthesize, checkHealth, reelEnvBlocked, type VvSpeaker } from '@/listening/voicevox'
+// Narration for reels. Two backends:
+//   • VOICEVOX (localhost) — full engine tuning, unavailable on prod HTTPS.
+//   • Azure Neural TTS   — cloud, works from the deployed site.
+// The `provider` field on VoiceSettings picks the path; callers stay unaware.
+import { getSpeakers, synthesizeJlpt, checkHealth, reelEnvBlocked, type VvSpeaker } from '@/listening/voicevox'
+import { synthesizeAzure, checkAzureHealth, AZURE_VOICES, DEFAULT_AZURE_VOICE } from '@/listening/azure'
 import type { VoiceSettings } from './voiceSettings'
+import type { TtsProvider } from '@/listening/types'
+
+/** Per-role voice slots. Union: VOICEVOX numeric style ids OR Azure voice names. */
+export type VoiceId = number | string
 
 export interface Voices {
-  narrator: number
-  female: number
-  female2: number
-  male: number
-  male2: number
+  narrator: VoiceId
+  female: VoiceId
+  female2: VoiceId
+  male: VoiceId
+  male2: VoiceId
 }
 
 let speakerCache: VvSpeaker[] | null = null
@@ -17,10 +24,23 @@ export async function listVoices(): Promise<VvSpeaker[]> {
   return speakerCache
 }
 
-/** Resolve role → style id, honoring explicit picks from settings.
+/** Resolve role → voice id/name, honoring explicit picks from settings.
  *  Picks a second distinct voice per gender so two women/men talking don't sound identical.
  */
 export async function resolveVoices(settings: VoiceSettings): Promise<Voices> {
+  if (settings.provider === 'azure') {
+    // Azure has no /speakers API — pool is static. Pick primary + alt per gender.
+    const females = AZURE_VOICES.filter(v => v.gender === 'female').map(v => v.name)
+    const males   = AZURE_VOICES.filter(v => v.gender === 'male').map(v => v.name)
+    const female  = settings.azureFemale ?? females[0] ?? DEFAULT_AZURE_VOICE
+    const female2 = females.find(n => n !== female) ?? female
+    const male    = settings.azureMale ?? males[0] ?? DEFAULT_AZURE_VOICE
+    const male2   = males.find(n => n !== male) ?? male
+    // Narrator defaults to Nanami (studio-quality, warm).
+    const narrator = settings.azureNarrator ?? 'ja-JP-NanamiNeural'
+    return { narrator, female, female2, male, male2 }
+  }
+
   const fallback: Voices = { narrator: 16, female: 2, female2: 10, male: 11, male2: 13 }
   try {
     const speakers = await listVoices()
@@ -44,11 +64,21 @@ export async function resolveVoices(settings: VoiceSettings): Promise<Voices> {
   }
 }
 
-export async function ensureVoicevox(): Promise<void> {
+/**
+ * Verify the selected engine is reachable. Fails fast with an actionable
+ * message so the UI can render the fix (start VOICEVOX / switch to Azure).
+ */
+export async function ensureVoiceEngine(provider: TtsProvider): Promise<void> {
+  if (provider === 'azure') {
+    if (!(await checkAzureHealth())) {
+      throw new Error('Azure TTS route is not reachable. Redeploy or check AZURE_SPEECH_KEY.')
+    }
+    return
+  }
   if (reelEnvBlocked()) {
     throw new Error(
-      'Reels need VOICEVOX, which runs on your computer. The live HTTPS site can’t reach it. ' +
-      'Build reels locally: run `npm run dev` and open http://localhost:5173/listening.',
+      'VOICEVOX only works on localhost. Switch to Azure in the reel picker to build from the live site, ' +
+      'or run this locally at http://localhost:5173.',
     )
   }
   if (!(await checkHealth())) {
@@ -56,19 +86,25 @@ export async function ensureVoicevox(): Promise<void> {
   }
 }
 
-/** Synthesize one line with consistent params → decoded AudioBuffer. */
+/** Synthesize one line → decoded AudioBuffer. Dispatches on settings.provider. */
 export async function synthBuffer(
   ctx: BaseAudioContext,
   text: string,
-  speakerId: number,
+  voice: VoiceId,
   s: VoiceSettings,
 ): Promise<AudioBuffer> {
-  const query = await audioQuery(text, speakerId)
-  query.speedScale = s.speed
-  query.volumeScale = s.volume
-  query.intonationScale = s.intonation
-  query.prePhonemeLength = s.prePadding
-  query.postPhonemeLength = s.postPadding
-  const wav = await synthesize(query, speakerId)
+  if (s.provider === 'azure') {
+    const mp3 = await synthesizeAzure(text, String(voice), { speed: s.speed, pitch: s.pitch })
+    return ctx.decodeAudioData(mp3.slice(0))
+  }
+  const wav = await synthesizeJlpt(text, Number(voice), {
+    speed: s.speed,
+    pitch: s.pitch,
+    intonation: s.intonation,
+    volume: s.volume,
+    prePhonemeLength: s.prePadding,
+    postPhonemeLength: s.postPadding,
+    pauseLengthScale: s.pauseScale,
+  })
   return ctx.decodeAudioData(wav.slice(0))
 }

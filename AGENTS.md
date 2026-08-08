@@ -73,6 +73,13 @@ npm run dev      # Dev server
 vercel --prod    # Deploy to Vercel
 ```
 
+## Reel SFX (sound bookends)
+Every reel built by `src/studio/reel/buildReel.ts` gets branded audio bookends, mixed into the gapless offline track via `mixAudio.ts`:
+- **`public/sounds/woosh.mp3`** — intro woosh at t=0.
+- **`public/sounds/end.mp3`** — end sound, aligned to finish with the video (`start = total − duration`).
+
+Both decoded on `decodeCtx` (48kHz) via the `loadAudio` helper, referenced as `${import.meta.env.BASE_URL}sounds/<file>`. Missing files fail soft (reel still renders). To swap a sound, replace the file in `public/sounds/` — no code change. Do NOT re-add separate per-reel SFX wiring; it already applies to all reels here.
+
 ## Cache Note
 Service worker (`public/sw.js`) uses network-first for HTML/JS/CSS to ensure fresh deployments. The cache auto-clears on version bump.
 

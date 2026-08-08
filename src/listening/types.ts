@@ -5,6 +5,8 @@ export type MondaiType = number
 export type TrackLength = 'short' | 'medium' | 'long'
 export type Density = 'compact' | 'comfortable'
 export type Theme = 'brand' | 'dark' | 'zen'
+/** TTS backend. VOICEVOX = local engine (dev-only). Azure = cloud, works on prod. */
+export type TtsProvider = 'voicevox' | 'azure'
 
 export interface TrackLine {
   id: string
@@ -59,6 +61,8 @@ export interface Track {
   status: TrackStatus
   /** Scenario image URL for this topic */
   scenarioImage?: string
+  /** TTS backend for this track. Defaults to 'voicevox' for legacy behavior. */
+  provider?: TtsProvider
 }
 
 export interface LibraryItem {
@@ -79,6 +83,25 @@ export interface Tweaks {
   density: Density
   showBN: boolean
   status: TrackStatus
+}
+
+/**
+ * Track-wide VOICEVOX engine tuning — mirrors the seven sliders in the
+ * VOICEVOX desktop app, editable in English before building reels.
+ * 話速=speed · 音高=pitch · 抑揚=intonation · 音量=volume ·
+ * 間の長さ=pauseLengthScale · 開始無音=prePhonemeLength · 終了無音=postPhonemeLength
+ */
+export interface VoiceTuning {
+  speed: number
+  pitch: number
+  intonation: number
+  volume: number
+  /** Multiplier for 、/。 pauses inside a line (VOICEVOX 間の長さ). */
+  pauseLengthScale: number
+  /** Silence before each line, seconds (VOICEVOX 開始無音). */
+  prePhonemeLength: number
+  /** Silence after each line, seconds (VOICEVOX 終了無音). */
+  postPhonemeLength: number
 }
 
 export interface PublishedTrack {
@@ -116,6 +139,12 @@ export interface TrackContextValue {
   assignSpeaker: (lineId: string, speakerName: string, voiceId: number, styleName: string) => void
   vvConnected: boolean
   synthesisQueue: string[]
+  /** Active TTS backend + toggle. Switching remaps every line to the peer voice. */
+  provider: TtsProvider
+  setProvider: (p: TtsProvider) => void
+  azureConnected: boolean
+  /** Assign an Azure voice to a line (used by the Azure voice picker). */
+  assignAzureVoice: (lineId: string, voiceName: string) => void
   /** AI assist */
   aiGenerateQuestion: () => void
   aiRewriteN4: () => void
@@ -123,6 +152,10 @@ export interface TrackContextValue {
   aiSuggestDistractors: () => void
   /** JLPT tuning */
   applyJlptDefaults: () => void
+  /** Track-wide VOICEVOX engine tuning (English mirror of VOICEVOX sliders) */
+  voiceTuning: VoiceTuning
+  updateVoiceTuning: (patch: Partial<VoiceTuning>) => void
+  resetVoiceTuning: () => void
   /** Social export */
   exportTrackAudio: () => Promise<Blob | null>
   exportLineAudio: (lineId: string) => Promise<Blob | null>

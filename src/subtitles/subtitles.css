@@ -1,0 +1,35 @@
+/* Subtitle Studio scoped styles — mirror Japanese Shikhi design tokens */
+.subs-root {
+  --js-primary: #E63946;
+  --js-secondary: #1D3557;
+  --js-accent: #F4A261;
+  --js-success: #2A9D8F;
+  --js-fg-1: #0F1729;
+  --js-fg-2: #374151;
+  --js-fg-3: #6B7280;
+  --js-fg-4: #9CA3AF;
+  --js-border: #E2E4EA;
+  --js-border-strong: #C7CBD5;
+  --js-border-subtle: #EDEFF3;
+  --js-surface-alt: #F5F6F9;
+  --js-shadow-sm: 0 1px 2px rgba(15,23,41,.06);
+  --js-shadow-lg: 0 24px 48px -12px rgba(15,23,41,.28);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--js-fg-1);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #EEF0F4;
+}
+.subs-root *, .subs-root *::before, .subs-root *::after { box-sizing: border-box; }
+.subs-root textarea, .subs-root input, .subs-root button { font-family: inherit; }
+.subs-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.subs-scroll::-webkit-scrollbar-thumb { background: #cdd2db; border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+@keyframes subs-eq-bounce { 0%,100% { transform: scaleY(.4);} 50%{ transform: scaleY(1);} }
+.subs-eq span { display:block; width:3px; background:#fff; border-radius:2px; transform-origin:bottom; animation: subs-eq-bounce .9s ease-in-out infinite; }
+.subs-eq.paused span { animation-play-state: paused; }
+@keyframes subs-tap-pulse { 0%,100%{ box-shadow:0 0 0 0 rgba(230,57,70,.35);} 50%{ box-shadow:0 0 0 14px rgba(230,57,70,0);} }
+.subs-tap-live { animation: subs-tap-pulse 1.4s ease-out infinite; }
+@media (prefers-reduced-motion: reduce){ .subs-eq span, .subs-tap-live { animation: none !important; } }

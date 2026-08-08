@@ -1,15 +1,30 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import type {
   TrackContextValue, Tweaks, Track, TrackLine,
-  MondaiType, TrackLength, TrackStatus, JlptLevel, Theme, Question, CustomMondai
+  MondaiType, TrackLength, TrackStatus, JlptLevel, Theme, Question, CustomMondai, VoiceTuning, TtsProvider
 } from './types'
 import { synthesizeJlpt, checkHealth } from './voicevox'
+import { synthesizeAzure, checkAzureHealth, pickAzureByGender, AZURE_VOICES } from './azure'
 import { AudioEngine } from './audioEngine'
 import { getScenarioImage, getDefaultScenarioImage } from './scenarios'
 import { VOICEVOX_SPEAKERS, getDefaultVoiceId, getSpeakerColor } from './voicevoxSpeakers'
 import { getJlptProfile, computePauseForLine } from './jlptConfig'
 
 const TrackContext = createContext<TrackContextValue | null>(null)
+
+/** Seed the track-wide VOICEVOX tuning sliders from a JLPT level profile. */
+function tuningFromLevel(level: JlptLevel): VoiceTuning {
+  const p = getJlptProfile(level)
+  return {
+    speed: p.speed,
+    pitch: p.pitch,
+    intonation: p.intonation,
+    volume: p.volume,
+    pauseLengthScale: p.pauseLengthScale,
+    prePhonemeLength: p.prePhonemeLength,
+    postPhonemeLength: p.postPhonemeLength,
+  }
+}
 
 export const useTrack = () => {
   const ctx = useContext(TrackContext)
@@ -495,12 +510,24 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     scenarioImage: initialTpl.scenarioImage ?? getDefaultScenarioImage(),
   })
 
+  // Track-wide VOICEVOX engine tuning — starts at the level's JLPT profile,
+  // then the user can free-edit every slider before building reels.
+  const [voiceTuning, setVoiceTuning] = useState<VoiceTuning>(() => tuningFromLevel('N5'))
+
   const [selectedLineId, setSelectedLineId] = useState('l1')
   const [playing, setPlaying] = useState(false)
   const [playhead, setPlayhead] = useState(0)
   const [playingLineId, setPlayingLineId] = useState<string | null>(null)
   const [theme, setTheme] = useState<Theme>('brand')
   const [vvConnected, setVvConnected] = useState(false)
+  const [azureConnected, setAzureConnected] = useState(false)
+  // Default to Azure on deployed HTTPS (VOICEVOX localhost is blocked there);
+  // fall back to VOICEVOX on localhost dev so the existing flow still works.
+  const [provider, setProviderState] = useState<TtsProvider>(() => {
+    if (typeof window === 'undefined') return 'voicevox'
+    const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
+    return isLocal ? 'voicevox' : 'azure'
+  })
   const [synthesisQueue, setSynthesisQueue] = useState<string[]>([])
 
   // Published tracks persisted to localStorage
@@ -574,6 +601,13 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(iv)
   }, [])
 
+  // Check Azure route health (independent poll — Azure works on prod, VV doesn't)
+  useEffect(() => {
+    checkAzureHealth().then(setAzureConnected)
+    const iv = setInterval(() => checkAzureHealth().then(setAzureConnected), 30000)
+    return () => clearInterval(iv)
+  }, [])
+
   const track = useMemo((): Track => {
     const duration = trackLines.reduce((s, l) => s + (l.duration ?? 2.4) + l.pauseAfter / 1000, 0)
     const readyCount = trackLines.filter(l => l.audio === 'ready').length
@@ -598,14 +632,23 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
       question,
       status,
       scenarioImage: meta.scenarioImage,
+      provider,
     }
-  }, [trackLines, question, meta, tweaks.status, synthesisQueue])
+  }, [trackLines, question, meta, tweaks.status, synthesisQueue, provider])
 
   const updateLine = useCallback((lineId: string, patch: Partial<Omit<TrackLine, 'id'>>) => {
     setTrackLines(prev => prev.map(l => {
       if (l.id !== lineId) return l
       const next = { ...l, ...patch }
-      if (patch.jp !== undefined && patch.jp !== l.jp) {
+      // Voice params are baked into the WAV by VOICEVOX (speedScale etc.),
+      // so any change requires re-synthesis — playback never rate-shifts.
+      const needsResynth =
+        (patch.jp !== undefined && patch.jp !== l.jp) ||
+        (patch.speed !== undefined && patch.speed !== l.speed) ||
+        (patch.pitch !== undefined && patch.pitch !== l.pitch) ||
+        (patch.intonation !== undefined && patch.intonation !== l.intonation) ||
+        (patch.volume !== undefined && patch.volume !== l.volume)
+      if (needsResynth) {
         next.audio = 'queued'
         next.audioUrl = undefined
         next.duration = undefined
@@ -621,6 +664,70 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
       if (l.id !== lineId) return l
       return { ...l, speaker: speakerName, voiceId, style: styleName, audio: 'queued' as const, audioUrl: undefined, duration: undefined }
     }))
+  }, [])
+
+  /**
+   * Assign an Azure Neural voice to a line. `voiceId` isn't used by Azure so
+   * we zero it; `style` gets the display label so the inspector shows
+   * something sensible.
+   */
+  const assignAzureVoice = useCallback((lineId: string, voiceName: string) => {
+    const az = AZURE_VOICES.find(v => v.name === voiceName)
+    setTrackLines(prev => prev.map(l => {
+      if (l.id !== lineId) return l
+      return {
+        ...l,
+        speaker: voiceName,
+        voiceId: 0,
+        style: az?.label ?? voiceName,
+        audio: 'queued' as const,
+        audioUrl: undefined,
+        duration: undefined,
+      }
+    }))
+  }, [])
+
+  /**
+   * Toggle TTS backend. Remaps every line's speaker to the peer provider's
+   * closest voice by gender so the track stays plausible after a switch.
+   * Invalidates cached audio (different backend = different waveform).
+   */
+  const setProvider = useCallback((next: TtsProvider) => {
+    setProviderState(prev => {
+      if (prev === next) return prev
+      setTrackLines(lines => lines.map(l => {
+        if (next === 'azure') {
+          const vv = VOICEVOX_SPEAKERS.find(s => s.name === l.speaker)
+          const az = pickAzureByGender(vv?.gender ?? 'female')
+          return {
+            ...l,
+            speaker: az.name,
+            voiceId: 0,
+            style: az.label,
+            audio: 'queued' as const,
+            audioUrl: undefined,
+            duration: undefined,
+          }
+        }
+        // azure → voicevox: fall back to the pool default for that gender.
+        const az = AZURE_VOICES.find(v => v.name === l.speaker)
+        const gender = az?.gender ?? 'female'
+        const vv = VOICEVOX_SPEAKERS.find(s => s.gender === gender) ?? VOICEVOX_SPEAKERS[0]
+        const style = vv.styles[0]
+        return {
+          ...l,
+          speaker: vv.name,
+          voiceId: style.id,
+          style: style.name,
+          audio: 'queued' as const,
+          audioUrl: undefined,
+          duration: undefined,
+        }
+      }))
+      audioBuffersRef.current.clear()
+      audioBlobsRef.current.clear()
+      return next
+    })
   }, [])
 
   const addLine = useCallback((afterId?: string) => {
@@ -672,6 +779,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     setMeta(prev => ({ ...prev, ...patch }))
     if (patch.level) {
       const profile = getJlptProfile(patch.level)
+      setVoiceTuning(tuningFromLevel(patch.level))
       setTrackLines(prev => {
         const next = prev.map((l, i) => ({
           ...l,
@@ -694,29 +802,42 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
   const synthesizeLine = useCallback(async (lineId: string) => {
     const line = trackLines.find(l => l.id === lineId)
     if (!line || line.audio === 'rendering') return
-    if (!vvConnected) {
+    // Provider gating: VOICEVOX needs the local engine, Azure needs the api route.
+    if (provider === 'voicevox' && !vvConnected) {
       setTrackLines(prev => prev.map(l => l.id === lineId ? { ...l, audio: 'error' as const } : l))
       return
     }
     setTrackLines(prev => prev.map(l => l.id === lineId ? { ...l, audio: 'rendering' as const } : l))
     setSynthesisQueue(prev => [...prev.filter(id => id !== lineId), lineId])
     try {
-      const profile = getJlptProfile(track.level)
-      // Pass raw Japanese; synthesizeJlpt normalizes it and strips spurious
-      // junction pauses inside accent_phrases before hitting /synthesis.
-      const buf = await synthesizeJlpt(line.jp, line.voiceId, {
-        speed: line.speed,
-        pitch: line.pitch,
-        intonation: line.intonation,
-        volume: line.volume,
-        prePhonemeLength: profile.prePhonemeLength,
-        postPhonemeLength: profile.postPhonemeLength,
-        pauseLengthScale: profile.pauseLengthScale,
-      })
+      let buf: ArrayBuffer
+      let blobType: string
+      if (provider === 'azure') {
+        // Azure uses the voice name stored in `speaker`. When the user just
+        // toggled providers we already remapped VOICEVOX→Azure names below.
+        buf = await synthesizeAzure(line.jp, line.speaker, {
+          speed: line.speed,
+          pitch: line.pitch,
+        })
+        blobType = 'audio/mpeg'
+      } else {
+        // Pass raw Japanese; synthesizeJlpt normalizes it and strips spurious
+        // junction pauses inside accent_phrases before hitting /synthesis.
+        buf = await synthesizeJlpt(line.jp, line.voiceId, {
+          speed: line.speed,
+          pitch: line.pitch,
+          intonation: line.intonation,
+          volume: line.volume,
+          prePhonemeLength: voiceTuning.prePhonemeLength,
+          postPhonemeLength: voiceTuning.postPhonemeLength,
+          pauseLengthScale: voiceTuning.pauseLengthScale,
+        })
+        blobType = 'audio/wav'
+      }
       const engine = audioEngineRef.current
       const audioBuf = await engine.decode(buf)
       audioBuffersRef.current.set(lineId, audioBuf)
-      const blob = new Blob([buf], { type: 'audio/wav' })
+      const blob = new Blob([buf], { type: blobType })
       audioBlobsRef.current.set(lineId, blob)
       const url = URL.createObjectURL(blob)
       setTrackLines(prev => prev.map(l => l.id === lineId ? {
@@ -730,7 +851,7 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSynthesisQueue(prev => prev.filter(id => id !== lineId))
     }
-  }, [trackLines, vvConnected, track.level])
+  }, [trackLines, vvConnected, voiceTuning, provider])
 
   const synthesizeAll = useCallback(async () => {
     for (const line of trackLines) {
@@ -786,7 +907,9 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
       setPlaying(false)
       setPlayingLineId(null)
     })
-    audioEngineRef.current.play(buf, line.speed, line.pitch)
+    // speed/pitch already baked into the buffer by VOICEVOX — play at 1:1,
+    // otherwise speed applies twice (0.95 slider → 0.90 heard).
+    audioEngineRef.current.play(buf, 1.0, 0)
   }, [trackLines, synthesizeLine, stopPlayback])
 
   const playTrack = useCallback(async () => {
@@ -801,11 +924,12 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     for (const line of trackLines) {
       const buf = audioBuffersRef.current.get(line.id)
       if (!buf) continue
-      const dur = buf.duration / line.speed
+      // speed/pitch baked into buffer at synthesis — schedule at 1:1
+      const dur = buf.duration
       items.push({
         buffer: buf,
-        speed: line.speed,
-        pitch: line.pitch,
+        speed: 1.0,
+        pitch: 0,
         pauseAfter: line.pauseAfter / 1000,
         onStart: () => setPlayingLineId(line.id),
       })
@@ -841,7 +965,8 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     for (const line of trackLines) {
       const buf = audioBuffersRef.current.get(line.id)
       if (!buf) continue
-      items.push({ buffer: buf, speed: line.speed, pitch: line.pitch, pauseAfter: line.pauseAfter / 1000 })
+      // speed/pitch baked into buffer at synthesis — export at 1:1
+      items.push({ buffer: buf, speed: 1.0, pitch: 0, pauseAfter: line.pauseAfter / 1000 })
     }
     if (!items.length) return null
     return audioEngineRef.current.exportWav(items)
@@ -875,7 +1000,35 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
       audioBlobsRef.current.clear()
       return next
     })
+    setVoiceTuning(tuningFromLevel(track.level))
   }, [track.level])
+
+  /**
+   * Track-wide VOICEVOX tuning edit. Voice params (speed/pitch/intonation/
+   * volume) fan out to every line; silence/pause params live only in
+   * voiceTuning and are read at synthesis time. Any change invalidates all
+   * rendered audio so the next preview/build re-synthesizes with new values.
+   */
+  const updateVoiceTuning = useCallback((patch: Partial<VoiceTuning>) => {
+    setVoiceTuning(prev => ({ ...prev, ...patch }))
+    setTrackLines(prev => prev.map(l => ({
+      ...l,
+      ...(patch.speed != null ? { speed: patch.speed } : null),
+      ...(patch.pitch != null ? { pitch: patch.pitch } : null),
+      ...(patch.intonation != null ? { intonation: patch.intonation } : null),
+      ...(patch.volume != null ? { volume: patch.volume } : null),
+      audio: 'queued' as const,
+      audioUrl: undefined,
+      duration: undefined,
+    })))
+    audioBuffersRef.current.clear()
+    audioBlobsRef.current.clear()
+  }, [])
+
+  const resetVoiceTuning = useCallback(() => {
+    const t = tuningFromLevel(track.level)
+    updateVoiceTuning(t)
+  }, [track.level, updateVoiceTuning])
 
   const generateCaptions = useCallback(() => {
     const srtLines: string[] = []
@@ -1025,11 +1178,15 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     assignSpeaker,
     vvConnected,
     synthesisQueue,
+    provider, setProvider,
+    azureConnected,
+    assignAzureVoice,
     aiGenerateQuestion,
     aiRewriteN4,
     aiTranslateBangla,
     aiSuggestDistractors,
     applyJlptDefaults,
+    voiceTuning, updateVoiceTuning, resetVoiceTuning,
     exportTrackAudio,
     exportLineAudio,
     generateCaptions,
@@ -1040,8 +1197,10 @@ export function TrackProvider({ children }: { children: React.ReactNode }) {
     theme, synthesizeLine, synthesizeAll, playLine, playTrack,
     stopPlayback, pausePlayback, resumePlayback, updateLine, addLine, removeLine,
     updateQuestion, updateTrackMeta, assignSpeaker, vvConnected, synthesisQueue,
+    provider, setProvider, azureConnected, assignAzureVoice,
     aiGenerateQuestion, aiRewriteN4, aiTranslateBangla, aiSuggestDistractors,
-    applyJlptDefaults, exportTrackAudio, exportLineAudio, generateCaptions,
+    applyJlptDefaults, voiceTuning, updateVoiceTuning, resetVoiceTuning,
+    exportTrackAudio, exportLineAudio, generateCaptions,
     publishTrack, publishedTracks, loadPublishedTrack,
     customMondais, addCustomMondai, removeCustomMondai,
   ])

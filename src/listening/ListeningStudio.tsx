@@ -4,6 +4,7 @@ import type { TrackLine } from './types'
 import { SocialExportModal } from './SocialExport'
 import { VOICEVOX_SPEAKERS, getSpeakerColor, searchSpeakers } from './voicevoxSpeakers'
 import type { VvSpeaker, VvStyle } from './voicevoxSpeakers'
+import { AZURE_VOICES } from './azure'
 import { getJlptProfile } from './jlptConfig'
 import './listening.css'
 
@@ -47,6 +48,7 @@ const Icon = {
   doc:     (p: { size?: number }) => <Ic {...p} d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6" />,
   volume:  (p: { size?: number }) => <Ic {...p} d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />,
   sliders: (p: { size?: number }) => <Ic {...p} d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4" />,
+  refresh: (p: { size?: number }) => <Ic {...p} d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />,
 }
 
 function fmtTime(s: number): string {
@@ -236,9 +238,9 @@ function Slider({ value = 50, onChange, min = 0, max = 100, label, display }: { 
   )
 }
 
-/* ── left sidebar: VOICEVOX speaker browser ── */
+/* ── left sidebar: speaker/voice browser (VOICEVOX or Azure) ── */
 function SpeakerBrowser({ leftOpen }: { leftOpen: boolean }) {
-  const { selectedLineId, track, assignSpeaker } = useTrack()
+  const { selectedLineId, track, assignSpeaker, assignAzureVoice, provider } = useTrack()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'female' | 'male' | 'other'>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -249,6 +251,13 @@ function SpeakerBrowser({ leftOpen }: { leftOpen: boolean }) {
     if (!query) return true
     const q = query.toLowerCase()
     return s.name.toLowerCase().includes(q) || s.styles.some(st => st.name.toLowerCase().includes(q))
+  })
+
+  const azureFiltered = AZURE_VOICES.filter(v => {
+    if (filter !== 'all' && filter !== 'other' && v.gender !== filter) return false
+    if (!query) return true
+    const q = query.toLowerCase()
+    return v.name.toLowerCase().includes(q) || v.label.toLowerCase().includes(q)
   })
 
   const handleAssign = (speaker: VvSpeaker, style: VvStyle) => {
@@ -284,9 +293,29 @@ function SpeakerBrowser({ leftOpen }: { leftOpen: boolean }) {
       {/* Speaker list */}
       <div style={{ flex: 1, overflow: 'auto', padding: '0 8px 8px' }}>
         <div style={{ padding: '4px 6px', fontSize: 10, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-          VOICEVOX · {filtered.length} voices
+          {provider === 'azure'
+            ? `Azure Neural · ${azureFiltered.length} voices`
+            : `VOICEVOX · ${filtered.length} voices`}
         </div>
-        {filtered.map(sp => {
+        {provider === 'azure' && azureFiltered.map(v => {
+          const isAssigned = selectedLine?.speaker === v.name
+          return (
+            <button key={v.name} onClick={() => selectedLine && assignAzureVoice(selectedLine.id, v.name)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 8px', marginBottom: 2, borderRadius: 6, textAlign: 'left', cursor: 'pointer',
+              background: isAssigned ? 'color-mix(in oklch, var(--primary) 10%, var(--surface-2))' : 'transparent',
+              border: isAssigned ? '1.5px solid var(--primary)' : '1px solid transparent',
+              font: 'inherit', fontSize: 12,
+            }}>
+              <span style={{ fontSize: 16 }}>{v.emoji}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{v.label} <span className="mono" style={{ fontSize: 9, color: 'var(--ink-4)', fontWeight: 400 }}>{v.gender === 'female' ? '♀' : '♂'}</span></div>
+                <div className="mono" style={{ fontSize: 9.5, color: 'var(--ink-3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
+              </div>
+            </button>
+          )
+        })}
+        {provider !== 'azure' && filtered.map(sp => {
           const isExpanded = expanded === sp.name
           const isAssigned = selectedLine?.speaker === sp.name
           return (
@@ -368,10 +397,12 @@ function Studio() {
     updateLine, addLine, removeLine, synthesizeLine, synthesizeAll,
     aiGenerateQuestion, aiRewriteN4, aiTranslateBangla, aiSuggestDistractors,
     applyJlptDefaults,
+    voiceTuning, updateVoiceTuning, resetVoiceTuning,
     vvConnected, updateTrackMeta, updateQuestion, exportLineAudio, setTweaks, assignSpeaker,
     publishTrack, publishedTracks, loadPublishedTrack,
     theme, setTheme,
     customMondais, addCustomMondai, removeCustomMondai,
+    provider, setProvider, azureConnected,
   } = useTrack()
   const [leftOpen, setLeftOpen] = useState(true)
   const [socialOpen, setSocialOpen] = useState(false)
@@ -423,9 +454,23 @@ function Studio() {
           </span>
         </div>
         <div style={{ flex: 1 }} />
-        <div className="row gap-2" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-          <span className={`status-dot${vvConnected ? '' : ' off'}`} />
-          <span>VOICEVOX <span className="mono" style={{ color: vvConnected ? 'var(--success)' : 'var(--accent)' }}>{vvConnected ? 'connected' : 'offline'}</span></span>
+        {/* Provider toggle — Azure works on prod HTTPS, VOICEVOX only on localhost dev. */}
+        <div className="row" style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', fontSize: 10.5, fontWeight: 600 }}>
+          {(['voicevox', 'azure'] as const).map(p => {
+            const active = provider === p
+            const online = p === 'azure' ? azureConnected : vvConnected
+            return (
+              <button key={p} onClick={() => setProvider(p)} style={{
+                padding: '4px 9px', cursor: 'pointer',
+                background: active ? 'var(--primary-50)' : 'var(--surface)',
+                color: active ? 'var(--primary)' : 'var(--ink-3)',
+                border: 'none', font: 'inherit', display: 'flex', alignItems: 'center', gap: 5,
+              }} title={`${p === 'azure' ? 'Azure Neural TTS (cloud)' : 'VOICEVOX (localhost engine)'} — ${online ? 'online' : 'offline'}`}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: online ? 'var(--success)' : 'var(--accent)' }} />
+                {p === 'azure' ? 'Azure' : 'VOICEVOX'}
+              </button>
+            )
+          })}
         </div>
         <div style={{ height: 22, width: 1, background: 'var(--border)' }} />
         <button className="btn sm" onClick={() => { if (playing) pausePlayback(); else playTrack(); }}>
@@ -575,6 +620,44 @@ function Studio() {
             <>
               {/* Level switcher */}
               <LevelSwitcher />
+
+              {/* Track-wide VOICEVOX engine tuning — English mirror of the
+                  VOICEVOX app sliders (話速/音高/抑揚/音量/間の長さ/開始無音/終了無音).
+                  Applies to ALL lines; edits queue every line for re-synthesis. */}
+              <InspectorSection title="Voice engine · all lines" right={
+                <button className="btn xs ghost" onClick={resetVoiceTuning} title={`Reset to ${track.level} JLPT defaults`}>
+                  <Icon.refresh size={10} /> {track.level} defaults
+                </button>
+              }>
+                <div className="col gap-2">
+                  <Slider label="Speed · 話速" display={`${voiceTuning.speed.toFixed(2)}×`}
+                    value={Math.round((voiceTuning.speed - 0.5) / 1.5 * 100)} min={0} max={100}
+                    onChange={v => updateVoiceTuning({ speed: Math.round((0.5 + (v / 100) * 1.5) * 100) / 100 })} />
+                  <Slider label="Pitch · 音高" display={`${voiceTuning.pitch >= 0 ? '+' : ''}${voiceTuning.pitch.toFixed(2)}`}
+                    value={Math.round((voiceTuning.pitch + 0.15) / 0.3 * 100)} min={0} max={100}
+                    onChange={v => updateVoiceTuning({ pitch: Math.round((-0.15 + (v / 100) * 0.3) * 1000) / 1000 })} />
+                  <Slider label="Intonation · 抑揚" display={voiceTuning.intonation.toFixed(2)}
+                    value={Math.round(voiceTuning.intonation * 100)} min={0} max={200}
+                    onChange={v => updateVoiceTuning({ intonation: v / 100 })} />
+                  <Slider label="Volume · 音量" display={`${(voiceTuning.volume * 100).toFixed(0)}%`}
+                    value={Math.round(voiceTuning.volume * 100)} min={0} max={200}
+                    onChange={v => updateVoiceTuning({ volume: v / 100 })} />
+                  <Slider label="Pause length · 間の長さ" display={`${voiceTuning.pauseLengthScale.toFixed(2)}×`}
+                    value={Math.round(voiceTuning.pauseLengthScale * 100)} min={0} max={200}
+                    onChange={v => updateVoiceTuning({ pauseLengthScale: v / 100 })} />
+                  <Slider label="Start silence · 開始無音" display={`${voiceTuning.prePhonemeLength.toFixed(2)}s`}
+                    value={Math.round(voiceTuning.prePhonemeLength * 100)} min={0} max={150}
+                    onChange={v => updateVoiceTuning({ prePhonemeLength: v / 100 })} />
+                  <Slider label="End silence · 終了無音" display={`${voiceTuning.postPhonemeLength.toFixed(2)}s`}
+                    value={Math.round(voiceTuning.postPhonemeLength * 100)} min={0} max={150}
+                    onChange={v => updateVoiceTuning({ postPhonemeLength: v / 100 })} />
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.5 }}>
+                  Same controls as the VOICEVOX app. <b>Pause length</b> stretches 、/。 pauses inside a line;
+                  start/end silence pad each line. Changing anything re-synthesizes all lines, so tune
+                  <b> before</b> building reels. JLPT pace guide: N5 0.78× · N4 0.82× · N3 0.95× · N2 1.02× · N1 1.05×.
+                </div>
+              </InspectorSection>
 
               <InspectorSection title="Selected line" right={<span className="mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{selectedLine.id.toUpperCase()}</span>}>
                 {/* Speaker assignment mini */}
