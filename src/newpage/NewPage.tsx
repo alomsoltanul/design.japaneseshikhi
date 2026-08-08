@@ -1,40 +1,42 @@
 // NewPage — /newpage route.
-// Live preview + JSON/image editor + MP4 export for the Word Reel design
-// (design_handoff_word_reel). Stage is 1080x1920, everything is a pure
-// function of the playhead T (seconds).
+// Live preview + JSON/image editor + TTS preview + MP4 export for the Word
+// Reel design (design_handoff_word_reel). Stage is 1080x1920, everything
+// is a pure function of the playhead T (seconds). Cues are dynamic —
+// segment durations extend to fit real audio lengths.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { toCanvas } from 'html-to-image'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { AZURE_VOICES, synthesizeAzure } from '@/listening/azure'
+import { getSpeakers, synthesizeText as vvSynth, reelEnvBlocked, type VvSpeaker } from '@/listening/voicevox'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const DURATION = 25
-const CUES = { Hook: 0, Word: 3.6, KaiwaA: 8.0, KaiwaB: 11.8, Explain: 15.2, Replay: 19.4, Outro: 22.4 }
-
+// ── Design constants ─────────────────────────────────────────────────────
 const FJP = "'Noto Sans JP','Hiragino Sans',sans-serif"
 const BRAND = '#E63946'
 const AMBER = '#F4A261'
 const TEAL = '#2A9D8F'
 const NAVY = '#1D3557'
 
+// ── Cues (defaults from handoff; extended dynamically once TTS synthed) ─
+interface Cues { Hook: number; Word: number; KaiwaA: number; KaiwaB: number; Explain: number; Replay: number; Outro: number }
+const DEFAULT_CUES: Cues = { Hook: 0, Word: 3.6, KaiwaA: 8.0, KaiwaB: 11.8, Explain: 15.2, Replay: 19.4, Outro: 22.4 }
+const DEFAULT_END = 25.0
+const OUTRO_LEN = 2.6
+
+// ── Types ─────────────────────────────────────────────────────────────────
 type ThemeKey = 'indigo' | 'navy' | 'crimson' | 'forest' | 'paper' | 'black'
+type Provider = 'azure' | 'voicevox'
+type VoiceRole = 'word' | 'kaiwaA' | 'kaiwaB' | 'english'
+type PhaseKey = 'Word' | 'KaiwaA' | 'KaiwaB' | 'Explain' | 'Replay'
 
 interface KaiwaLine {
-  speaker: string
-  gender?: 'male' | 'female'
-  role: string
-  jp: string
-  kana: string
-  romaji: string
-  en: string
-  bn?: string
+  speaker: string; gender?: 'male' | 'female'; role: string
+  jp: string; kana: string; romaji: string; en: string; bn?: string
 }
 interface ReelData {
-  id: string
-  level: string
-  theme: ThemeKey
+  id: string; level: string; theme: ThemeKey
   image: { src: string; alt: string }
   word: {
     jp: string; kana: string; romaji: string; en: string
@@ -43,6 +45,14 @@ interface ReelData {
   kaiwa: KaiwaLine[]
   explanation: { en_a: string; en_b: string; bn_a?: string }
   cta: { handle: string; line: string }
+}
+
+interface LineSpec {
+  key: string
+  role: VoiceRole
+  phase: PhaseKey
+  text: string
+  lang: 'ja' | 'en'
 }
 
 const DEFAULT_REEL: ReelData = {
@@ -88,6 +98,7 @@ Schema (this is the current default reel — replace values, keep structure iden
 ${SAMPLE_JSON}
 `
 
+// ── Themes (from handoff + black variant) ────────────────────────────────
 interface Theme {
   label: string; bg: string; seam: string; fg: string; muted: string; faint: string; accent: string;
   chip: string; chipFg: string; card: string; cardEdge: string;
@@ -129,7 +140,6 @@ const THEMES: Record<ThemeKey, Theme> = {
     card: 'rgba(29,53,87,.04)', cardEdge: 'rgba(29,53,87,.1)',
     orbs: null, petals: false,
   },
-  // Solid black — pure #000 (three identical stops), no orbs, petals kept for gentle motion parity.
   black: {
     label: 'Black', bg: 'linear-gradient(160deg,#000 0%,#000 55%,#000 100%)', seam: '#000',
     fg: '#fff', muted: 'rgba(255,255,255,.55)', faint: 'rgba(255,255,255,.42)', accent: AMBER,
@@ -138,7 +148,9 @@ const THEMES: Record<ThemeKey, Theme> = {
     orbs: null, petals: true,
   },
 }
+const THEME_ORDER: ThemeKey[] = ['indigo', 'navy', 'crimson', 'forest', 'paper', 'black']
 
+// ── Motion helpers (from handoff §Motion) ───────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 const easeOutCubic = (p: number) => 1 - Math.pow(1 - p, 3)
 const easeOutBack = (p: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2) }
@@ -177,37 +189,38 @@ function Eq({ on, color }: { on: boolean; color: string }) {
   )
 }
 
-function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData }) {
+// ── Stage — pure function of T + data + theme + cues + endTime ──────────
+function Stage({ T, theme, data, cues, endTime }: {
+  T: number; theme: ThemeKey; data: ReelData; cues: Cues; endTime: number
+}) {
   const t = THEMES[theme]
   const k1 = data.kaiwa[0], k2 = data.kaiwa[1] || data.kaiwa[0]
 
   const AUDIO = [
-    { at: CUES.Word + 0.3, until: CUES.Word + 2.0, label: 'word · 1 of 2' },
-    { at: CUES.Word + 2.6, until: CUES.Word + 4.3, label: 'word · 2 of 2' },
-    { at: CUES.KaiwaA + 0.2, until: CUES.KaiwaA + 3.6, label: 'speaker A' },
-    { at: CUES.KaiwaB + 0.2, until: CUES.KaiwaB + 3.2, label: 'speaker B' },
-    { at: CUES.Explain + 0.3, until: CUES.Explain + 4.0, label: 'english' },
-    { at: CUES.Replay + 0.2, until: CUES.Replay + 2.8, label: 'recap' },
+    { at: cues.Word + 0.3,    until: cues.KaiwaA - 0.1,   label: 'word' },
+    { at: cues.KaiwaA + 0.2,  until: cues.KaiwaB - 0.1,   label: 'speaker A' },
+    { at: cues.KaiwaB + 0.2,  until: cues.Explain - 0.1,  label: 'speaker B' },
+    { at: cues.Explain + 0.3, until: cues.Replay - 0.1,   label: 'english' },
+    { at: cues.Replay + 0.2,  until: cues.Outro - 0.1,    label: 'recap' },
   ]
   const cue = AUDIO.find(c => T >= c.at && T < c.until) || null
   const speaking = !!cue
 
-  const wordDim = T >= CUES.KaiwaA && T < CUES.Replay ? 0.5 : 1
-  const pulse = speaking && T < CUES.KaiwaA ? 1 + 0.03 * Math.sin((T - cue!.at) * 7) : 1
-  const kb = 1.05 + 0.07 * (T / DURATION)
+  const wordDim = T >= cues.KaiwaA && T < cues.Replay ? 0.5 : 1
+  const pulse = speaking && T < cues.KaiwaA ? 1 + 0.03 * Math.sin((T - cue!.at) * 7) : 1
+  const kb = 1.05 + 0.07 * (T / endTime)
 
-  // step-down kanji size for long words (per handoff §gotchas)
   const jpLen = [...data.word.jp].length
   const kanjiSize = jpLen >= 6 ? 92 : jpLen === 5 ? 110 : 132
 
   const wp = pop(T, 0.35, 0.7)
 
-  const bandI = band(T, 0, CUES.KaiwaA)
-  const bandA = band(T, CUES.KaiwaA, CUES.KaiwaB)
-  const bandB = band(T, CUES.KaiwaB, CUES.Explain)
-  const bandE = band(T, CUES.Explain, CUES.Replay)
-  const bandR = band(T, CUES.Replay, CUES.Outro)
-  const outro = easeOutCubic(clamp((T - CUES.Outro) / 0.6, 0, 1))
+  const bandI = band(T, 0, cues.KaiwaA)
+  const bandA = band(T, cues.KaiwaA, cues.KaiwaB)
+  const bandB = band(T, cues.KaiwaB, cues.Explain)
+  const bandE = band(T, cues.Explain, cues.Replay)
+  const bandR = band(T, cues.Replay, cues.Outro)
+  const outro = easeOutCubic(clamp((T - cues.Outro) / 0.6, 0, 1))
 
   const kanaLine: React.CSSProperties = { fontFamily: FJP, fontSize: 32, color: t.muted, marginBottom: 8 }
   const jpLine: React.CSSProperties = { fontFamily: FJP, fontWeight: 700, fontSize: 62, lineHeight: 1.28, color: t.fg }
@@ -218,7 +231,6 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
 
   return (
     <div style={{ position: 'absolute', inset: 0, fontFamily: 'Inter,system-ui,sans-serif', background: t.seam, overflow: 'hidden' }}>
-      {/* image panel — top 60% (1080x1150) */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: 1080, height: 1150, overflow: 'hidden', background: '#111' }}>
         <img src={data.image.src} alt={data.image.alt} crossOrigin="anonymous" style={{
           position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
@@ -248,7 +260,6 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
         </div>
       </div>
 
-      {/* subtitle panel — bottom 40% (1080x770 @ y=1150) */}
       <div style={{ position: 'absolute', top: 1150, left: 0, width: 1080, height: 770, overflow: 'hidden', background: t.bg }}>
         {t.orbs && (
           <div style={{ position: 'absolute', inset: 0 }}>
@@ -267,7 +278,6 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
           }} />
         })}
 
-        {/* Hook + word beats */}
         <div style={bandStyle(bandI)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 26 }}>
             <Eq on={speaking} color={t.accent} />
@@ -281,7 +291,6 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
           </div>
         </div>
 
-        {/* Kaiwa A */}
         <div style={bandStyle(bandA)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
             <span style={{ ...avatar, background: TEAL, color: '#04211d' }}>{k1.speaker}</span>
@@ -293,7 +302,6 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
           <div style={enLine}>{k1.en}</div>
         </div>
 
-        {/* Kaiwa B */}
         <div style={bandStyle(bandB)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
             <span style={{ ...avatar, background: BRAND, color: '#fff' }}>{k2.speaker}</span>
@@ -305,14 +313,12 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
           <div style={enLine}>{k2.en}</div>
         </div>
 
-        {/* Explain */}
         <div style={bandStyle(bandE)}>
           <div style={{ alignSelf: 'flex-start', padding: '10px 22px', borderRadius: 999, background: 'rgba(244,162,97,.16)', border: '1px solid rgba(244,162,97,.34)', color: t.petals ? AMBER : '#b06a22', fontSize: 26, fontWeight: 700, letterSpacing: '.1em', marginBottom: 28 }}>WHY IT WORKS</div>
           <div style={{ fontSize: 42, lineHeight: 1.42, color: t.fg, fontWeight: 500, maxWidth: 930 }}>{data.explanation.en_a}</div>
           <div style={{ fontSize: 36, lineHeight: 1.45, color: t.muted, marginTop: 22, maxWidth: 930 }}>{data.explanation.en_b}</div>
         </div>
 
-        {/* Replay */}
         <div style={bandStyle(bandR)}>
           <div style={{ fontSize: 26, fontWeight: 600, color: t.faint, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 26 }}>One more time</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 22, marginBottom: 26 }}>
@@ -326,7 +332,6 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
         </div>
       </div>
 
-      {/* outro */}
       <div style={{
         position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         background: 'linear-gradient(160deg,#0a0c18,#14102a)', opacity: outro,
@@ -338,46 +343,96 @@ function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData 
         <div style={{ marginTop: 52, padding: '22px 46px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 38, fontWeight: 700 }}>{data.cta.handle}</div>
       </div>
 
-      {/* progress hairline */}
       <div style={{ position: 'absolute', top: 0, left: 0, height: 8, width: 1080, background: 'rgba(255,255,255,.14)' }} />
-      <div style={{ position: 'absolute', top: 0, left: 0, height: 8, width: 1080 * clamp(T / DURATION, 0, 1), background: BRAND }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, height: 8, width: 1080 * clamp(T / endTime, 0, 1), background: BRAND }} />
     </div>
   )
 }
 
-const THEME_ORDER: ThemeKey[] = ['indigo', 'navy', 'crimson', 'forest', 'paper', 'black']
-
+// ── Helpers: WebCodecs + line specs + timing ────────────────────────────
 function webcodecsSupported() {
   const g = globalThis as any
   return typeof g.VideoEncoder === 'function' && typeof g.VideoFrame === 'function'
 }
-
 function audioEncoderSupported() {
   const g = globalThis as any
   return typeof g.AudioEncoder === 'function' && typeof g.AudioData === 'function'
 }
 
-/** Voice slot keys — one voice per role. */
-type VoiceRole = 'word' | 'kaiwaA' | 'kaiwaB' | 'english'
-
-/** Line keys map to a role + text; used for preview + audio bake. */
-interface LineSpec { key: string; role: VoiceRole; text: string; startAt: number }
-
 function buildLineSpecs(d: ReelData): LineSpec[] {
-  const k1 = d.kaiwa[0]
-  const k2 = d.kaiwa[1] || d.kaiwa[0]
+  const k1 = d.kaiwa[0], k2 = d.kaiwa[1] || d.kaiwa[0]
   const enText = `${d.explanation.en_a} ${d.explanation.en_b}`.trim()
   return [
-    { key: 'word-1', role: 'word',    text: d.word.jp, startAt: CUES.Word + 0.3 },
-    { key: 'word-2', role: 'word',    text: d.word.jp, startAt: CUES.Word + 2.6 },
-    { key: 'kaiwaA', role: 'kaiwaA',  text: k1.jp,     startAt: CUES.KaiwaA + 0.2 },
-    { key: 'kaiwaB', role: 'kaiwaB',  text: k2.jp,     startAt: CUES.KaiwaB + 0.2 },
-    { key: 'english',role: 'english', text: enText,    startAt: CUES.Explain + 0.3 },
-    { key: 'replay-word',     role: 'word',   text: d.word.jp, startAt: CUES.Replay + 0.2 },
-    { key: 'replay-sentence', role: 'kaiwaA', text: k1.jp,     startAt: CUES.Replay + 1.6 },
+    { key: 'word-1', role: 'word', phase: 'Word', text: d.word.jp, lang: 'ja' },
+    { key: 'word-2', role: 'word', phase: 'Word', text: d.word.jp, lang: 'ja' },
+    { key: 'kaiwaA', role: 'kaiwaA', phase: 'KaiwaA', text: k1.jp, lang: 'ja' },
+    { key: 'kaiwaB', role: 'kaiwaB', phase: 'KaiwaB', text: k2.jp, lang: 'ja' },
+    { key: 'english', role: 'english', phase: 'Explain', text: enText, lang: 'en' },
+    { key: 'replay-word', role: 'word', phase: 'Replay', text: d.word.jp, lang: 'ja' },
+    { key: 'replay-sentence', role: 'kaiwaA', phase: 'Replay', text: k1.jp, lang: 'ja' },
   ]
 }
 
+/**
+ * Compute segment cues from actual audio buffer durations. Each phase length
+ * is max(designed, sum of lines-in-phase + tailGap per line). Guarantees no
+ * line is cut off before its phase transitions.
+ */
+function computeDynamicCues(
+  durations: Map<string, number>,
+  tailGap: number,
+): { cues: Cues; end: number } {
+  const dur = (k: string, fb: number) => durations.get(k) ?? fb
+
+  const word1 = dur('word-1', 1.7), word2 = dur('word-2', word1)
+  const kaiwaA = dur('kaiwaA', 3.4), kaiwaB = dur('kaiwaB', 3.0)
+  const english = dur('english', 4.0)
+  const rWord = dur('replay-word', word1), rSent = dur('replay-sentence', kaiwaA)
+
+  const hookLen = 3.6
+  const wordPhase = Math.max(4.4, 0.3 + word1 + tailGap + word2 + tailGap)
+  const kaiwaAPhase = Math.max(3.8, 0.2 + kaiwaA + tailGap)
+  const kaiwaBPhase = Math.max(3.4, 0.2 + kaiwaB + tailGap)
+  const explainPhase = Math.max(4.2, 0.3 + english + tailGap)
+  const replayPhase = Math.max(3.0, 0.2 + rWord + tailGap + rSent + tailGap)
+
+  const Hook = 0
+  const Word = hookLen
+  const KaiwaA = Word + wordPhase
+  const KaiwaB = KaiwaA + kaiwaAPhase
+  const Explain = KaiwaB + kaiwaBPhase
+  const Replay = Explain + explainPhase
+  const Outro = Replay + replayPhase
+  const end = Outro + OUTRO_LEN
+  return { cues: { Hook, Word, KaiwaA, KaiwaB, Explain, Replay, Outro }, end }
+}
+
+/**
+ * Given cues + per-line audio durations, compute the absolute startAt for
+ * each line. Lines within a phase play back-to-back with a tailGap between.
+ */
+function computeLineStarts(
+  specs: LineSpec[],
+  durations: Map<string, number>,
+  cues: Cues,
+  tailGap: number,
+): Map<string, number> {
+  const heads: Record<PhaseKey, number> = {
+    Word: cues.Word + 0.3, KaiwaA: cues.KaiwaA + 0.2, KaiwaB: cues.KaiwaB + 0.2,
+    Explain: cues.Explain + 0.3, Replay: cues.Replay + 0.2,
+  }
+  const cursors: Record<PhaseKey, number> = { ...heads }
+  const out = new Map<string, number>()
+  for (const spec of specs) {
+    const startAt = cursors[spec.phase]
+    out.set(spec.key, startAt)
+    const dur = durations.get(spec.key) ?? 1.5
+    cursors[spec.phase] = startAt + dur + tailGap
+  }
+  return out
+}
+
+// ── Component ────────────────────────────────────────────────────────────
 export function NewPage() {
   const [data, setData] = useState<ReelData>(DEFAULT_REEL)
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_REEL.theme)
@@ -394,24 +449,32 @@ export function NewPage() {
   const [expStatus, setExpStatus] = useState('')
   const [copiedMsg, setCopiedMsg] = useState('')
 
-  // TTS state
-  const [voices, setVoices] = useState<Record<VoiceRole, string>>({
-    word:    'ja-JP-NanamiNeural',
-    kaiwaA:  'ja-JP-KeitaNeural',
-    kaiwaB:  'ja-JP-NanamiNeural',
-    english: 'en-US-JennyNeural',
-  })
+  // Dynamic timing
+  const [cues, setCues] = useState<Cues>(DEFAULT_CUES)
+  const [endTime, setEndTime] = useState<number>(DEFAULT_END)
+  const [tailGap, setTailGap] = useState<number>(0.5)
+
+  // TTS
+  const [provider, setProvider] = useState<Provider>(() => reelEnvBlocked() ? 'azure' : 'voicevox')
   const [bakeAudio, setBakeAudio] = useState(true)
   const [previewingKey, setPreviewingKey] = useState<string | null>(null)
   const [ttsError, setTtsError] = useState('')
+  const [azureVoices, setAzureVoices] = useState<Record<VoiceRole, string>>({
+    word: 'ja-JP-NanamiNeural', kaiwaA: 'ja-JP-KeitaNeural', kaiwaB: 'ja-JP-NanamiNeural', english: 'en-US-JennyNeural',
+  })
+  const [vvSpeakers, setVvSpeakers] = useState<VvSpeaker[]>([])
+  const [vvLoadErr, setVvLoadErr] = useState('')
+  const [voicevoxVoices, setVoicevoxVoices] = useState<Record<VoiceRole, number>>({
+    word: 16, kaiwaA: 11, kaiwaB: 2, english: 0,
+  })
+
   const audioCtxRef = useRef<AudioContext | null>(null)
   const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map())
-  const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const durationRef = useRef<Map<string, number>>(new Map())
+  const activeSourcesRef = useRef<AudioBufferSourceNode[]>([])
 
   const getAudioCtx = useCallback(() => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContext()
-    }
+    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
     return audioCtxRef.current
   }, [])
 
@@ -421,106 +484,15 @@ export function NewPage() {
 
   const lineSpecs = useMemo(() => buildLineSpecs(activeData), [activeData])
 
-  // reset cache when text/voices change
+  // Reset synth cache + timing when text/voices/provider change
   useEffect(() => {
     bufferCacheRef.current.clear()
-  }, [activeData, voices])
+    durationRef.current.clear()
+    setCues(DEFAULT_CUES)
+    setEndTime(DEFAULT_END)
+  }, [activeData, azureVoices, voicevoxVoices, provider])
 
-  const synthLine = useCallback(async (spec: LineSpec): Promise<AudioBuffer> => {
-    const cacheKey = `${spec.role}:${voices[spec.role]}:${spec.text}`
-    const cached = bufferCacheRef.current.get(cacheKey)
-    if (cached) return cached
-    const mp3 = await synthesizeAzure(spec.text, voices[spec.role], { speed: 0.95 })
-    const ctx = getAudioCtx()
-    const buf = await ctx.decodeAudioData(mp3.slice(0))
-    bufferCacheRef.current.set(cacheKey, buf)
-    return buf
-  }, [voices, getAudioCtx])
-
-  const stopPreview = useCallback(() => {
-    try { activeSourceRef.current?.stop() } catch { /* ignore */ }
-    activeSourceRef.current = null
-    setPreviewingKey(null)
-  }, [])
-
-  const previewLine = useCallback(async (spec: LineSpec) => {
-    setTtsError('')
-    stopPreview()
-    setPreviewingKey(spec.key)
-    try {
-      const buf = await synthLine(spec)
-      const ctx = getAudioCtx()
-      if (ctx.state === 'suspended') await ctx.resume()
-      const src = ctx.createBufferSource()
-      src.buffer = buf
-      src.connect(ctx.destination)
-      src.onended = () => {
-        if (activeSourceRef.current === src) {
-          activeSourceRef.current = null
-          setPreviewingKey(null)
-        }
-      }
-      activeSourceRef.current = src
-      src.start()
-    } catch (e: any) {
-      setTtsError(e?.message || String(e))
-      setPreviewingKey(null)
-    }
-  }, [synthLine, getAudioCtx, stopPreview])
-
-  const previewAll = useCallback(async () => {
-    setTtsError('')
-    stopPreview()
-    try {
-      // Prewarm all
-      const bufs: AudioBuffer[] = []
-      for (const spec of lineSpecs) {
-        setPreviewingKey(`prewarm:${spec.key}`)
-        bufs.push(await synthLine(spec))
-      }
-      const ctx = getAudioCtx()
-      if (ctx.state === 'suspended') await ctx.resume()
-      const now = ctx.currentTime + 0.1
-      lineSpecs.forEach((spec, i) => {
-        const src = ctx.createBufferSource()
-        src.buffer = bufs[i]
-        src.connect(ctx.destination)
-        src.start(now + spec.startAt)
-        if (i === lineSpecs.length - 1) {
-          src.onended = () => setPreviewingKey(null)
-        }
-      })
-      setPreviewingKey('sequence')
-      // Also restart preview playhead
-      setPlaying(false)
-      setT(0)
-      setTimeout(() => setPlaying(true), 100)
-    } catch (e: any) {
-      setTtsError(e?.message || String(e))
-      setPreviewingKey(null)
-    }
-  }, [lineSpecs, synthLine, getAudioCtx, stopPreview])
-
-  /**
-   * Bake the 7 line audios into a single 25s AudioBuffer at their scheduled
-   * cue positions using OfflineAudioContext. Used by MP4 export.
-   */
-  const bakeFullAudio = useCallback(async (): Promise<AudioBuffer> => {
-    const sampleRate = 48000
-    const oac = new OfflineAudioContext(2, Math.ceil(DURATION * sampleRate), sampleRate)
-    for (const spec of lineSpecs) {
-      try {
-        const src = oac.createBufferSource()
-        src.buffer = await synthLine(spec)
-        src.connect(oac.destination)
-        src.start(spec.startAt)
-      } catch (e) {
-        console.warn('synth failed for', spec.key, e)
-      }
-    }
-    return oac.startRendering()
-  }, [lineSpecs, synthLine])
-
+  // Fit stage to viewport
   useEffect(() => {
     const fit = () => {
       const el = wrapRef.current
@@ -536,6 +508,7 @@ export function NewPage() {
     return () => { ro.disconnect(); window.removeEventListener('resize', fit) }
   }, [])
 
+  // Playback tick — loops at dynamic endTime
   useEffect(() => {
     if (!playing || exporting) return
     let raf = 0
@@ -545,23 +518,34 @@ export function NewPage() {
       last = now
       setT(prev => {
         const next = prev + dt
-        return next > DURATION ? 0 : next
+        return next > endTime ? 0 : next
       })
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [playing, exporting])
+  }, [playing, exporting, endTime])
 
+  // Load voicevox speakers when provider selected
+  useEffect(() => {
+    if (provider !== 'voicevox') return
+    if (reelEnvBlocked()) {
+      setVvLoadErr('VOICEVOX only works on localhost (needs http://127.0.0.1:50021). Switch to Azure to use TTS from prod.')
+      setVvSpeakers([])
+      return
+    }
+    let dead = false
+    getSpeakers().then(s => { if (!dead) { setVvSpeakers(s); setVvLoadErr('') } })
+      .catch(e => { if (!dead) { setVvSpeakers([]); setVvLoadErr(String(e?.message || e)) } })
+    return () => { dead = true }
+  }, [provider])
+
+  // Editors
   const applyJson = useCallback(() => {
     try {
       const parsed = JSON.parse(jsonDraft) as ReelData
-      if (!parsed.word || !parsed.kaiwa || parsed.kaiwa.length < 1) {
-        throw new Error('JSON must include word + at least one kaiwa entry')
-      }
-      if (!(parsed.theme in THEMES)) {
-        throw new Error(`theme must be one of: ${THEME_ORDER.join(', ')}`)
-      }
+      if (!parsed.word || !parsed.kaiwa || parsed.kaiwa.length < 1) throw new Error('JSON must include word + at least one kaiwa entry')
+      if (!(parsed.theme in THEMES)) throw new Error(`theme must be one of: ${THEME_ORDER.join(', ')}`)
       setData(parsed)
       setTheme(parsed.theme)
       setJsonError('')
@@ -591,10 +575,133 @@ export function NewPage() {
       await navigator.clipboard.writeText(text)
       setCopiedMsg(`Copied ${label}`)
       setTimeout(() => setCopiedMsg(''), 1600)
-    } catch {
-      setCopiedMsg('Copy failed')
-    }
+    } catch { setCopiedMsg('Copy failed') }
   }, [])
+
+  // Synth one line via chosen provider. English on VOICEVOX falls back to Azure.
+  const synthLine = useCallback(async (spec: LineSpec): Promise<AudioBuffer> => {
+    const useAzure = provider === 'azure' || spec.lang === 'en'
+    const providerTag = useAzure ? 'azure' : 'voicevox'
+    const voiceLabel = useAzure ? azureVoices[spec.role] : String(voicevoxVoices[spec.role])
+    const cacheKey = `${providerTag}:${spec.role}:${voiceLabel}:${spec.text}`
+    const cached = bufferCacheRef.current.get(cacheKey)
+    if (cached) return cached
+
+    const ctx = getAudioCtx()
+    let buf: AudioBuffer
+    if (useAzure) {
+      const mp3 = await synthesizeAzure(spec.text, azureVoices[spec.role], { speed: 0.95 })
+      buf = await ctx.decodeAudioData(mp3.slice(0))
+    } else {
+      const wav = await vvSynth(spec.text, voicevoxVoices[spec.role], { speed: 0.95, volume: 1.3 })
+      buf = await ctx.decodeAudioData(wav.slice(0))
+    }
+    bufferCacheRef.current.set(cacheKey, buf)
+    durationRef.current.set(spec.key, buf.duration)
+    return buf
+  }, [provider, azureVoices, voicevoxVoices, getAudioCtx])
+
+  const stopPreview = useCallback(() => {
+    for (const s of activeSourcesRef.current) { try { s.stop() } catch { /* ignore */ } }
+    activeSourcesRef.current = []
+    setPreviewingKey(null)
+  }, [])
+
+  const previewLine = useCallback(async (spec: LineSpec) => {
+    setTtsError('')
+    stopPreview()
+    setPreviewingKey(spec.key)
+    try {
+      const buf = await synthLine(spec)
+      const ctx = getAudioCtx()
+      if (ctx.state === 'suspended') await ctx.resume()
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.connect(ctx.destination)
+      src.onended = () => {
+        activeSourcesRef.current = activeSourcesRef.current.filter(x => x !== src)
+        setPreviewingKey(prev => prev === spec.key ? null : prev)
+      }
+      activeSourcesRef.current.push(src)
+      src.start()
+    } catch (e: any) {
+      setTtsError(e?.message || String(e))
+      setPreviewingKey(null)
+    }
+  }, [synthLine, getAudioCtx, stopPreview])
+
+  /** Synth all lines, compute dynamic timings, return schedule map. */
+  const prepareSchedule = useCallback(async (
+    onStatus?: (s: string) => void,
+  ): Promise<{ bufs: Map<string, AudioBuffer>; cues: Cues; end: number; starts: Map<string, number> }> => {
+    const bufs = new Map<string, AudioBuffer>()
+    for (const spec of lineSpecs) {
+      onStatus?.(`Synth ${spec.key}…`)
+      bufs.set(spec.key, await synthLine(spec))
+    }
+    const durs = new Map<string, number>()
+    bufs.forEach((buf, key) => durs.set(key, buf.duration))
+    const { cues: newCues, end } = computeDynamicCues(durs, tailGap)
+    const starts = computeLineStarts(lineSpecs, durs, newCues, tailGap)
+    return { bufs, cues: newCues, end, starts }
+  }, [lineSpecs, synthLine, tailGap])
+
+  const previewAll = useCallback(async () => {
+    setTtsError('')
+    stopPreview()
+    setPreviewingKey('prewarm')
+    try {
+      const { bufs, cues: newCues, end, starts } = await prepareSchedule(s => setPreviewingKey(`prewarm:${s}`))
+      setCues(newCues)
+      setEndTime(end)
+      const ctx = getAudioCtx()
+      if (ctx.state === 'suspended') await ctx.resume()
+      const t0 = ctx.currentTime + 0.15
+      const nodes: AudioBufferSourceNode[] = []
+      lineSpecs.forEach(spec => {
+        const buf = bufs.get(spec.key)
+        const start = starts.get(spec.key)
+        if (!buf || start == null) return
+        const src = ctx.createBufferSource()
+        src.buffer = buf
+        src.connect(ctx.destination)
+        src.start(t0 + start)
+        nodes.push(src)
+      })
+      const last = nodes[nodes.length - 1]
+      if (last) last.onended = () => {
+        activeSourcesRef.current = []
+        setPreviewingKey(null)
+      }
+      activeSourcesRef.current = nodes
+      setPreviewingKey('sequence')
+      // Restart preview playhead aligned with audio start
+      setPlaying(false)
+      flushSync(() => setT(0))
+      setTimeout(() => setPlaying(true), 150)
+    } catch (e: any) {
+      setTtsError(e?.message || String(e))
+      setPreviewingKey(null)
+    }
+  }, [prepareSchedule, lineSpecs, getAudioCtx, stopPreview])
+
+  /** Bake full audio track using computed schedule + OfflineAudioContext. */
+  const bakeFullAudio = useCallback(async (
+    schedule: { bufs: Map<string, AudioBuffer>; starts: Map<string, number>; end: number },
+  ): Promise<AudioBuffer> => {
+    const sampleRate = 48000
+    const oac = new OfflineAudioContext(2, Math.ceil(schedule.end * sampleRate), sampleRate)
+    for (const spec of lineSpecs) {
+      const buf = schedule.bufs.get(spec.key)
+      const start = schedule.starts.get(spec.key)
+      if (!buf || start == null) continue
+      const src = oac.createBufferSource()
+      src.buffer = buf
+      src.connect(oac.destination)
+      src.start(start)
+    }
+    return oac.startRendering()
+  }, [lineSpecs])
 
   const exportMp4 = useCallback(async () => {
     if (!webcodecsSupported()) {
@@ -609,24 +716,39 @@ export function NewPage() {
     setExporting(true)
     setExpProgress(0)
     setExpStatus('Preparing…')
-    const fps = 30
-    const totalFrames = Math.ceil(DURATION * fps)
-    const frameDur = Math.round(1e6 / fps)
-    let videoEncoder: any = null
-    let audioEncoder: any = null
 
-    // Bake audio FIRST so we know sample rate + channel count before configuring muxer.
+    // Compute schedule first — determines total video duration
+    let schedule: { bufs: Map<string, AudioBuffer>; cues: Cues; end: number; starts: Map<string, number> } | null = null
     let audioBuf: AudioBuffer | null = null
+    let exportCues: Cues = DEFAULT_CUES
+    let exportEnd: number = DEFAULT_END
     if (withAudio) {
       setExpStatus('Synthesizing narration…')
       try {
-        audioBuf = await bakeFullAudio()
+        schedule = await prepareSchedule(s => setExpStatus(s))
+        exportCues = schedule.cues
+        exportEnd = schedule.end
+        setCues(exportCues)
+        setEndTime(exportEnd)
+        setExpStatus('Baking audio track…')
+        audioBuf = await bakeFullAudio(schedule)
       } catch (e: any) {
-        console.warn('audio bake failed, exporting silent', e)
-        setExpStatus('TTS failed — exporting silent MP4')
+        console.warn('audio pipeline failed, exporting silent', e)
+        setExpStatus(`TTS failed (${e?.message || e}) — exporting silent`)
         audioBuf = null
+        exportCues = cues
+        exportEnd = endTime
       }
+    } else {
+      exportCues = cues
+      exportEnd = endTime
     }
+
+    const fps = 30
+    const totalFrames = Math.ceil(exportEnd * fps)
+    const frameDur = Math.round(1e6 / fps)
+    let videoEncoder: any = null
+    let audioEncoder: any = null
 
     try {
       const audioChannels = audioBuf ? Math.min(2, audioBuf.numberOfChannels) : 0
@@ -670,26 +792,19 @@ export function NewPage() {
 
         const t = i / fps
         flushSync(() => setT(t))
-        // wait one paint cycle so React commits + browser paints
         await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
         let snap: HTMLCanvasElement
         try {
           snap = await toCanvas(stage, {
-            width: 1080,
-            height: 1920,
-            pixelRatio: 1,
-            cacheBust: false,
-            // strip the display-time transform:scale so snapshot is at native 1080x1920
+            width: 1080, height: 1920, pixelRatio: 1, cacheBust: false,
             style: { transform: 'none', transformOrigin: 'top left' },
           })
         } catch (e) {
           console.warn(`snapshot failed at frame ${i}, reusing previous`, e)
-          // fall through: canvas already holds last frame content
           const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
-          try { videoEncoder.encode(vf, { keyFrame: i % (fps * 2) === 0 }) } catch (err) { throw err }
-          vf.close()
-          setExpProgress((i + 1) / totalFrames)
+          try { videoEncoder.encode(vf, { keyFrame: i % (fps * 2) === 0 }) } finally { vf.close() }
+          setExpProgress((i + 1) / totalFrames * (audioBuf ? 0.85 : 1))
           setExpStatus(`Frame ${i + 1}/${totalFrames} (recovered)`)
           continue
         }
@@ -703,14 +818,11 @@ export function NewPage() {
           vf.close()
         }
 
-        if (videoEncoder.encodeQueueSize > fps) {
-          await new Promise(r => setTimeout(r, 0))
-        }
+        if (videoEncoder.encodeQueueSize > fps) await new Promise(r => setTimeout(r, 0))
         setExpProgress((i + 1) / totalFrames * (audioBuf ? 0.85 : 1))
         setExpStatus(`Frame ${i + 1}/${totalFrames}`)
       }
 
-      // Encode audio (planar f32)
       if (audioBuf && audioEncoder) {
         setExpStatus('Encoding audio…')
         const chunkFrames = 4800
@@ -724,19 +836,10 @@ export function NewPage() {
           planar.set(ch0.subarray(off, off + n), 0)
           if (ch1) planar.set(ch1.subarray(off, off + n), n)
           const ad = new AudioDataC({
-            format: 'f32-planar',
-            sampleRate: audioSampleRate,
-            numberOfFrames: n,
-            numberOfChannels: audioChannels,
-            timestamp: Math.round((off / audioSampleRate) * 1e6),
-            duration: Math.round((n / audioSampleRate) * 1e6),
-            data: planar,
+            format: 'f32-planar', sampleRate: audioSampleRate, numberOfFrames: n, numberOfChannels: audioChannels,
+            timestamp: Math.round((off / audioSampleRate) * 1e6), duration: Math.round((n / audioSampleRate) * 1e6), data: planar,
           })
-          try {
-            audioEncoder.encode(ad)
-          } finally {
-            ad.close()
-          }
+          try { audioEncoder.encode(ad) } finally { ad.close() }
         }
         setExpProgress(0.95)
       }
@@ -766,7 +869,7 @@ export function NewPage() {
       try { if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close() } catch { /* ignore */ }
       setExporting(false)
     }
-  }, [data.id, bakeAudio, bakeFullAudio, stopPreview])
+  }, [bakeAudio, prepareSchedule, bakeFullAudio, data.id, stopPreview, cues, endTime])
 
   const stageWidth = useMemo(() => 1080 * scale, [scale])
   const stageHeight = useMemo(() => 1920 * scale, [scale])
@@ -775,6 +878,13 @@ export function NewPage() {
     padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,.15)',
     background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
   }
+  const smallBtn: React.CSSProperties = { ...btn, padding: '4px 10px', fontSize: 12 }
+  const selectStyle: React.CSSProperties = { padding: '4px 6px', background: '#06060a', color: '#fff', border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, fontSize: 12 }
+
+  // Voice options per provider
+  const jpVoiceOptions = provider === 'azure'
+    ? AZURE_VOICES.map(v => ({ value: v.name, label: `${v.emoji} ${v.label} (${v.gender[0].toUpperCase()})` }))
+    : vvSpeakers.flatMap(sp => sp.styles.map(st => ({ value: String(st.id), label: `${sp.name} · ${st.name} (#${st.id})` })))
 
   return (
     <div style={{ display: 'flex', height: '100%', background: '#0a0a0a', color: '#fff', overflow: 'hidden' }}>
@@ -787,11 +897,11 @@ export function NewPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
             <span style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', opacity: 0.7, minWidth: 44 }}>{T.toFixed(2)}s</span>
             <input
-              type="range" min={0} max={DURATION} step={0.01} value={T} disabled={exporting}
+              type="range" min={0} max={endTime} step={0.01} value={T} disabled={exporting}
               onChange={e => { setPlaying(false); setT(parseFloat(e.target.value)) }}
               style={{ flex: 1 }}
             />
-            <span style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', opacity: 0.5, minWidth: 44 }}>{DURATION.toFixed(2)}s</span>
+            <span style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', opacity: 0.5, minWidth: 44 }}>{endTime.toFixed(2)}s</span>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {THEME_ORDER.map(k => (
@@ -820,14 +930,14 @@ export function NewPage() {
                 boxShadow: '0 30px 80px rgba(0,0,0,.6)', borderRadius: 24, overflow: 'hidden',
               }}
             >
-              <Stage T={T} theme={theme} data={activeData} />
+              <Stage T={T} theme={theme} data={activeData} cues={cues} endTime={endTime} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right: controls */}
-      <aside style={{ width: 420, borderLeft: '1px solid rgba(255,255,255,.08)', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0e0e12' }}>
+      {/* Right: controls — SCROLLABLE (fixes prior overlap) */}
+      <aside style={{ width: 420, borderLeft: '1px solid rgba(255,255,255,.08)', display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#0e0e12' }}>
         <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)' }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>1. Image</div>
           <input
@@ -844,21 +954,21 @@ export function NewPage() {
           )}
         </div>
 
-        <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
+        <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>2. Content JSON</div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => copyToClipboard(SAMPLE_JSON, 'sample JSON')} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Copy sample</button>
-              <button onClick={() => copyToClipboard(CLAUDE_PROMPT, 'Claude prompt')} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Copy Claude prompt</button>
+              <button onClick={() => copyToClipboard(SAMPLE_JSON, 'sample JSON')} style={smallBtn}>Copy sample</button>
+              <button onClick={() => copyToClipboard(CLAUDE_PROMPT, 'Claude prompt')} style={smallBtn}>Copy Claude prompt</button>
             </div>
           </div>
           <textarea
             value={jsonDraft} onChange={e => setJsonDraft(e.target.value)}
             spellCheck={false} disabled={exporting}
             style={{
-              flex: 1, minHeight: 200, width: '100%', boxSizing: 'border-box',
+              height: 220, width: '100%', boxSizing: 'border-box',
               background: '#06060a', color: '#e2e8ff', border: '1px solid rgba(255,255,255,.1)',
-              borderRadius: 8, padding: 10, fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', fontSize: 11.5, lineHeight: 1.45, resize: 'none',
+              borderRadius: 8, padding: 10, fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', fontSize: 11.5, lineHeight: 1.45, resize: 'vertical',
             }}
           />
           {jsonError && (
@@ -875,39 +985,81 @@ export function NewPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>3. Voices &amp; TTS preview</div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={previewAll} disabled={exporting || !!previewingKey} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>▶ Preview all</button>
-              <button onClick={stopPreview} disabled={!previewingKey} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>■ Stop</button>
+              <button onClick={previewAll} disabled={exporting || !!previewingKey} style={smallBtn}>▶ Preview all</button>
+              <button onClick={stopPreview} disabled={!previewingKey} style={smallBtn}>■ Stop</button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 6, alignItems: 'center', marginBottom: 10 }}>
-            {(['word', 'kaiwaA', 'kaiwaB', 'english'] as VoiceRole[]).flatMap(role => [
-              <label key={role + '-l'} style={{ fontSize: 12, color: 'rgba(255,255,255,.7)' }}>
-                {role === 'word' ? 'Word (JP)' : role === 'kaiwaA' ? 'Kaiwa A' : role === 'kaiwaB' ? 'Kaiwa B' : 'English'}
-              </label>,
-              <select
-                key={role + '-s'}
-                value={voices[role]}
+          {/* Provider toggle */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            {(['voicevox', 'azure'] as Provider[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setProvider(p)}
                 disabled={exporting}
-                onChange={e => setVoices(v => ({ ...v, [role]: e.target.value }))}
-                style={{ padding: '4px 6px', background: '#06060a', color: '#fff', border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, fontSize: 12 }}
+                style={{
+                  ...smallBtn, flex: 1,
+                  border: provider === p ? `1px solid ${AMBER}` : '1px solid rgba(255,255,255,.15)',
+                  background: provider === p ? 'rgba(244,162,97,.14)' : 'rgba(255,255,255,.05)',
+                }}
               >
-                {role === 'english' ? (
-                  <>
-                    <option value="en-US-JennyNeural">en-US Jenny</option>
-                    <option value="en-US-AriaNeural">en-US Aria</option>
-                    <option value="en-US-GuyNeural">en-US Guy</option>
-                    <option value="en-GB-SoniaNeural">en-GB Sonia</option>
-                  </>
-                ) : (
-                  AZURE_VOICES.map(v => (
-                    <option key={v.name} value={v.name}>{v.emoji} {v.label} ({v.gender[0].toUpperCase()})</option>
-                  ))
-                )}
-              </select>,
-            ])}
+                {p === 'voicevox' ? '🎙 VOICEVOX (local, free)' : '☁️ Azure (cloud, paid)'}
+              </button>
+            ))}
+          </div>
+          {provider === 'voicevox' && (
+            <div style={{ fontSize: 11, color: vvLoadErr ? '#ff9ba4' : 'rgba(255,255,255,.5)', marginBottom: 10, lineHeight: 1.4 }}>
+              {vvLoadErr
+                ? vvLoadErr
+                : vvSpeakers.length
+                  ? `${vvSpeakers.length} VOICEVOX speakers loaded. English line falls back to Azure automatically.`
+                  : 'Loading VOICEVOX speakers…'}
+            </div>
+          )}
+
+          {/* Voice pickers */}
+          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+            {(['word', 'kaiwaA', 'kaiwaB', 'english'] as VoiceRole[]).flatMap(role => {
+              const isEnglishRow = role === 'english'
+              const useAzureForRow = provider === 'azure' || isEnglishRow
+              const value = useAzureForRow ? azureVoices[role] : String(voicevoxVoices[role])
+              const opts = useAzureForRow
+                ? (isEnglishRow
+                    ? [
+                        { value: 'en-US-JennyNeural', label: 'en-US Jenny' },
+                        { value: 'en-US-AriaNeural', label: 'en-US Aria' },
+                        { value: 'en-US-GuyNeural', label: 'en-US Guy' },
+                        { value: 'en-GB-SoniaNeural', label: 'en-GB Sonia' },
+                      ]
+                    : AZURE_VOICES.map(v => ({ value: v.name, label: `${v.emoji} ${v.label} (${v.gender[0].toUpperCase()})` })))
+                : jpVoiceOptions
+              const label = role === 'word' ? 'Word (JP)' : role === 'kaiwaA' ? 'Kaiwa A' : role === 'kaiwaB' ? 'Kaiwa B' : 'English'
+              return [
+                <label key={role + '-l'} style={{ fontSize: 12, color: 'rgba(255,255,255,.7)' }}>
+                  {label}{!isEnglishRow && provider === 'voicevox' ? ' ·vv' : ''}
+                </label>,
+                <select
+                  key={role + '-s'}
+                  value={value}
+                  disabled={exporting || (opts.length === 0)}
+                  onChange={e => {
+                    if (useAzureForRow) {
+                      setAzureVoices(v => ({ ...v, [role]: e.target.value }))
+                    } else {
+                      setVoicevoxVoices(v => ({ ...v, [role]: Number(e.target.value) }))
+                    }
+                  }}
+                  style={selectStyle}
+                >
+                  {opts.length === 0
+                    ? <option value="">(no voices)</option>
+                    : opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>,
+              ]
+            })}
           </div>
 
+          {/* Line preview rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
             {lineSpecs.map(spec => {
               const active = previewingKey === spec.key
@@ -922,8 +1074,8 @@ export function NewPage() {
                     color: '#fff', textAlign: 'left', cursor: 'pointer', fontSize: 12,
                   }}
                 >
-                  <span style={{ color: active ? AMBER : 'rgba(255,255,255,.5)', fontSize: 11, minWidth: 78 }}>{spec.key}</span>
-                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: spec.role === 'english' ? undefined : FJP }}>{spec.text}</span>
+                  <span style={{ color: active ? AMBER : 'rgba(255,255,255,.5)', fontSize: 11, minWidth: 100 }}>{spec.key}</span>
+                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: spec.lang === 'en' ? undefined : FJP }}>{spec.text}</span>
                   <span style={{ fontSize: 11, opacity: 0.5 }}>{active ? '■' : '▶'}</span>
                 </button>
               )
@@ -931,13 +1083,30 @@ export function NewPage() {
           </div>
 
           {ttsError && (
-            <div style={{ fontSize: 12, color: '#ff9ba4', background: 'rgba(230,57,70,.1)', padding: '6px 10px', borderRadius: 6 }}>{ttsError}</div>
+            <div style={{ fontSize: 12, color: '#ff9ba4', background: 'rgba(230,57,70,.1)', padding: '6px 10px', borderRadius: 6, marginBottom: 8 }}>{ttsError}</div>
           )}
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,.75)' }}>
+          {/* Tail gap slider */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,.7)', marginBottom: 4 }}>
+              <span>Gap between lines</span><span>{tailGap.toFixed(2)}s</span>
+            </div>
+            <input
+              type="range" min={0.15} max={1.5} step={0.05} value={tailGap}
+              onChange={e => setTailGap(parseFloat(e.target.value))}
+              disabled={exporting}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.75)' }}>
             <input type="checkbox" checked={bakeAudio} onChange={e => setBakeAudio(e.target.checked)} disabled={exporting} />
             Bake TTS audio into exported MP4
           </label>
+
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 8, lineHeight: 1.5 }}>
+            Timing: total is <b>{endTime.toFixed(1)}s</b> (extends past 25s if audio is longer). Recomputed on Preview all / Export.
+          </div>
         </div>
 
         <div style={{ padding: 16 }}>
@@ -946,7 +1115,7 @@ export function NewPage() {
             onClick={exportMp4} disabled={exporting}
             style={{ ...btn, width: '100%', padding: '12px 14px', background: exporting ? 'rgba(255,255,255,.08)' : AMBER, color: exporting ? '#fff' : '#111', fontSize: 14 }}
           >
-            {exporting ? 'Exporting…' : `Export MP4 (1080×1920, 25s${bakeAudio ? ', +audio' : ', silent'})`}
+            {exporting ? 'Exporting…' : `Export MP4 (1080×1920, ${endTime.toFixed(1)}s${bakeAudio ? ', +audio' : ', silent'})`}
           </button>
           {exporting && (
             <div style={{ marginTop: 10 }}>
@@ -960,7 +1129,7 @@ export function NewPage() {
             <div style={{ fontSize: 12, color: expStatus.startsWith('Failed') ? '#ff9ba4' : AMBER, marginTop: 8 }}>{expStatus}</div>
           )}
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 10, lineHeight: 1.5 }}>
-            DOM snapshotted per frame via html-to-image → WebCodecs H.264 + AAC → mp4-muxer. Encode takes ~30–90s per reel.
+            DOM snapshotted per frame via html-to-image → WebCodecs H.264 + AAC → mp4-muxer.
           </div>
         </div>
       </aside>
