@@ -1,8 +1,13 @@
 // NewPage — /newpage route.
-// Live preview of the Word Reel design (design_handoff_word_reel).
-// 1080x1920 stage, everything is a pure function of playhead T (seconds).
-// Adds a "black" theme variant to the palettes shipped in the handoff.
-import { useEffect, useMemo, useRef, useState } from 'react'
+// Live preview + JSON/image editor + MP4 export for the Word Reel design
+// (design_handoff_word_reel). Stage is 1080x1920, everything is a pure
+// function of the playhead T (seconds).
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { toCanvas } from 'html-to-image'
+import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const DURATION = 25
 const CUES = { Hook: 0, Word: 3.6, KaiwaA: 8.0, KaiwaB: 11.8, Explain: 15.2, Replay: 19.4, Outro: 22.4 }
@@ -13,10 +18,36 @@ const AMBER = '#F4A261'
 const TEAL = '#2A9D8F'
 const NAVY = '#1D3557'
 
-const REEL = {
+type ThemeKey = 'indigo' | 'navy' | 'crimson' | 'forest' | 'paper' | 'black'
+
+interface KaiwaLine {
+  speaker: string
+  gender?: 'male' | 'female'
+  role: string
+  jp: string
+  kana: string
+  romaji: string
+  en: string
+  bn?: string
+}
+interface ReelData {
+  id: string
+  level: string
+  theme: ThemeKey
+  image: { src: string; alt: string }
+  word: {
+    jp: string; kana: string; romaji: string; en: string
+    bn?: string; pos: string; theme: string; gloss: string
+  }
+  kaiwa: KaiwaLine[]
+  explanation: { en_a: string; en_b: string; bn_a?: string }
+  cta: { handle: string; line: string }
+}
+
+const DEFAULT_REEL: ReelData = {
   id: 'n5-tanbo',
   level: 'N5',
-  theme: 'indigo' as ThemeKey,
+  theme: 'indigo',
   image: { src: '/assets/newpage-sample-tanbo.png', alt: 'A boy holding a frog beside a rice paddy' },
   word: {
     jp: '田んぼ', kana: 'たんぼ', romaji: 'tanbo', en: 'Rice field',
@@ -24,23 +55,43 @@ const REEL = {
     gloss: 'A flooded paddy where rice is grown.',
   },
   kaiwa: [
-    { speaker: 'A', role: 'Friend', jp: '田んぼでカエルを見つけた。', kana: 'たんぼでかえるをみつけた。', romaji: 'Tanbo de kaeru o mitsuketa.', en: 'I found a frog in the rice field.' },
-    { speaker: 'B', role: 'Reply',  jp: 'えっ、田んぼにカエルがいるの？', kana: 'えっ、たんぼにかえるがいるの？', romaji: 'E, tanbo ni kaeru ga iru no?', en: 'Huh, there are frogs in the rice field?' },
+    { speaker: 'A', gender: 'male', role: 'Friend', jp: '田んぼでカエルを見つけた。', kana: 'たんぼでかえるをみつけた。', romaji: 'Tanbo de kaeru o mitsuketa.', en: 'I found a frog in the rice field.', bn: 'ধানক্ষেতে একটা ব্যাঙ পেয়েছি।' },
+    { speaker: 'B', gender: 'female', role: 'Reply', jp: 'えっ、田んぼにカエルがいるの？', kana: 'えっ、たんぼにかえるがいるの？', romaji: 'E, tanbo ni kaeru ga iru no?', en: 'Huh, there are frogs in the rice field?', bn: 'সত্যি? ধানক্ষেতে ব্যাঙ থাকে?' },
   ],
   explanation: {
     en_a: '田 is a field seen from above — the grid lines are the water channels.',
     en_b: 'で marks where an action happens: 田んぼで見つけた = found it at the rice field.',
+    bn_a: '田 মানে উপর থেকে দেখা ক্ষেত — ভেতরের লাইনগুলো পানির নালা।',
   },
   cta: { handle: '@japaneseshikhi', line: 'One Japanese word a day, explained in Bangla.' },
 }
 
-type ThemeKey = 'indigo' | 'navy' | 'crimson' | 'forest' | 'paper' | 'black'
+const SAMPLE_JSON = JSON.stringify(DEFAULT_REEL, null, 2)
+
+const CLAUDE_PROMPT = `Generate a JSON object for a Japanese "word of the day" reel matching this exact schema. Return ONLY the JSON — no markdown fences, no commentary.
+
+Requirements:
+- "id": short kebab-case slug like "n5-tanbo"
+- "level": one of "N5" | "N4" | "N3" | "N2" | "N1"
+- "theme": one of "indigo" | "navy" | "crimson" | "forest" | "paper" | "black"
+- "image.src": leave as "/assets/newpage-sample-tanbo.png" (user will replace via UI)
+- "word.jp": 2-4 kanji/kana characters ideally; step down font is 5+
+- "word.gloss": one-line English definition, under 90 chars
+- "kaiwa": exactly TWO entries, A (Friend) + B (Reply), each JP sentence under 24 chars
+- "explanation.en_a" + "en_b": two short lines; keep each under 120 chars
+- "cta.handle": "@japaneseshikhi"
+- "cta.line": one warm brand line, under 70 chars
+
+Schema (this is the current default reel — replace values, keep structure identical):
+
+${SAMPLE_JSON}
+`
+
 interface Theme {
   label: string; bg: string; seam: string; fg: string; muted: string; faint: string; accent: string;
   chip: string; chipFg: string; card: string; cardEdge: string;
   orbs: [string, string, string] | null; petals: boolean;
 }
-
 const THEMES: Record<ThemeKey, Theme> = {
   indigo: {
     label: 'Indigo', bg: 'linear-gradient(160deg,#0a0c18 0%,#0f0d1f 55%,#14102a 100%)', seam: '#0a0c18',
@@ -77,7 +128,7 @@ const THEMES: Record<ThemeKey, Theme> = {
     card: 'rgba(29,53,87,.04)', cardEdge: 'rgba(29,53,87,.1)',
     orbs: null, petals: false,
   },
-  // Solid black — no gradient, no orbs. Petals kept for gentle motion parity with dark themes.
+  // Solid black — pure #000 (three identical stops), no orbs, petals kept for gentle motion parity.
   black: {
     label: 'Black', bg: 'linear-gradient(160deg,#000 0%,#000 55%,#000 100%)', seam: '#000',
     fg: '#fff', muted: 'rgba(255,255,255,.55)', faint: 'rgba(255,255,255,.42)', accent: AMBER,
@@ -125,9 +176,9 @@ function Eq({ on, color }: { on: boolean; color: string }) {
   )
 }
 
-function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
+function Stage({ T, theme, data }: { T: number; theme: ThemeKey; data: ReelData }) {
   const t = THEMES[theme]
-  const k1 = REEL.kaiwa[0], k2 = REEL.kaiwa[1]
+  const k1 = data.kaiwa[0], k2 = data.kaiwa[1] || data.kaiwa[0]
 
   const AUDIO = [
     { at: CUES.Word + 0.3, until: CUES.Word + 2.0, label: 'word · 1 of 2' },
@@ -143,6 +194,11 @@ function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
   const wordDim = T >= CUES.KaiwaA && T < CUES.Replay ? 0.5 : 1
   const pulse = speaking && T < CUES.KaiwaA ? 1 + 0.03 * Math.sin((T - cue!.at) * 7) : 1
   const kb = 1.05 + 0.07 * (T / DURATION)
+
+  // step-down kanji size for long words (per handoff §gotchas)
+  const jpLen = [...data.word.jp].length
+  const kanjiSize = jpLen >= 6 ? 92 : jpLen === 5 ? 110 : 132
+
   const wp = pop(T, 0.35, 0.7)
 
   const bandI = band(T, 0, CUES.KaiwaA)
@@ -163,14 +219,14 @@ function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
     <div style={{ position: 'absolute', inset: 0, fontFamily: 'Inter,system-ui,sans-serif', background: t.seam, overflow: 'hidden' }}>
       {/* image panel — top 60% (1080x1150) */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: 1080, height: 1150, overflow: 'hidden', background: '#111' }}>
-        <img src={REEL.image.src} alt={REEL.image.alt} style={{
+        <img src={data.image.src} alt={data.image.alt} crossOrigin="anonymous" style={{
           position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
           transformOrigin: '50% 45%', transform: `scale(${kb.toFixed(3)})`,
         }} />
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(10,12,24,.55) 0%,rgba(10,12,24,0) 26%,rgba(10,12,24,0) 42%,rgba(10,12,24,.86) 88%,${t.seam} 100%)` }} />
 
         <div style={{ position: 'absolute', top: 44, left: 44, display: 'flex', gap: 12, alignItems: 'center', ...enter(T, 0.15, 0.5) }}>
-          <span style={{ padding: '10px 20px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 26, fontWeight: 700, letterSpacing: '.06em' }}>{REEL.level}</span>
+          <span style={{ padding: '10px 20px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 26, fontWeight: 700, letterSpacing: '.06em' }}>{data.level}</span>
           <span style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(8px)', color: '#fff', fontSize: 24, fontWeight: 600, fontFamily: FJP }}>今日のことば</span>
         </div>
         <div style={{ position: 'absolute', top: 44, right: 44, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 18px 10px 12px', borderRadius: 999, background: 'rgba(10,12,24,.5)', backdropFilter: 'blur(8px)', ...enter(T, 0.25, 0.5) }}>
@@ -180,13 +236,13 @@ function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
 
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 74, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, opacity: wordDim }}>
           <div style={{ opacity: wp.opacity, transform: `scale(${(wp.scale * pulse).toFixed(3)})` }}>
-            <span style={{ fontFamily: FJP, fontWeight: 900, fontSize: 132, lineHeight: 1, color: '#fff', textShadow: '0 6px 30px rgba(0,0,0,.6)' }}>{REEL.word.jp}</span>
+            <span style={{ fontFamily: FJP, fontWeight: 900, fontSize: kanjiSize, lineHeight: 1, color: '#fff', textShadow: '0 6px 30px rgba(0,0,0,.6)' }}>{data.word.jp}</span>
           </div>
           <div style={enter(T, 0.75, 0.5)}>
-            <span style={{ fontFamily: FJP, fontWeight: 500, fontSize: 52, color: 'rgba(255,255,255,.82)' }}>{REEL.word.kana}</span>
+            <span style={{ fontFamily: FJP, fontWeight: 500, fontSize: 52, color: 'rgba(255,255,255,.82)' }}>{data.word.kana}</span>
           </div>
           <div style={enter(T, 1.05, 0.5)}>
-            <span style={{ fontSize: 40, fontWeight: 500, color: 'rgba(255,255,255,.55)' }}>{REEL.word.en}</span>
+            <span style={{ fontSize: 40, fontWeight: 500, color: 'rgba(255,255,255,.55)' }}>{data.word.en}</span>
           </div>
         </div>
       </div>
@@ -216,11 +272,11 @@ function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
             <Eq on={speaking} color={t.accent} />
             <span style={{ fontSize: 26, fontWeight: 600, color: t.muted, letterSpacing: '.1em', textTransform: 'uppercase', marginLeft: 8 }}>{cue ? cue.label : 'audio'}</span>
           </div>
-          <div style={{ fontSize: 34, color: t.muted, letterSpacing: '.08em', marginBottom: 10, textTransform: 'uppercase' }}>{REEL.word.romaji}</div>
-          <div style={{ fontSize: 40, fontWeight: 600, color: t.fg, lineHeight: 1.35, maxWidth: 900 }}>{REEL.word.gloss}</div>
+          <div style={{ fontSize: 34, color: t.muted, letterSpacing: '.08em', marginBottom: 10, textTransform: 'uppercase' }}>{data.word.romaji}</div>
+          <div style={{ fontSize: 40, fontWeight: 600, color: t.fg, lineHeight: 1.35, maxWidth: 900 }}>{data.word.gloss}</div>
           <div style={{ display: 'flex', gap: 12, marginTop: 34 }}>
-            <span style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(42,157,143,.18)', border: '1px solid rgba(42,157,143,.4)', color: t.petals ? '#6fe0d2' : '#1f7a70', fontSize: 26, fontWeight: 600 }}>{REEL.word.pos}</span>
-            <span style={{ padding: '10px 20px', borderRadius: 999, background: t.chip, color: t.chipFg, fontSize: 26, fontWeight: 600 }}>{REEL.word.theme}</span>
+            <span style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(42,157,143,.18)', border: '1px solid rgba(42,157,143,.4)', color: t.petals ? '#6fe0d2' : '#1f7a70', fontSize: 26, fontWeight: 600 }}>{data.word.pos}</span>
+            <span style={{ padding: '10px 20px', borderRadius: 999, background: t.chip, color: t.chipFg, fontSize: 26, fontWeight: 600 }}>{data.word.theme}</span>
           </div>
         </div>
 
@@ -251,16 +307,16 @@ function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
         {/* Explain */}
         <div style={bandStyle(bandE)}>
           <div style={{ alignSelf: 'flex-start', padding: '10px 22px', borderRadius: 999, background: 'rgba(244,162,97,.16)', border: '1px solid rgba(244,162,97,.34)', color: t.petals ? AMBER : '#b06a22', fontSize: 26, fontWeight: 700, letterSpacing: '.1em', marginBottom: 28 }}>WHY IT WORKS</div>
-          <div style={{ fontSize: 42, lineHeight: 1.42, color: t.fg, fontWeight: 500, maxWidth: 930 }}>{REEL.explanation.en_a}</div>
-          <div style={{ fontSize: 36, lineHeight: 1.45, color: t.muted, marginTop: 22, maxWidth: 930 }}>{REEL.explanation.en_b}</div>
+          <div style={{ fontSize: 42, lineHeight: 1.42, color: t.fg, fontWeight: 500, maxWidth: 930 }}>{data.explanation.en_a}</div>
+          <div style={{ fontSize: 36, lineHeight: 1.45, color: t.muted, marginTop: 22, maxWidth: 930 }}>{data.explanation.en_b}</div>
         </div>
 
         {/* Replay */}
         <div style={bandStyle(bandR)}>
           <div style={{ fontSize: 26, fontWeight: 600, color: t.faint, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 26 }}>One more time</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 22, marginBottom: 26 }}>
-            <span style={{ fontFamily: FJP, fontWeight: 900, fontSize: 76, color: t.fg, lineHeight: 1 }}>{REEL.word.jp}</span>
-            <span style={{ fontSize: 34, color: t.muted }}>{REEL.word.en}</span>
+            <span style={{ fontFamily: FJP, fontWeight: 900, fontSize: 76, color: t.fg, lineHeight: 1 }}>{data.word.jp}</span>
+            <span style={{ fontSize: 34, color: t.muted }}>{data.word.en}</span>
           </div>
           <div style={{ padding: '26px 30px', borderRadius: 22, background: t.card, border: `1px solid ${t.cardEdge}` }}>
             <div style={{ fontFamily: FJP, fontWeight: 700, fontSize: 46, color: t.fg, lineHeight: 1.3 }}>{k1.jp}</div>
@@ -277,8 +333,8 @@ function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
       }}>
         <div style={{ width: 150, height: 150, borderRadius: 999, background: BRAND, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FJP, fontSize: 74, fontWeight: 900, marginBottom: 44 }}>日</div>
         <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 82, color: '#fff', lineHeight: 1.1, textAlign: 'center' }}>Japanese <span style={{ color: AMBER }}>Shikhi</span></div>
-        <div style={{ fontSize: 36, color: 'rgba(255,255,255,.6)', marginTop: 22, textAlign: 'center', maxWidth: 760 }}>{REEL.cta.line}</div>
-        <div style={{ marginTop: 52, padding: '22px 46px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 38, fontWeight: 700 }}>{REEL.cta.handle}</div>
+        <div style={{ fontSize: 36, color: 'rgba(255,255,255,.6)', marginTop: 22, textAlign: 'center', maxWidth: 760 }}>{data.cta.line}</div>
+        <div style={{ marginTop: 52, padding: '22px 46px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 38, fontWeight: 700 }}>{data.cta.handle}</div>
       </div>
 
       {/* progress hairline */}
@@ -290,14 +346,31 @@ function Stage({ T, theme }: { T: number; theme: ThemeKey }) {
 
 const THEME_ORDER: ThemeKey[] = ['indigo', 'navy', 'crimson', 'forest', 'paper', 'black']
 
+function webcodecsSupported() {
+  const g = globalThis as any
+  return typeof g.VideoEncoder === 'function' && typeof g.VideoFrame === 'function'
+}
+
 export function NewPage() {
-  const [theme, setTheme] = useState<ThemeKey>('indigo')
+  const [data, setData] = useState<ReelData>(DEFAULT_REEL)
+  const [theme, setTheme] = useState<ThemeKey>(DEFAULT_REEL.theme)
+  const [jsonDraft, setJsonDraft] = useState(SAMPLE_JSON)
+  const [jsonError, setJsonError] = useState('')
+  const [imgOverride, setImgOverride] = useState<string | null>(null)
   const [playing, setPlaying] = useState(true)
   const [T, setT] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
+  const [exporting, setExporting] = useState(false)
+  const [expProgress, setExpProgress] = useState(0)
+  const [expStatus, setExpStatus] = useState('')
+  const [copiedMsg, setCopiedMsg] = useState('')
 
-  // fit 1080x1920 into available viewport
+  const activeData: ReelData = useMemo(() => (
+    imgOverride ? { ...data, image: { ...data.image, src: imgOverride } } : data
+  ), [data, imgOverride])
+
   useEffect(() => {
     const fit = () => {
       const el = wrapRef.current
@@ -314,7 +387,7 @@ export function NewPage() {
   }, [])
 
   useEffect(() => {
-    if (!playing) return
+    if (!playing || exporting) return
     let raf = 0
     let last = performance.now()
     const tick = (now: number) => {
@@ -328,58 +401,262 @@ export function NewPage() {
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [playing])
+  }, [playing, exporting])
+
+  const applyJson = useCallback(() => {
+    try {
+      const parsed = JSON.parse(jsonDraft) as ReelData
+      if (!parsed.word || !parsed.kaiwa || parsed.kaiwa.length < 1) {
+        throw new Error('JSON must include word + at least one kaiwa entry')
+      }
+      if (!(parsed.theme in THEMES)) {
+        throw new Error(`theme must be one of: ${THEME_ORDER.join(', ')}`)
+      }
+      setData(parsed)
+      setTheme(parsed.theme)
+      setJsonError('')
+      setT(0)
+    } catch (e: any) {
+      setJsonError(e.message || String(e))
+    }
+  }, [jsonDraft])
+
+  const resetJson = useCallback(() => {
+    setData(DEFAULT_REEL)
+    setTheme(DEFAULT_REEL.theme)
+    setJsonDraft(SAMPLE_JSON)
+    setJsonError('')
+    setImgOverride(null)
+    setT(0)
+  }, [])
+
+  const onImage = useCallback((f: File) => {
+    const r = new FileReader()
+    r.onload = () => setImgOverride(r.result as string)
+    r.readAsDataURL(f)
+  }, [])
+
+  const copyToClipboard = useCallback(async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedMsg(`Copied ${label}`)
+      setTimeout(() => setCopiedMsg(''), 1600)
+    } catch {
+      setCopiedMsg('Copy failed')
+    }
+  }, [])
+
+  const exportMp4 = useCallback(async () => {
+    if (!webcodecsSupported()) {
+      alert('MP4 export requires WebCodecs — use Chrome/Edge/Safari 17+.')
+      return
+    }
+    const stage = stageRef.current
+    if (!stage) return
+    setPlaying(false)
+    setExporting(true)
+    setExpProgress(0)
+    setExpStatus('Preparing…')
+    const fps = 30
+    const totalFrames = Math.ceil(DURATION * fps)
+    const frameDur = Math.round(1e6 / fps)
+    let encoder: any = null
+    try {
+      const muxer = new Muxer({
+        target: new ArrayBufferTarget(),
+        fastStart: 'in-memory',
+        video: { codec: 'avc', width: 1080, height: 1920 },
+      })
+      const VE: any = (globalThis as any).VideoEncoder
+      const VideoFrameC: any = (globalThis as any).VideoFrame
+      encoder = new VE({
+        output: (chunk: any, meta: any) => muxer.addVideoChunk(chunk, meta),
+        error: (e: any) => { throw e },
+      })
+      encoder.configure({ codec: 'avc1.42001f', width: 1080, height: 1920, framerate: fps, bitrate: 8_000_000 })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = 1080
+      canvas.height = 1920
+      const ctx = canvas.getContext('2d')!
+
+      for (let i = 0; i < totalFrames; i++) {
+        const t = i / fps
+        flushSync(() => setT(t))
+        // wait one paint cycle so React commits + browser paints the frame
+        await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
+        const snap = await toCanvas(stage, {
+          width: 1080,
+          height: 1920,
+          pixelRatio: 1,
+          cacheBust: false,
+          // strip the display-time transform:scale so snapshot is at native 1080x1920
+          style: { transform: 'none', transformOrigin: 'top left' },
+        })
+        ctx.clearRect(0, 0, 1080, 1920)
+        ctx.drawImage(snap, 0, 0, 1080, 1920)
+
+        const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
+        encoder.encode(vf, { keyFrame: i % (fps * 2) === 0 })
+        vf.close()
+
+        if (encoder.encodeQueueSize > fps) {
+          await new Promise(r => setTimeout(r, 0))
+        }
+        setExpProgress((i + 1) / totalFrames)
+        setExpStatus(`Frame ${i + 1}/${totalFrames}`)
+      }
+
+      await encoder.flush()
+      muxer.finalize()
+      const { buffer } = muxer.target as ArrayBufferTarget
+      const blob = new Blob([buffer], { type: 'video/mp4' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${data.id || 'reel'}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setExpStatus('Downloaded ✓')
+    } catch (e: any) {
+      setExpStatus('Failed: ' + (e?.message || String(e)))
+      console.error(e)
+    } finally {
+      try { encoder?.close?.() } catch { /* ignore */ }
+      setExporting(false)
+    }
+  }, [data.id])
 
   const stageWidth = useMemo(() => 1080 * scale, [scale])
   const stageHeight = useMemo(() => 1920 * scale, [scale])
 
+  const btn: React.CSSProperties = {
+    padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,.15)',
+    background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0a0a0a', color: '#fff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,.08)', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => setPlaying(p => !p)}
-          style={{ padding: '8px 18px', borderRadius: 999, border: '1px solid rgba(255,255,255,.15)', background: playing ? '#E63946' : 'rgba(255,255,255,.08)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-        >
-          {playing ? 'Pause' : 'Play'}
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
-          <span style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', opacity: 0.7, minWidth: 44 }}>{T.toFixed(2)}s</span>
-          <input
-            type="range" min={0} max={DURATION} step={0.01} value={T}
-            onChange={e => { setPlaying(false); setT(parseFloat(e.target.value)) }}
-            style={{ flex: 1 }}
-          />
-          <span style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', opacity: 0.5, minWidth: 44 }}>{DURATION.toFixed(2)}s</span>
+    <div style={{ display: 'flex', height: '100%', background: '#0a0a0a', color: '#fff', overflow: 'hidden' }}>
+      {/* Left: preview */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,.08)', flexWrap: 'wrap' }}>
+          <button onClick={() => setPlaying(p => !p)} disabled={exporting} style={{ ...btn, background: playing ? BRAND : 'rgba(255,255,255,.08)' }}>
+            {playing ? 'Pause' : 'Play'}
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
+            <span style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', opacity: 0.7, minWidth: 44 }}>{T.toFixed(2)}s</span>
+            <input
+              type="range" min={0} max={DURATION} step={0.01} value={T} disabled={exporting}
+              onChange={e => { setPlaying(false); setT(parseFloat(e.target.value)) }}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', opacity: 0.5, minWidth: 44 }}>{DURATION.toFixed(2)}s</span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {THEME_ORDER.map(k => (
+              <button
+                key={k} disabled={exporting}
+                onClick={() => setTheme(k)}
+                style={{
+                  ...btn, padding: '6px 12px', borderRadius: 999,
+                  border: theme === k ? `1px solid ${AMBER}` : '1px solid rgba(255,255,255,.15)',
+                  background: theme === k ? 'rgba(244,162,97,.14)' : 'rgba(255,255,255,.05)',
+                }}
+              >
+                {THEMES[k].label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {THEME_ORDER.map(k => (
-            <button
-              key={k}
-              onClick={() => setTheme(k)}
+
+        <div ref={wrapRef} style={{ flex: 1, display: 'grid', placeItems: 'center', overflow: 'hidden', padding: 16 }}>
+          <div style={{ width: stageWidth, height: stageHeight, position: 'relative' }}>
+            <div
+              ref={stageRef}
               style={{
-                padding: '6px 14px', borderRadius: 999, cursor: 'pointer',
-                border: theme === k ? '1px solid #F4A261' : '1px solid rgba(255,255,255,.15)',
-                background: theme === k ? 'rgba(244,162,97,.14)' : 'rgba(255,255,255,.05)',
-                color: '#fff', fontSize: 13, fontWeight: 600,
+                position: 'absolute', top: 0, left: 0, width: 1080, height: 1920,
+                transform: `scale(${scale})`, transformOrigin: 'top left',
+                boxShadow: '0 30px 80px rgba(0,0,0,.6)', borderRadius: 24, overflow: 'hidden',
               }}
             >
-              {THEMES[k].label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div ref={wrapRef} style={{ flex: 1, display: 'grid', placeItems: 'center', overflow: 'hidden', padding: 16 }}>
-        <div style={{ width: stageWidth, height: stageHeight, position: 'relative' }}>
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: 1080, height: 1920,
-            transform: `scale(${scale})`, transformOrigin: 'top left',
-            boxShadow: '0 30px 80px rgba(0,0,0,.6)', borderRadius: 24, overflow: 'hidden',
-          }}>
-            <Stage T={T} theme={theme} />
+              <Stage T={T} theme={theme} data={activeData} />
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Right: controls */}
+      <aside style={{ width: 420, borderLeft: '1px solid rgba(255,255,255,.08)', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0e0e12' }}>
+        <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>1. Image</div>
+          <input
+            type="file" accept="image/*"
+            onChange={e => { const f = e.target.files?.[0]; if (f) onImage(f) }}
+            disabled={exporting}
+            style={{ fontSize: 12, color: 'rgba(255,255,255,.7)' }}
+          />
+          {imgOverride && (
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <img src={imgOverride} alt="preview" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} />
+              <button onClick={() => setImgOverride(null)} style={{ ...btn, padding: '4px 10px' }}>Clear</button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>2. Content JSON</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => copyToClipboard(SAMPLE_JSON, 'sample JSON')} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Copy sample</button>
+              <button onClick={() => copyToClipboard(CLAUDE_PROMPT, 'Claude prompt')} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Copy Claude prompt</button>
+            </div>
+          </div>
+          <textarea
+            value={jsonDraft} onChange={e => setJsonDraft(e.target.value)}
+            spellCheck={false} disabled={exporting}
+            style={{
+              flex: 1, minHeight: 200, width: '100%', boxSizing: 'border-box',
+              background: '#06060a', color: '#e2e8ff', border: '1px solid rgba(255,255,255,.1)',
+              borderRadius: 8, padding: 10, fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', fontSize: 11.5, lineHeight: 1.45, resize: 'none',
+            }}
+          />
+          {jsonError && (
+            <div style={{ fontSize: 12, color: '#ff9ba4', background: 'rgba(230,57,70,.1)', padding: '6px 10px', borderRadius: 6 }}>{jsonError}</div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={applyJson} disabled={exporting} style={{ ...btn, background: BRAND }}>Apply JSON</button>
+            <button onClick={resetJson} disabled={exporting} style={btn}>Reset</button>
+          </div>
+          {copiedMsg && <div style={{ fontSize: 12, color: AMBER }}>{copiedMsg}</div>}
+        </div>
+
+        <div style={{ padding: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>3. Export MP4</div>
+          <button
+            onClick={exportMp4} disabled={exporting}
+            style={{ ...btn, width: '100%', padding: '12px 14px', background: exporting ? 'rgba(255,255,255,.08)' : AMBER, color: exporting ? '#fff' : '#111', fontSize: 14 }}
+          >
+            {exporting ? 'Exporting…' : 'Export MP4 (1080×1920, 25s)'}
+          </button>
+          {exporting && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 999, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${(expProgress * 100).toFixed(1)}%`, background: BRAND, transition: 'width .1s linear' }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', marginTop: 6, fontFamily: 'ui-monospace,monospace' }}>{expStatus}</div>
+            </div>
+          )}
+          {!exporting && expStatus && (
+            <div style={{ fontSize: 12, color: expStatus.startsWith('Failed') ? '#ff9ba4' : AMBER, marginTop: 8 }}>{expStatus}</div>
+          )}
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 10, lineHeight: 1.5 }}>
+            Silent MP4. Snapshots DOM per frame via html-to-image → WebCodecs. Encode takes ~30–90s per reel.
+          </div>
+        </div>
+      </aside>
     </div>
   )
 }
