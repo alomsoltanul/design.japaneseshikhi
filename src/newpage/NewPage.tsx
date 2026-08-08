@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { toCanvas } from 'html-to-image'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
+import { AZURE_VOICES, synthesizeAzure } from '@/listening/azure'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -351,6 +352,32 @@ function webcodecsSupported() {
   return typeof g.VideoEncoder === 'function' && typeof g.VideoFrame === 'function'
 }
 
+function audioEncoderSupported() {
+  const g = globalThis as any
+  return typeof g.AudioEncoder === 'function' && typeof g.AudioData === 'function'
+}
+
+/** Voice slot keys — one voice per role. */
+type VoiceRole = 'word' | 'kaiwaA' | 'kaiwaB' | 'english'
+
+/** Line keys map to a role + text; used for preview + audio bake. */
+interface LineSpec { key: string; role: VoiceRole; text: string; startAt: number }
+
+function buildLineSpecs(d: ReelData): LineSpec[] {
+  const k1 = d.kaiwa[0]
+  const k2 = d.kaiwa[1] || d.kaiwa[0]
+  const enText = `${d.explanation.en_a} ${d.explanation.en_b}`.trim()
+  return [
+    { key: 'word-1', role: 'word',    text: d.word.jp, startAt: CUES.Word + 0.3 },
+    { key: 'word-2', role: 'word',    text: d.word.jp, startAt: CUES.Word + 2.6 },
+    { key: 'kaiwaA', role: 'kaiwaA',  text: k1.jp,     startAt: CUES.KaiwaA + 0.2 },
+    { key: 'kaiwaB', role: 'kaiwaB',  text: k2.jp,     startAt: CUES.KaiwaB + 0.2 },
+    { key: 'english',role: 'english', text: enText,    startAt: CUES.Explain + 0.3 },
+    { key: 'replay-word',     role: 'word',   text: d.word.jp, startAt: CUES.Replay + 0.2 },
+    { key: 'replay-sentence', role: 'kaiwaA', text: k1.jp,     startAt: CUES.Replay + 1.6 },
+  ]
+}
+
 export function NewPage() {
   const [data, setData] = useState<ReelData>(DEFAULT_REEL)
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_REEL.theme)
@@ -367,9 +394,132 @@ export function NewPage() {
   const [expStatus, setExpStatus] = useState('')
   const [copiedMsg, setCopiedMsg] = useState('')
 
+  // TTS state
+  const [voices, setVoices] = useState<Record<VoiceRole, string>>({
+    word:    'ja-JP-NanamiNeural',
+    kaiwaA:  'ja-JP-KeitaNeural',
+    kaiwaB:  'ja-JP-NanamiNeural',
+    english: 'en-US-JennyNeural',
+  })
+  const [bakeAudio, setBakeAudio] = useState(true)
+  const [previewingKey, setPreviewingKey] = useState<string | null>(null)
+  const [ttsError, setTtsError] = useState('')
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map())
+  const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
+
+  const getAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContext()
+    }
+    return audioCtxRef.current
+  }, [])
+
   const activeData: ReelData = useMemo(() => (
     imgOverride ? { ...data, image: { ...data.image, src: imgOverride } } : data
   ), [data, imgOverride])
+
+  const lineSpecs = useMemo(() => buildLineSpecs(activeData), [activeData])
+
+  // reset cache when text/voices change
+  useEffect(() => {
+    bufferCacheRef.current.clear()
+  }, [activeData, voices])
+
+  const synthLine = useCallback(async (spec: LineSpec): Promise<AudioBuffer> => {
+    const cacheKey = `${spec.role}:${voices[spec.role]}:${spec.text}`
+    const cached = bufferCacheRef.current.get(cacheKey)
+    if (cached) return cached
+    const mp3 = await synthesizeAzure(spec.text, voices[spec.role], { speed: 0.95 })
+    const ctx = getAudioCtx()
+    const buf = await ctx.decodeAudioData(mp3.slice(0))
+    bufferCacheRef.current.set(cacheKey, buf)
+    return buf
+  }, [voices, getAudioCtx])
+
+  const stopPreview = useCallback(() => {
+    try { activeSourceRef.current?.stop() } catch { /* ignore */ }
+    activeSourceRef.current = null
+    setPreviewingKey(null)
+  }, [])
+
+  const previewLine = useCallback(async (spec: LineSpec) => {
+    setTtsError('')
+    stopPreview()
+    setPreviewingKey(spec.key)
+    try {
+      const buf = await synthLine(spec)
+      const ctx = getAudioCtx()
+      if (ctx.state === 'suspended') await ctx.resume()
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.connect(ctx.destination)
+      src.onended = () => {
+        if (activeSourceRef.current === src) {
+          activeSourceRef.current = null
+          setPreviewingKey(null)
+        }
+      }
+      activeSourceRef.current = src
+      src.start()
+    } catch (e: any) {
+      setTtsError(e?.message || String(e))
+      setPreviewingKey(null)
+    }
+  }, [synthLine, getAudioCtx, stopPreview])
+
+  const previewAll = useCallback(async () => {
+    setTtsError('')
+    stopPreview()
+    try {
+      // Prewarm all
+      const bufs: AudioBuffer[] = []
+      for (const spec of lineSpecs) {
+        setPreviewingKey(`prewarm:${spec.key}`)
+        bufs.push(await synthLine(spec))
+      }
+      const ctx = getAudioCtx()
+      if (ctx.state === 'suspended') await ctx.resume()
+      const now = ctx.currentTime + 0.1
+      lineSpecs.forEach((spec, i) => {
+        const src = ctx.createBufferSource()
+        src.buffer = bufs[i]
+        src.connect(ctx.destination)
+        src.start(now + spec.startAt)
+        if (i === lineSpecs.length - 1) {
+          src.onended = () => setPreviewingKey(null)
+        }
+      })
+      setPreviewingKey('sequence')
+      // Also restart preview playhead
+      setPlaying(false)
+      setT(0)
+      setTimeout(() => setPlaying(true), 100)
+    } catch (e: any) {
+      setTtsError(e?.message || String(e))
+      setPreviewingKey(null)
+    }
+  }, [lineSpecs, synthLine, getAudioCtx, stopPreview])
+
+  /**
+   * Bake the 7 line audios into a single 25s AudioBuffer at their scheduled
+   * cue positions using OfflineAudioContext. Used by MP4 export.
+   */
+  const bakeFullAudio = useCallback(async (): Promise<AudioBuffer> => {
+    const sampleRate = 48000
+    const oac = new OfflineAudioContext(2, Math.ceil(DURATION * sampleRate), sampleRate)
+    for (const spec of lineSpecs) {
+      try {
+        const src = oac.createBufferSource()
+        src.buffer = await synthLine(spec)
+        src.connect(oac.destination)
+        src.start(spec.startAt)
+      } catch (e) {
+        console.warn('synth failed for', spec.key, e)
+      }
+    }
+    return oac.startRendering()
+  }, [lineSpecs, synthLine])
 
   useEffect(() => {
     const fit = () => {
@@ -451,8 +601,10 @@ export function NewPage() {
       alert('MP4 export requires WebCodecs — use Chrome/Edge/Safari 17+.')
       return
     }
+    const withAudio = bakeAudio && audioEncoderSupported()
     const stage = stageRef.current
     if (!stage) return
+    stopPreview()
     setPlaying(false)
     setExporting(true)
     setExpProgress(0)
@@ -460,20 +612,52 @@ export function NewPage() {
     const fps = 30
     const totalFrames = Math.ceil(DURATION * fps)
     const frameDur = Math.round(1e6 / fps)
-    let encoder: any = null
+    let videoEncoder: any = null
+    let audioEncoder: any = null
+
+    // Bake audio FIRST so we know sample rate + channel count before configuring muxer.
+    let audioBuf: AudioBuffer | null = null
+    if (withAudio) {
+      setExpStatus('Synthesizing narration…')
+      try {
+        audioBuf = await bakeFullAudio()
+      } catch (e: any) {
+        console.warn('audio bake failed, exporting silent', e)
+        setExpStatus('TTS failed — exporting silent MP4')
+        audioBuf = null
+      }
+    }
+
     try {
+      const audioChannels = audioBuf ? Math.min(2, audioBuf.numberOfChannels) : 0
+      const audioSampleRate = audioBuf?.sampleRate ?? 48000
+
       const muxer = new Muxer({
         target: new ArrayBufferTarget(),
         fastStart: 'in-memory',
         video: { codec: 'avc', width: 1080, height: 1920 },
-      })
+        ...(audioBuf ? { audio: { codec: 'aac', numberOfChannels: audioChannels, sampleRate: audioSampleRate } } : {}),
+      } as any)
+
       const VE: any = (globalThis as any).VideoEncoder
+      const AE: any = (globalThis as any).AudioEncoder
       const VideoFrameC: any = (globalThis as any).VideoFrame
-      encoder = new VE({
+      const AudioDataC: any = (globalThis as any).AudioData
+
+      let encoderError: any = null
+      videoEncoder = new VE({
         output: (chunk: any, meta: any) => muxer.addVideoChunk(chunk, meta),
-        error: (e: any) => { throw e },
+        error: (e: any) => { encoderError = e; console.error('VideoEncoder error', e) },
       })
-      encoder.configure({ codec: 'avc1.42001f', width: 1080, height: 1920, framerate: fps, bitrate: 8_000_000 })
+      videoEncoder.configure({ codec: 'avc1.42001f', width: 1080, height: 1920, framerate: fps, bitrate: 8_000_000 })
+
+      if (audioBuf) {
+        audioEncoder = new AE({
+          output: (chunk: any, meta: any) => muxer.addAudioChunk(chunk, meta),
+          error: (e: any) => { encoderError = e; console.error('AudioEncoder error', e) },
+        })
+        audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate: audioSampleRate, numberOfChannels: audioChannels, bitrate: 128_000 })
+      }
 
       const canvas = document.createElement('canvas')
       canvas.width = 1080
@@ -481,35 +665,87 @@ export function NewPage() {
       const ctx = canvas.getContext('2d')!
 
       for (let i = 0; i < totalFrames; i++) {
+        if (encoderError) throw encoderError
+        if (videoEncoder.state === 'closed') throw new Error('video encoder closed unexpectedly')
+
         const t = i / fps
         flushSync(() => setT(t))
-        // wait one paint cycle so React commits + browser paints the frame
+        // wait one paint cycle so React commits + browser paints
         await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
-        const snap = await toCanvas(stage, {
-          width: 1080,
-          height: 1920,
-          pixelRatio: 1,
-          cacheBust: false,
-          // strip the display-time transform:scale so snapshot is at native 1080x1920
-          style: { transform: 'none', transformOrigin: 'top left' },
-        })
+        let snap: HTMLCanvasElement
+        try {
+          snap = await toCanvas(stage, {
+            width: 1080,
+            height: 1920,
+            pixelRatio: 1,
+            cacheBust: false,
+            // strip the display-time transform:scale so snapshot is at native 1080x1920
+            style: { transform: 'none', transformOrigin: 'top left' },
+          })
+        } catch (e) {
+          console.warn(`snapshot failed at frame ${i}, reusing previous`, e)
+          // fall through: canvas already holds last frame content
+          const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
+          try { videoEncoder.encode(vf, { keyFrame: i % (fps * 2) === 0 }) } catch (err) { throw err }
+          vf.close()
+          setExpProgress((i + 1) / totalFrames)
+          setExpStatus(`Frame ${i + 1}/${totalFrames} (recovered)`)
+          continue
+        }
         ctx.clearRect(0, 0, 1080, 1920)
         ctx.drawImage(snap, 0, 0, 1080, 1920)
 
         const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
-        encoder.encode(vf, { keyFrame: i % (fps * 2) === 0 })
-        vf.close()
+        try {
+          videoEncoder.encode(vf, { keyFrame: i % (fps * 2) === 0 })
+        } finally {
+          vf.close()
+        }
 
-        if (encoder.encodeQueueSize > fps) {
+        if (videoEncoder.encodeQueueSize > fps) {
           await new Promise(r => setTimeout(r, 0))
         }
-        setExpProgress((i + 1) / totalFrames)
+        setExpProgress((i + 1) / totalFrames * (audioBuf ? 0.85 : 1))
         setExpStatus(`Frame ${i + 1}/${totalFrames}`)
       }
 
-      await encoder.flush()
+      // Encode audio (planar f32)
+      if (audioBuf && audioEncoder) {
+        setExpStatus('Encoding audio…')
+        const chunkFrames = 4800
+        const total = audioBuf.length
+        const ch0 = audioBuf.getChannelData(0)
+        const ch1 = audioChannels > 1 ? audioBuf.getChannelData(1) : null
+        for (let off = 0; off < total; off += chunkFrames) {
+          if (encoderError) throw encoderError
+          const n = Math.min(chunkFrames, total - off)
+          const planar = new Float32Array(n * audioChannels)
+          planar.set(ch0.subarray(off, off + n), 0)
+          if (ch1) planar.set(ch1.subarray(off, off + n), n)
+          const ad = new AudioDataC({
+            format: 'f32-planar',
+            sampleRate: audioSampleRate,
+            numberOfFrames: n,
+            numberOfChannels: audioChannels,
+            timestamp: Math.round((off / audioSampleRate) * 1e6),
+            duration: Math.round((n / audioSampleRate) * 1e6),
+            data: planar,
+          })
+          try {
+            audioEncoder.encode(ad)
+          } finally {
+            ad.close()
+          }
+        }
+        setExpProgress(0.95)
+      }
+
+      await videoEncoder.flush()
+      if (audioEncoder) await audioEncoder.flush()
+      if (encoderError) throw encoderError
       muxer.finalize()
+
       const { buffer } = muxer.target as ArrayBufferTarget
       const blob = new Blob([buffer], { type: 'video/mp4' })
       const url = URL.createObjectURL(blob)
@@ -520,15 +756,17 @@ export function NewPage() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      setExpStatus('Downloaded ✓')
+      setExpProgress(1)
+      setExpStatus(audioBuf ? 'Downloaded ✓ (with audio)' : 'Downloaded ✓ (silent)')
     } catch (e: any) {
       setExpStatus('Failed: ' + (e?.message || String(e)))
       console.error(e)
     } finally {
-      try { encoder?.close?.() } catch { /* ignore */ }
+      try { if (videoEncoder && videoEncoder.state !== 'closed') videoEncoder.close() } catch { /* ignore */ }
+      try { if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close() } catch { /* ignore */ }
       setExporting(false)
     }
-  }, [data.id])
+  }, [data.id, bakeAudio, bakeFullAudio, stopPreview])
 
   const stageWidth = useMemo(() => 1080 * scale, [scale])
   const stageHeight = useMemo(() => 1920 * scale, [scale])
@@ -633,13 +871,82 @@ export function NewPage() {
           {copiedMsg && <div style={{ fontSize: 12, color: AMBER }}>{copiedMsg}</div>}
         </div>
 
+        <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>3. Voices &amp; TTS preview</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={previewAll} disabled={exporting || !!previewingKey} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>▶ Preview all</button>
+              <button onClick={stopPreview} disabled={!previewingKey} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>■ Stop</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+            {(['word', 'kaiwaA', 'kaiwaB', 'english'] as VoiceRole[]).flatMap(role => [
+              <label key={role + '-l'} style={{ fontSize: 12, color: 'rgba(255,255,255,.7)' }}>
+                {role === 'word' ? 'Word (JP)' : role === 'kaiwaA' ? 'Kaiwa A' : role === 'kaiwaB' ? 'Kaiwa B' : 'English'}
+              </label>,
+              <select
+                key={role + '-s'}
+                value={voices[role]}
+                disabled={exporting}
+                onChange={e => setVoices(v => ({ ...v, [role]: e.target.value }))}
+                style={{ padding: '4px 6px', background: '#06060a', color: '#fff', border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, fontSize: 12 }}
+              >
+                {role === 'english' ? (
+                  <>
+                    <option value="en-US-JennyNeural">en-US Jenny</option>
+                    <option value="en-US-AriaNeural">en-US Aria</option>
+                    <option value="en-US-GuyNeural">en-US Guy</option>
+                    <option value="en-GB-SoniaNeural">en-GB Sonia</option>
+                  </>
+                ) : (
+                  AZURE_VOICES.map(v => (
+                    <option key={v.name} value={v.name}>{v.emoji} {v.label} ({v.gender[0].toUpperCase()})</option>
+                  ))
+                )}
+              </select>,
+            ])}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+            {lineSpecs.map(spec => {
+              const active = previewingKey === spec.key
+              return (
+                <button
+                  key={spec.key}
+                  onClick={() => active ? stopPreview() : previewLine(spec)}
+                  disabled={exporting}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,.08)', background: active ? 'rgba(244,162,97,.14)' : 'rgba(255,255,255,.03)',
+                    color: '#fff', textAlign: 'left', cursor: 'pointer', fontSize: 12,
+                  }}
+                >
+                  <span style={{ color: active ? AMBER : 'rgba(255,255,255,.5)', fontSize: 11, minWidth: 78 }}>{spec.key}</span>
+                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: spec.role === 'english' ? undefined : FJP }}>{spec.text}</span>
+                  <span style={{ fontSize: 11, opacity: 0.5 }}>{active ? '■' : '▶'}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {ttsError && (
+            <div style={{ fontSize: 12, color: '#ff9ba4', background: 'rgba(230,57,70,.1)', padding: '6px 10px', borderRadius: 6 }}>{ttsError}</div>
+          )}
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,.75)' }}>
+            <input type="checkbox" checked={bakeAudio} onChange={e => setBakeAudio(e.target.checked)} disabled={exporting} />
+            Bake TTS audio into exported MP4
+          </label>
+        </div>
+
         <div style={{ padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>3. Export MP4</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>4. Export MP4</div>
           <button
             onClick={exportMp4} disabled={exporting}
             style={{ ...btn, width: '100%', padding: '12px 14px', background: exporting ? 'rgba(255,255,255,.08)' : AMBER, color: exporting ? '#fff' : '#111', fontSize: 14 }}
           >
-            {exporting ? 'Exporting…' : 'Export MP4 (1080×1920, 25s)'}
+            {exporting ? 'Exporting…' : `Export MP4 (1080×1920, 25s${bakeAudio ? ', +audio' : ', silent'})`}
           </button>
           {exporting && (
             <div style={{ marginTop: 10 }}>
@@ -653,7 +960,7 @@ export function NewPage() {
             <div style={{ fontSize: 12, color: expStatus.startsWith('Failed') ? '#ff9ba4' : AMBER, marginTop: 8 }}>{expStatus}</div>
           )}
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 10, lineHeight: 1.5 }}>
-            Silent MP4. Snapshots DOM per frame via html-to-image → WebCodecs. Encode takes ~30–90s per reel.
+            DOM snapshotted per frame via html-to-image → WebCodecs H.264 + AAC → mp4-muxer. Encode takes ~30–90s per reel.
           </div>
         </div>
       </aside>
