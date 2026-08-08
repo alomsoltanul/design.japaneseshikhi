@@ -359,6 +359,33 @@ function audioEncoderSupported() {
   return typeof g.AudioEncoder === 'function' && typeof g.AudioData === 'function'
 }
 
+/**
+ * Pick highest-level H.264 profile the browser supports for the given
+ * resolution. Baseline level 3.1 caps at 1280x720 — using it for 1080x1920
+ * makes the encoder close mid-stream. Try High > Main > Baseline (levels 5.2,
+ * 5.1, 4.0, 3.1) in that order and pick the first supported.
+ */
+async function pickVideoCodec(width: number, height: number, fps: number, bitrate: number): Promise<string> {
+  const candidates = [
+    'avc1.640034', // High 5.2
+    'avc1.640033', // High 5.1
+    'avc1.640028', // High 4.0
+    'avc1.4d0034', // Main 5.2
+    'avc1.4d0028', // Main 4.0
+    'avc1.42e034', // Constrained Baseline 5.2
+    'avc1.42e028', // Constrained Baseline 4.0
+    'avc1.42001f', // Baseline 3.1 (last resort)
+  ]
+  const VE: any = (globalThis as any).VideoEncoder
+  for (const codec of candidates) {
+    try {
+      const sup = await VE.isConfigSupported({ codec, width, height, framerate: fps, bitrate })
+      if (sup?.supported) return codec
+    } catch { /* try next */ }
+  }
+  return 'avc1.640028'
+}
+
 function buildLineSpecs(d: ReelData): LineSpec[] {
   const k1 = d.kaiwa[0], k2 = d.kaiwa[1] || d.kaiwa[0]
   const enText = `${d.explanation.en_a} ${d.explanation.en_b}`.trim()
@@ -767,11 +794,14 @@ export function NewPage() {
       const AudioDataC: any = (globalThis as any).AudioData
 
       let encoderError: any = null
+      const videoBitrate = 8_000_000
+      const codec = await pickVideoCodec(1080, 1920, fps, videoBitrate)
+      setExpStatus(`Using codec ${codec}`)
       videoEncoder = new VE({
         output: (chunk: any, meta: any) => muxer.addVideoChunk(chunk, meta),
         error: (e: any) => { encoderError = e; console.error('VideoEncoder error', e) },
       })
-      videoEncoder.configure({ codec: 'avc1.42001f', width: 1080, height: 1920, framerate: fps, bitrate: 8_000_000 })
+      videoEncoder.configure({ codec, width: 1080, height: 1920, framerate: fps, bitrate: videoBitrate })
 
       if (audioBuf) {
         audioEncoder = new AE({
@@ -781,10 +811,30 @@ export function NewPage() {
         audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate: audioSampleRate, numberOfChannels: audioChannels, bitrate: 128_000 })
       }
 
+      // alpha:false forces opaque backing store — some H/W encoders reject
+      // RGBA VideoFrames from a canvas that reports as containing alpha.
       const canvas = document.createElement('canvas')
       canvas.width = 1080
       canvas.height = 1920
-      const ctx = canvas.getContext('2d')!
+      const ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D
+      ctx.fillStyle = '#000'
+      ctx.fillRect(0, 0, 1080, 1920)
+
+      // Safe wrapper — re-checks encoder state right before encode + catches
+      // the "closed codec" throw so we can abort cleanly instead of the loop
+      // continuing to poke a dead encoder.
+      const safeEncode = (vf: any, keyFrame: boolean) => {
+        if (encoderError) throw encoderError
+        if (videoEncoder.state === 'closed') {
+          throw encoderError || new Error('video encoder closed before encode call')
+        }
+        try {
+          videoEncoder.encode(vf, { keyFrame })
+        } catch (e: any) {
+          if (encoderError) throw encoderError
+          throw new Error(`encode failed: ${e?.message || e}`)
+        }
+      }
 
       for (let i = 0; i < totalFrames; i++) {
         if (encoderError) throw encoderError
@@ -803,24 +853,27 @@ export function NewPage() {
         } catch (e) {
           console.warn(`snapshot failed at frame ${i}, reusing previous`, e)
           const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
-          try { videoEncoder.encode(vf, { keyFrame: i % (fps * 2) === 0 }) } finally { vf.close() }
+          try { safeEncode(vf, i % (fps * 2) === 0) } finally { vf.close() }
           setExpProgress((i + 1) / totalFrames * (audioBuf ? 0.85 : 1))
           setExpStatus(`Frame ${i + 1}/${totalFrames} (recovered)`)
           continue
         }
-        ctx.clearRect(0, 0, 1080, 1920)
         ctx.drawImage(snap, 0, 0, 1080, 1920)
 
         const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
         try {
-          videoEncoder.encode(vf, { keyFrame: i % (fps * 2) === 0 })
+          safeEncode(vf, i % (fps * 2) === 0)
         } finally {
           vf.close()
         }
 
+        // Yield a microtask so any pending error callback runs before the
+        // next iteration's state check.
+        await Promise.resolve()
+
         if (videoEncoder.encodeQueueSize > fps) await new Promise(r => setTimeout(r, 0))
         setExpProgress((i + 1) / totalFrames * (audioBuf ? 0.85 : 1))
-        setExpStatus(`Frame ${i + 1}/${totalFrames}`)
+        setExpStatus(`Frame ${i + 1}/${totalFrames} · queue ${videoEncoder.encodeQueueSize}`)
       }
 
       if (audioBuf && audioEncoder) {
