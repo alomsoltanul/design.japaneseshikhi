@@ -5,10 +5,10 @@
 // segment durations extend to fit real audio lengths.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { toCanvas } from 'html-to-image'
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { AZURE_VOICES, synthesizeAzure } from '@/listening/azure'
 import { getSpeakers, synthesizeText as vvSynth, reelEnvBlocked, type VvSpeaker } from '@/listening/voicevox'
+import { encodeReelMp4, webcodecsSupported } from '@/studio/reel/encodeMp4'
+import { renderFrame as renderCanvasFrame, loadImage } from './renderFrame'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -350,41 +350,8 @@ function Stage({ T, theme, data, cues, endTime }: {
 }
 
 // ── Helpers: WebCodecs + line specs + timing ────────────────────────────
-function webcodecsSupported() {
-  const g = globalThis as any
-  return typeof g.VideoEncoder === 'function' && typeof g.VideoFrame === 'function'
-}
-function audioEncoderSupported() {
-  const g = globalThis as any
-  return typeof g.AudioEncoder === 'function' && typeof g.AudioData === 'function'
-}
-
-/**
- * Pick highest-level H.264 profile the browser supports for the given
- * resolution. Baseline level 3.1 caps at 1280x720 — using it for 1080x1920
- * makes the encoder close mid-stream. Try High > Main > Baseline (levels 5.2,
- * 5.1, 4.0, 3.1) in that order and pick the first supported.
- */
-async function pickVideoCodec(width: number, height: number, fps: number, bitrate: number): Promise<string> {
-  const candidates = [
-    'avc1.640034', // High 5.2
-    'avc1.640033', // High 5.1
-    'avc1.640028', // High 4.0
-    'avc1.4d0034', // Main 5.2
-    'avc1.4d0028', // Main 4.0
-    'avc1.42e034', // Constrained Baseline 5.2
-    'avc1.42e028', // Constrained Baseline 4.0
-    'avc1.42001f', // Baseline 3.1 (last resort)
-  ]
-  const VE: any = (globalThis as any).VideoEncoder
-  for (const codec of candidates) {
-    try {
-      const sup = await VE.isConfigSupported({ codec, width, height, framerate: fps, bitrate })
-      if (sup?.supported) return codec
-    } catch { /* try next */ }
-  }
-  return 'avc1.640028'
-}
+// WebCodecs support + H.264 profile selection now handled by the shared
+// encoder (src/studio/reel/encodeMp4.ts).
 
 function buildLineSpecs(d: ReelData): LineSpec[] {
   const k1 = d.kaiwa[0], k2 = d.kaiwa[1] || d.kaiwa[0]
@@ -730,180 +697,74 @@ export function NewPage() {
     return oac.startRendering()
   }, [lineSpecs])
 
+  /**
+   * FAST export via pure canvas 2D renderer + shared WebCodecs encoder.
+   * Matches the Kanji / Reel Studio path — encodes at hardware speed
+   * (~5-15s for a 25s reel) instead of DOM-snapshot-per-frame (~90s).
+   */
   const exportMp4 = useCallback(async () => {
     if (!webcodecsSupported()) {
       alert('MP4 export requires WebCodecs — use Chrome/Edge/Safari 17+.')
       return
     }
-    const withAudio = bakeAudio && audioEncoderSupported()
-    const stage = stageRef.current
-    if (!stage) return
     stopPreview()
     setPlaying(false)
     setExporting(true)
     setExpProgress(0)
     setExpStatus('Preparing…')
 
-    // Compute schedule first — determines total video duration
-    let schedule: { bufs: Map<string, AudioBuffer>; cues: Cues; end: number; starts: Map<string, number> } | null = null
+    // 1) Compute schedule + optional audio
     let audioBuf: AudioBuffer | null = null
-    let exportCues: Cues = DEFAULT_CUES
-    let exportEnd: number = DEFAULT_END
-    if (withAudio) {
+    let exportCues: Cues = cues
+    let exportEnd: number = endTime
+    if (bakeAudio) {
       setExpStatus('Synthesizing narration…')
       try {
-        schedule = await prepareSchedule(s => setExpStatus(s))
-        exportCues = schedule.cues
-        exportEnd = schedule.end
+        const sched = await prepareSchedule(s => setExpStatus(s))
+        exportCues = sched.cues
+        exportEnd = sched.end
         setCues(exportCues)
         setEndTime(exportEnd)
         setExpStatus('Baking audio track…')
-        audioBuf = await bakeFullAudio(schedule)
+        audioBuf = await bakeFullAudio(sched)
       } catch (e: any) {
         console.warn('audio pipeline failed, exporting silent', e)
         setExpStatus(`TTS failed (${e?.message || e}) — exporting silent`)
         audioBuf = null
-        exportCues = cues
-        exportEnd = endTime
       }
-    } else {
-      exportCues = cues
-      exportEnd = endTime
     }
 
-    const fps = 30
-    const totalFrames = Math.ceil(exportEnd * fps)
-    const frameDur = Math.round(1e6 / fps)
-    let videoEncoder: any = null
-    let audioEncoder: any = null
-
+    // 2) Preload image (may be dataURL or /assets path)
+    setExpStatus('Loading image…')
+    let img: HTMLImageElement | null = null
     try {
-      const audioChannels = audioBuf ? Math.min(2, audioBuf.numberOfChannels) : 0
-      const audioSampleRate = audioBuf?.sampleRate ?? 48000
+      img = await loadImage(activeData.image.src)
+    } catch (e) {
+      console.warn('image load failed, using fallback bg', e)
+    }
 
-      const muxer = new Muxer({
-        target: new ArrayBufferTarget(),
-        fastStart: 'in-memory',
-        video: { codec: 'avc', width: 1080, height: 1920 },
-        ...(audioBuf ? { audio: { codec: 'aac', numberOfChannels: audioChannels, sampleRate: audioSampleRate } } : {}),
-      } as any)
+    // 3) Encoder wants an AudioBuffer — synthesize silence if we skipped TTS.
+    if (!audioBuf) {
+      const oac = new OfflineAudioContext(1, Math.ceil(exportEnd * 48000), 48000)
+      audioBuf = await oac.startRendering()
+    }
 
-      const VE: any = (globalThis as any).VideoEncoder
-      const AE: any = (globalThis as any).AudioEncoder
-      const VideoFrameC: any = (globalThis as any).VideoFrame
-      const AudioDataC: any = (globalThis as any).AudioData
-
-      let encoderError: any = null
-      const videoBitrate = 8_000_000
-      const codec = await pickVideoCodec(1080, 1920, fps, videoBitrate)
-      setExpStatus(`Using codec ${codec}`)
-      videoEncoder = new VE({
-        output: (chunk: any, meta: any) => muxer.addVideoChunk(chunk, meta),
-        error: (e: any) => { encoderError = e; console.error('VideoEncoder error', e) },
+    // 4) Encode via shared canvas 2D → WebCodecs → mp4-muxer path.
+    try {
+      const fps = 30
+      const blob = await encodeReelMp4({
+        width: 1080,
+        height: 1920,
+        fps,
+        durationSec: exportEnd,
+        audio: audioBuf,
+        draw: (frameCtx, t) => renderCanvasFrame(frameCtx, t, activeData, theme, exportCues, exportEnd, img),
+        onProgress: (ratio, note) => {
+          setExpProgress(ratio)
+          if (note) setExpStatus(note)
+        },
       })
-      videoEncoder.configure({ codec, width: 1080, height: 1920, framerate: fps, bitrate: videoBitrate })
 
-      if (audioBuf) {
-        audioEncoder = new AE({
-          output: (chunk: any, meta: any) => muxer.addAudioChunk(chunk, meta),
-          error: (e: any) => { encoderError = e; console.error('AudioEncoder error', e) },
-        })
-        audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate: audioSampleRate, numberOfChannels: audioChannels, bitrate: 128_000 })
-      }
-
-      // alpha:false forces opaque backing store — some H/W encoders reject
-      // RGBA VideoFrames from a canvas that reports as containing alpha.
-      const canvas = document.createElement('canvas')
-      canvas.width = 1080
-      canvas.height = 1920
-      const ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D
-      ctx.fillStyle = '#000'
-      ctx.fillRect(0, 0, 1080, 1920)
-
-      // Safe wrapper — re-checks encoder state right before encode + catches
-      // the "closed codec" throw so we can abort cleanly instead of the loop
-      // continuing to poke a dead encoder.
-      const safeEncode = (vf: any, keyFrame: boolean) => {
-        if (encoderError) throw encoderError
-        if (videoEncoder.state === 'closed') {
-          throw encoderError || new Error('video encoder closed before encode call')
-        }
-        try {
-          videoEncoder.encode(vf, { keyFrame })
-        } catch (e: any) {
-          if (encoderError) throw encoderError
-          throw new Error(`encode failed: ${e?.message || e}`)
-        }
-      }
-
-      for (let i = 0; i < totalFrames; i++) {
-        if (encoderError) throw encoderError
-        if (videoEncoder.state === 'closed') throw new Error('video encoder closed unexpectedly')
-
-        const t = i / fps
-        flushSync(() => setT(t))
-        await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
-
-        let snap: HTMLCanvasElement
-        try {
-          snap = await toCanvas(stage, {
-            width: 1080, height: 1920, pixelRatio: 1, cacheBust: false,
-            style: { transform: 'none', transformOrigin: 'top left' },
-          })
-        } catch (e) {
-          console.warn(`snapshot failed at frame ${i}, reusing previous`, e)
-          const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
-          try { safeEncode(vf, i % (fps * 2) === 0) } finally { vf.close() }
-          setExpProgress((i + 1) / totalFrames * (audioBuf ? 0.85 : 1))
-          setExpStatus(`Frame ${i + 1}/${totalFrames} (recovered)`)
-          continue
-        }
-        ctx.drawImage(snap, 0, 0, 1080, 1920)
-
-        const vf = new VideoFrameC(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: frameDur })
-        try {
-          safeEncode(vf, i % (fps * 2) === 0)
-        } finally {
-          vf.close()
-        }
-
-        // Yield a microtask so any pending error callback runs before the
-        // next iteration's state check.
-        await Promise.resolve()
-
-        if (videoEncoder.encodeQueueSize > fps) await new Promise(r => setTimeout(r, 0))
-        setExpProgress((i + 1) / totalFrames * (audioBuf ? 0.85 : 1))
-        setExpStatus(`Frame ${i + 1}/${totalFrames} · queue ${videoEncoder.encodeQueueSize}`)
-      }
-
-      if (audioBuf && audioEncoder) {
-        setExpStatus('Encoding audio…')
-        const chunkFrames = 4800
-        const total = audioBuf.length
-        const ch0 = audioBuf.getChannelData(0)
-        const ch1 = audioChannels > 1 ? audioBuf.getChannelData(1) : null
-        for (let off = 0; off < total; off += chunkFrames) {
-          if (encoderError) throw encoderError
-          const n = Math.min(chunkFrames, total - off)
-          const planar = new Float32Array(n * audioChannels)
-          planar.set(ch0.subarray(off, off + n), 0)
-          if (ch1) planar.set(ch1.subarray(off, off + n), n)
-          const ad = new AudioDataC({
-            format: 'f32-planar', sampleRate: audioSampleRate, numberOfFrames: n, numberOfChannels: audioChannels,
-            timestamp: Math.round((off / audioSampleRate) * 1e6), duration: Math.round((n / audioSampleRate) * 1e6), data: planar,
-          })
-          try { audioEncoder.encode(ad) } finally { ad.close() }
-        }
-        setExpProgress(0.95)
-      }
-
-      await videoEncoder.flush()
-      if (audioEncoder) await audioEncoder.flush()
-      if (encoderError) throw encoderError
-      muxer.finalize()
-
-      const { buffer } = muxer.target as ArrayBufferTarget
-      const blob = new Blob([buffer], { type: 'video/mp4' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -913,16 +774,14 @@ export function NewPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       setExpProgress(1)
-      setExpStatus(audioBuf ? 'Downloaded ✓ (with audio)' : 'Downloaded ✓ (silent)')
+      setExpStatus(audioBuf.duration > 0.5 ? 'Downloaded ✓' : 'Downloaded ✓ (silent)')
     } catch (e: any) {
       setExpStatus('Failed: ' + (e?.message || String(e)))
       console.error(e)
     } finally {
-      try { if (videoEncoder && videoEncoder.state !== 'closed') videoEncoder.close() } catch { /* ignore */ }
-      try { if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close() } catch { /* ignore */ }
       setExporting(false)
     }
-  }, [bakeAudio, prepareSchedule, bakeFullAudio, data.id, stopPreview, cues, endTime])
+  }, [bakeAudio, prepareSchedule, bakeFullAudio, activeData, theme, cues, endTime, data.id, stopPreview])
 
   const stageWidth = useMemo(() => 1080 * scale, [scale])
   const stageHeight = useMemo(() => 1920 * scale, [scale])
@@ -1182,7 +1041,7 @@ export function NewPage() {
             <div style={{ fontSize: 12, color: expStatus.startsWith('Failed') ? '#ff9ba4' : AMBER, marginTop: 8 }}>{expStatus}</div>
           )}
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 10, lineHeight: 1.5 }}>
-            DOM snapshotted per frame via html-to-image → WebCodecs H.264 + AAC → mp4-muxer.
+            Rendered via canvas 2D → WebCodecs H.264 + AAC → mp4-muxer. Hardware-accelerated, no DOM snapshot per frame.
           </div>
         </div>
       </aside>
