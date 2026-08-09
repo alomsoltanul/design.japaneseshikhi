@@ -100,3 +100,35 @@ export function formatUsage(s: AzureUsageState): string {
   const pct = s.quota > 0 ? (s.used / s.quota) * 100 : 0
   return `${s.used.toLocaleString()} / ${s.quota.toLocaleString()} (${pct.toFixed(1)}%)`
 }
+
+// ── Live Azure usage fetch ───────────────────────────────────────────────
+
+export interface AzureLiveUsageMeter { meter: string; quantity: number; cost: number; unit: string }
+export interface AzureLiveUsage {
+  configured: true
+  monthKey: string
+  monthStartUtc: string
+  monthEndUtc: string
+  resourceId: string
+  subscriptionId: string
+  monitor: { synthesizedCharacters: number | null; totalTransactions: number | null } | null
+  monitorError: string | null
+  cost: { quantity: number; cost: number; currency: string; byMeter: AzureLiveUsageMeter[] } | null
+  costError: string | null
+  updatedAt: string
+}
+export interface AzureUnconfigured {
+  configured: false
+  missing: string[]
+  message: string
+}
+export type AzureUsageResponse = AzureLiveUsage | AzureUnconfigured
+
+export async function fetchAzureLiveUsage(): Promise<AzureUsageResponse> {
+  const res = await fetch('/api/tts/azure-usage', { method: 'GET' })
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`azure usage ${res.status}: ${detail.slice(0, 200)}`)
+  }
+  return res.json() as Promise<AzureUsageResponse>
+}

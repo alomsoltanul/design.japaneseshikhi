@@ -8,7 +8,8 @@ import { flushSync } from 'react-dom'
 import { AZURE_VOICES, synthesizeAzure } from '@/listening/azure'
 import {
   DEFAULT_MONTHLY_QUOTA, getAzureUsage, resetAzureUsage, setAzureQuota,
-  type AzureUsageState,
+  fetchAzureLiveUsage,
+  type AzureUsageState, type AzureUsageResponse,
 } from '@/listening/azureUsage'
 import { getSpeakers, synthesizeText as vvSynth, reelEnvBlocked, type VvSpeaker } from '@/listening/voicevox'
 import { encodeReelMp4, webcodecsSupported } from '@/studio/reel/encodeMp4'
@@ -445,12 +446,41 @@ function AzureUsagePanel({ usage, onChange, disabled }: {
   disabled: boolean
 }) {
   const [quotaDraft, setQuotaDraft] = useState<string>(String(usage.quota))
+  const [live, setLive] = useState<AzureUsageResponse | null>(null)
+  const [liveErr, setLiveErr] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
+  const [showLocal, setShowLocal] = useState<boolean>(false)
+
   useEffect(() => { setQuotaDraft(String(usage.quota)) }, [usage.quota])
 
-  const pct = usage.quota > 0 ? Math.min(100, (usage.used / usage.quota) * 100) : 0
+  const refresh = useCallback(async () => {
+    setLoading(true); setLiveErr('')
+    try { setLive(await fetchAzureLiveUsage()) }
+    catch (e: any) { setLiveErr(e?.message ?? String(e)); setLive(null) }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { void refresh() }, [refresh])
+
+  // Live-source values (from /api/tts/azure-usage).
+  const liveConfigured = live?.configured === true
+  const liveChars = liveConfigured ? live.monitor?.synthesizedCharacters ?? null : null
+  const liveCostQty = liveConfigured ? live.cost?.quantity ?? null : null
+  const liveCostAmt = liveConfigured ? live.cost?.cost ?? null : null
+  const liveCurrency = liveConfigured ? live.cost?.currency ?? 'USD' : 'USD'
+
+  // Prefer Monitor's `SynthesizedCharacters`; fall back to cost quantity;
+  // then to the local counter if neither is available yet.
+  const effectiveUsed = liveChars ?? (liveCostQty != null ? Math.round(liveCostQty) : null) ?? usage.used
+  const effectiveSource = liveChars != null
+    ? 'Azure Monitor · SynthesizedCharacters'
+    : liveCostQty != null
+      ? 'Azure Cost Management · UsageQuantity'
+      : 'Local counter (fallback)'
+
+  const pct = usage.quota > 0 ? Math.min(100, (effectiveUsed / usage.quota) * 100) : 0
   const barColor = pct >= 95 ? '#ff5f6d' : pct >= 75 ? AMBER : TEAL
-  const remaining = Math.max(0, usage.quota - usage.used)
-  const lastAt = usage.lastAt ? new Date(usage.lastAt).toLocaleString() : '—'
+  const remaining = Math.max(0, usage.quota - effectiveUsed)
 
   const applyQuota = () => {
     const n = Number(quotaDraft.replace(/[,_\s]/g, ''))
@@ -459,23 +489,77 @@ function AzureUsagePanel({ usage, onChange, disabled }: {
   }
   const reset = () => onChange(resetAzureUsage())
 
+  const monthKey = liveConfigured ? live.monthKey : usage.monthKey
+  const badge = liveConfigured
+    ? { text: 'LIVE', color: TEAL }
+    : loading
+      ? { text: '…', color: 'rgba(255,255,255,.4)' }
+      : { text: 'LOCAL', color: AMBER }
+
   return (
     <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)', background: 'linear-gradient(180deg,rgba(42,157,143,.06),transparent)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'rgba(255,255,255,.75)' }}>Azure TTS quota</div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', fontFamily: 'ui-monospace,monospace' }}>{usage.monthKey}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'rgba(255,255,255,.75)' }}>Azure TTS quota</div>
+          <span style={{ padding: '1px 8px', borderRadius: 999, background: `${badge.color === TEAL ? 'rgba(42,157,143,.16)' : 'rgba(244,162,97,.16)'}`, color: badge.color, fontSize: 10, fontWeight: 700, letterSpacing: '.1em' }}>{badge.text}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', fontFamily: 'ui-monospace,monospace' }}>{monthKey}</span>
+          <button onClick={refresh} disabled={loading} title="Re-fetch from Azure" style={{ padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 10, cursor: 'pointer' }}>↻</button>
+        </div>
       </div>
+
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{usage.used.toLocaleString()}</span>
+        <span style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{effectiveUsed.toLocaleString()}</span>
         <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>/ {usage.quota.toLocaleString()} chars</span>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: barColor, fontWeight: 600 }}>{pct.toFixed(1)}%</span>
       </div>
       <div style={{ height: 8, background: 'rgba(255,255,255,.08)', borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
         <div style={{ height: '100%', width: `${pct}%`, background: barColor, transition: 'width .3s ease' }} />
       </div>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginBottom: 10, lineHeight: 1.5 }}>
-        {remaining.toLocaleString()} chars remaining · Last synth: {lastAt}
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,.55)', marginBottom: 10, lineHeight: 1.5 }}>
+        {remaining.toLocaleString()} chars remaining
+        {liveCostAmt != null && (
+          <> · <b style={{ color: '#fff' }}>{liveCostAmt.toFixed(2)} {liveCurrency}</b> billed MTD</>
+        )}
       </div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', marginBottom: 10, fontFamily: 'ui-monospace,monospace' }}>
+        Source: {effectiveSource}
+      </div>
+
+      {liveConfigured && live.monitor?.totalTransactions != null && (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginBottom: 8 }}>
+          Transactions: <b style={{ color: '#fff' }}>{live.monitor.totalTransactions.toLocaleString()}</b>
+        </div>
+      )}
+      {liveConfigured && live.cost?.byMeter?.length ? (
+        <details style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', marginBottom: 10 }}>
+          <summary style={{ cursor: 'pointer' }}>Meter breakdown ({live.cost.byMeter.length})</summary>
+          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 4 }}>
+            {live.cost.byMeter.map((m, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontFamily: 'ui-monospace,monospace', fontSize: 10 }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.meter}</span>
+                <span style={{ color: '#fff' }}>{m.quantity.toLocaleString()} {m.unit}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+
+      {!liveConfigured && (
+        <div style={{ fontSize: 11, color: '#ffd7a1', background: 'rgba(244,162,97,.08)', border: '1px solid rgba(244,162,97,.24)', padding: '8px 10px', borderRadius: 6, marginBottom: 10, lineHeight: 1.5 }}>
+          {live && !live.configured ? (
+            <>
+              <b>Live Azure disabled.</b> Set these env vars on Vercel:
+              <div style={{ fontFamily: 'ui-monospace,monospace', fontSize: 10, marginTop: 4 }}>{live.missing.join(', ')}</div>
+              <div style={{ marginTop: 4, opacity: 0.85 }}>Create a service principal + grant it Reader on the Speech resource and Cost Management Reader on the subscription.</div>
+            </>
+          ) : liveErr ? (
+            <><b>Azure error:</b> {liveErr}</>
+          ) : loading ? 'Loading live usage…' : 'Waiting…'}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <label style={{ fontSize: 11, color: 'rgba(255,255,255,.6)' }}>Quota</label>
         <input
@@ -485,10 +569,22 @@ function AzureUsagePanel({ usage, onChange, disabled }: {
           style={{ flex: 1, padding: '4px 8px', background: '#06060a', color: '#fff', border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, fontSize: 12, fontFamily: 'ui-monospace,monospace' }}
         />
         <button onClick={applyQuota} disabled={disabled} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Set</button>
-        <button onClick={reset} disabled={disabled} title="Reset month counter to zero" style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Reset</button>
       </div>
+      <button
+        onClick={() => setShowLocal(v => !v)}
+        style={{ marginTop: 8, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: 'transparent', color: 'rgba(255,255,255,.55)', fontSize: 10, cursor: 'pointer' }}
+      >
+        {showLocal ? 'Hide' : 'Show'} local counter
+      </button>
+      {showLocal && (
+        <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(255,255,255,.03)', borderRadius: 6, fontSize: 11, color: 'rgba(255,255,255,.6)' }}>
+          Local: <b style={{ color: '#fff' }}>{usage.used.toLocaleString()}</b> chars this session/browser
+          {usage.lastAt ? <> · last {new Date(usage.lastAt).toLocaleString()}</> : null}
+          <button onClick={reset} style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 10, cursor: 'pointer' }}>Reset</button>
+        </div>
+      )}
       <div style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', marginTop: 8, lineHeight: 1.5 }}>
-        Local counter — tracks chars sent to /api/tts/azure this browser. Default {DEFAULT_MONTHLY_QUOTA.toLocaleString()} = F0 free tier; set your S0 monthly cap here. Rolls over on the 1st (UTC).
+        Default quota {DEFAULT_MONTHLY_QUOTA.toLocaleString()} = F0 free tier. Live source refreshes every ~60s (Azure caches metrics briefly).
       </div>
     </div>
   )
