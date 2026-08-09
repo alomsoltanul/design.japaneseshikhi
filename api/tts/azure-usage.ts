@@ -87,6 +87,9 @@ async function queryCostManagement(
   token: string, subscriptionId: string, resourceId: string,
 ): Promise<{ quantity: number; cost: number; currency: string; byMeter: Array<{ meter: string; quantity: number; cost: number; unit: string }> } | null> {
   const url = `https://management.azure.com/subscriptions/${subscriptionId}/providers/Microsoft.CostManagement/query?api-version=2023-11-01`
+  // Subscription-scope query: only sub-scope groupings are legal here
+  // (MeterName is billing-account-scope only). We already filter by
+  // ResourceId so ungrouped totals map to just this Speech account.
   const body = {
     type: 'ActualCost',
     timeframe: 'BillingMonthToDate',
@@ -96,10 +99,6 @@ async function queryCostManagement(
         totalQuantity: { name: 'UsageQuantity', function: 'Sum' },
         totalCost: { name: 'Cost', function: 'Sum' },
       },
-      grouping: [
-        { type: 'Dimension', name: 'MeterName' },
-        { type: 'Dimension', name: 'UnitOfMeasure' },
-      ],
       filter: {
         dimensions: {
           name: 'ResourceId',
@@ -128,17 +127,21 @@ async function queryCostManagement(
   const iCurrency = colIdx('Currency'), iMeter = colIdx('MeterName'), iUnit = colIdx('UnitOfMeasure')
   let quantity = 0, cost = 0, currency = 'USD'
   const byMeter: Array<{ meter: string; quantity: number; cost: number; unit: string }> = []
+  const hasMeterCol = iMeter >= 0
   for (const row of rows) {
     const q = iQty >= 0 ? Number(row[iQty]) || 0 : 0
     const c = iCost >= 0 ? Number(row[iCost]) || 0 : 0
     quantity += q
     cost += c
     if (iCurrency >= 0 && row[iCurrency]) currency = String(row[iCurrency])
-    byMeter.push({
-      meter: iMeter >= 0 ? String(row[iMeter]) : 'unknown',
-      quantity: q, cost: c,
-      unit: iUnit >= 0 ? String(row[iUnit]) : '',
-    })
+    // Only surface per-meter rows when the API actually grouped by MeterName.
+    if (hasMeterCol) {
+      byMeter.push({
+        meter: String(row[iMeter]),
+        quantity: q, cost: c,
+        unit: iUnit >= 0 ? String(row[iUnit]) : '',
+      })
+    }
   }
   return { quantity, cost, currency, byMeter }
 }
