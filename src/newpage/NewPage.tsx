@@ -143,7 +143,7 @@ const DEFAULT_REEL: ReelData = {
     en_b: 'で marks where an action happens: 田んぼで見つけた = found it at the rice field.',
     bn_a: '田 মানে উপর থেকে দেখা ক্ষেত — ভেতরের লাইনগুলো পানির নালা।',
   },
-  cta: { handle: '@japanesemanabi', line: 'One Japanese word a day, explained in Bangla.' },
+  cta: { handle: '@japanesemanabi', line: 'One Japanese Word a day, explained in English.' },
 }
 
 const SAMPLE_JSON = JSON.stringify(DEFAULT_REEL, null, 2)
@@ -259,10 +259,11 @@ function Eq({ on, color }: { on: boolean; color: string }) {
 }
 
 // ── Stage — pure function of T + data + theme + cues + endTime ──────────
-function Stage({ T, theme, data, cues, endTime, bgTint, scrim }: {
+function Stage({ T, theme, data, cues, endTime, bgTint, scrimV, scrimH }: {
   T: number; theme: ThemeKey; data: ReelData; cues: Cues; endTime: number
   bgTint?: string | null
-  scrim: number
+  scrimV: number
+  scrimH: number
 }) {
   const baseTheme = THEMES[theme]
   // If a bgTint is provided (auto-sampled from image), override seam + bg
@@ -319,7 +320,10 @@ function Stage({ T, theme, data, cues, endTime, bgTint, scrim }: {
           position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
           transformOrigin: '50% 45%', transform: `scale(${kb.toFixed(3)})`,
         }} />
-        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(10,12,24,${(scrim * 0.64).toFixed(3)}) 0%,rgba(10,12,24,0) 26%,rgba(10,12,24,0) 42%,rgba(10,12,24,${scrim.toFixed(3)}) 88%,${t.seam} 100%)` }} />
+        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(10,12,24,${(scrimV * 0.64).toFixed(3)}) 0%,rgba(10,12,24,0) 26%,rgba(10,12,24,0) 42%,rgba(10,12,24,${scrimV.toFixed(3)}) 88%,${t.seam} 100%)` }} />
+        {scrimH > 0.001 && (
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `linear-gradient(90deg,rgba(10,12,24,${scrimH.toFixed(3)}) 0%,rgba(10,12,24,0) 22%,rgba(10,12,24,0) 78%,rgba(10,12,24,${scrimH.toFixed(3)}) 100%)` }} />
+        )}
 
         <div style={{ position: 'absolute', top: 44, left: 44, display: 'flex', gap: 12, alignItems: 'center', ...enter(T, 0.15, 0.5) }}>
           <span style={{ padding: '10px 20px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 26, fontWeight: 700, letterSpacing: '.06em' }}>{data.level}</span>
@@ -686,9 +690,11 @@ export function NewPage() {
   const [sampledTint, setSampledTint] = useState<string | null>(null)
   // Hook SFX: play once at T=0 when user manually starts playback.
   const [hookOnPlay, setHookOnPlay] = useState(true)
-  // Image scrim opacity — controls the dark gradient over the photo (top +
-  // bottom). Default 0.55 was 0.86 before: user asked for a less-heavy veil.
-  const [scrimOpacity, setScrimOpacity] = useState(0.55)
+  // Image scrim opacity — two axes, independent. Vertical is the top+bottom
+  // darkening (blends photo into the subtitle panel). Horizontal is a
+  // left+right vignette (helps center-frame the subject on wide-crop photos).
+  const [scrimV, setScrimV] = useState(1.0)
+  const [scrimH, setScrimH] = useState(0.0)
 
   // Dynamic timing
   const [cues, setCues] = useState<Cues>(DEFAULT_CUES)
@@ -1088,7 +1094,7 @@ export function NewPage() {
           frameCtx, t, activeData, theme, exportCues, exportEnd, img,
           { icon: logoIcon, wordmark: logoWordmark },
           effectiveTint ? buildTintedBg(effectiveTint) : null,
-          scrimOpacity,
+          scrimV, scrimH,
         ),
         onProgress: (ratio, note) => {
           setExpProgress(ratio)
@@ -1112,7 +1118,7 @@ export function NewPage() {
     } finally {
       setExporting(false)
     }
-  }, [bakeAudio, prepareSchedule, bakeFullAudio, activeData, theme, cues, endTime, data.id, stopPreview, effectiveTint, scrimOpacity])
+  }, [bakeAudio, prepareSchedule, bakeFullAudio, activeData, theme, cues, endTime, data.id, stopPreview, effectiveTint, scrimV, scrimH])
 
   const stageWidth = useMemo(() => 1080 * scale, [scale])
   const stageHeight = useMemo(() => 1920 * scale, [scale])
@@ -1194,7 +1200,7 @@ export function NewPage() {
                 boxShadow: '0 30px 80px rgba(0,0,0,.6)', borderRadius: 24, overflow: 'hidden',
               }}
             >
-              <Stage T={T} theme={theme} data={activeData} cues={cues} endTime={endTime} bgTint={effectiveTint} scrim={scrimOpacity} />
+              <Stage T={T} theme={theme} data={activeData} cues={cues} endTime={endTime} bgTint={effectiveTint} scrimV={scrimV} scrimH={scrimH} />
             </div>
           </div>
         </div>
@@ -1238,16 +1244,29 @@ export function NewPage() {
           </label>
           <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,.7)', marginBottom: 4 }}>
-              <span>Image dark scrim</span><span style={{ fontFamily: 'ui-monospace,monospace' }}>{Math.round(scrimOpacity * 100)}%</span>
+              <span>Vertical scrim (top ↔ bottom)</span>
+              <span style={{ fontFamily: 'ui-monospace,monospace' }}>{Math.round(scrimV * 100)}%</span>
             </div>
             <input
-              type="range" min={0} max={1} step={0.01} value={scrimOpacity}
-              onChange={e => setScrimOpacity(parseFloat(e.target.value))}
+              type="range" min={0} max={1} step={0.01} value={scrimV}
+              onChange={e => setScrimV(parseFloat(e.target.value))}
+              disabled={exporting}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,.7)', marginBottom: 4 }}>
+              <span>Horizontal scrim (left ↔ right)</span>
+              <span style={{ fontFamily: 'ui-monospace,monospace' }}>{Math.round(scrimH * 100)}%</span>
+            </div>
+            <input
+              type="range" min={0} max={1} step={0.01} value={scrimH}
+              onChange={e => setScrimH(parseFloat(e.target.value))}
               disabled={exporting}
               style={{ width: '100%' }}
             />
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', marginTop: 4, lineHeight: 1.4 }}>
-              0% = fully transparent (raw photo). Applies to preview + exported MP4.
+              0% = raw photo edge. Applies to preview + exported MP4.
             </div>
           </div>
         </div>

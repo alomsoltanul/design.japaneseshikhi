@@ -192,7 +192,7 @@ export interface BrandLogos { icon: HTMLImageElement | null; wordmark: HTMLImage
 /** Tinted-bg override — matches what NewPage.tsx computes for the DOM stage. */
 export interface BgTint { seam: string; stops: [string, string, string] }
 
-function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData, t: Theme, img: HTMLImageElement | null, endTime: number, wordDim: number, pulse: number, logos?: BrandLogos, scrim: number = 0.86) {
+function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData, t: Theme, img: HTMLImageElement | null, endTime: number, wordDim: number, pulse: number, logos?: BrandLogos, scrimV: number = 0.86, scrimH: number = 0) {
   ctx.save()
   // clip to top 60%
   ctx.beginPath(); ctx.rect(0, 0, 1080, 1150); ctx.clip()
@@ -216,10 +216,10 @@ function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData
     ctx.drawImage(img, dx, dy, dW, dH)
   }
 
-  // seam scrim gradient — top alpha scales at ~0.64x the bottom so text
-  // pills at the top stay readable while the bottom transitions into seam.
-  const topAlpha = Math.max(0, Math.min(1, scrim * 0.64))
-  const botAlpha = Math.max(0, Math.min(1, scrim))
+  // Vertical scrim — top alpha scales at ~0.64x the bottom so header pills
+  // stay legible while the bottom fades into the seam.
+  const topAlpha = Math.max(0, Math.min(1, scrimV * 0.64))
+  const botAlpha = Math.max(0, Math.min(1, scrimV))
   const scrimGrad = ctx.createLinearGradient(0, 0, 0, 1150)
   scrimGrad.addColorStop(0.00, `rgba(10,12,24,${topAlpha})`)
   scrimGrad.addColorStop(0.26, 'rgba(10,12,24,0)')
@@ -228,6 +228,18 @@ function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData
   scrimGrad.addColorStop(1.00, t.seam)
   ctx.fillStyle = scrimGrad
   ctx.fillRect(0, 0, 1080, 1150)
+
+  // Horizontal scrim — left+right edge vignette. Only draw when > 0.
+  if (scrimH > 0.001) {
+    const hA = Math.max(0, Math.min(1, scrimH))
+    const hGrad = ctx.createLinearGradient(0, 0, 1080, 0)
+    hGrad.addColorStop(0.00, `rgba(10,12,24,${hA})`)
+    hGrad.addColorStop(0.22, 'rgba(10,12,24,0)')
+    hGrad.addColorStop(0.78, 'rgba(10,12,24,0)')
+    hGrad.addColorStop(1.00, `rgba(10,12,24,${hA})`)
+    ctx.fillStyle = hGrad
+    ctx.fillRect(0, 0, 1080, 1150)
+  }
 
   // Level pill + 今日のことば (top-left)
   const enterL = enter(T, 0.15, 0.5)
@@ -657,7 +669,8 @@ export function renderFrame(
   img: HTMLImageElement | null,
   logos?: BrandLogos,
   bgTint?: BgTint | null,
-  scrim: number = 0.55,
+  scrimV: number = 1.0,
+  scrimH: number = 0,
 ) {
   const baseTheme = THEMES[themeKey]
   // Auto-tint override: swap seam + bgStops so the subtitle panel inherits
@@ -674,7 +687,7 @@ export function renderFrame(
   const speaking = (T >= cues.Word + 0.3 && T < cues.KaiwaA - 0.1)
   const pulse = speaking ? 1 + 0.03 * Math.sin((T - (cues.Word + 0.3)) * 7) : 1
 
-  drawImagePanel(ctx, T, data, t, img, endTime, wordDim, pulse, logos, scrim)
+  drawImagePanel(ctx, T, data, t, img, endTime, wordDim, pulse, logos, scrimV, scrimH)
   drawSubtitlePanel(ctx, T, data, t, cues)
   drawOutro(ctx, T, data, cues, logos)
 
