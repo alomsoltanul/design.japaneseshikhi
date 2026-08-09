@@ -21,9 +21,14 @@ const NAVY = '#1D3557'
 
 // ── Cues (defaults from handoff; extended dynamically once TTS synthed) ─
 interface Cues { Hook: number; Word: number; KaiwaA: number; KaiwaB: number; Explain: number; Replay: number; Outro: number }
-const DEFAULT_CUES: Cues = { Hook: 0, Word: 3.6, KaiwaA: 8.0, KaiwaB: 11.8, Explain: 15.2, Replay: 19.4, Outro: 22.4 }
-const DEFAULT_END = 25.0
+// Hook extended to 5s so the opener SFX (woosh) can breathe before speakers.
+const DEFAULT_CUES: Cues = { Hook: 0, Word: 5.0, KaiwaA: 9.4, KaiwaB: 13.2, Explain: 16.6, Replay: 20.8, Outro: 23.8 }
+const DEFAULT_END = 26.4
 const OUTRO_LEN = 2.6
+const HOOK_LEN = 5.0
+const HOOK_SFX_URL = '/sounds/woosh.mp3'
+const LOGO_ICON_URL = '/assets/manabi/logo-1.png'
+const LOGO_WORDMARK_URL = '/assets/manabi/logo-2.png'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type ThemeKey = 'indigo' | 'navy' | 'crimson' | 'forest' | 'paper' | 'black'
@@ -74,7 +79,7 @@ const DEFAULT_REEL: ReelData = {
     en_b: 'で marks where an action happens: 田んぼで見つけた = found it at the rice field.',
     bn_a: '田 মানে উপর থেকে দেখা ক্ষেত — ভেতরের লাইনগুলো পানির নালা।',
   },
-  cta: { handle: '@japaneseshikhi', line: 'One Japanese word a day, explained in Bangla.' },
+  cta: { handle: '@japanesemanabi', line: 'One Japanese word a day, explained in Bangla.' },
 }
 
 const SAMPLE_JSON = JSON.stringify(DEFAULT_REEL, null, 2)
@@ -90,7 +95,7 @@ Requirements:
 - "word.gloss": one-line English definition, under 90 chars
 - "kaiwa": exactly TWO entries, A (Friend) + B (Reply), each JP sentence under 24 chars
 - "explanation.en_a" + "en_b": two short lines; keep each under 120 chars
-- "cta.handle": "@japaneseshikhi"
+- "cta.handle": "@japanesemanabi"
 - "cta.line": one warm brand line, under 70 chars
 
 Schema (this is the current default reel — replace values, keep structure identical):
@@ -242,9 +247,9 @@ function Stage({ T, theme, data, cues, endTime }: {
           <span style={{ padding: '10px 20px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 26, fontWeight: 700, letterSpacing: '.06em' }}>{data.level}</span>
           <span style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(8px)', color: '#fff', fontSize: 24, fontWeight: 600, fontFamily: FJP }}>今日のことば</span>
         </div>
-        <div style={{ position: 'absolute', top: 44, right: 44, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 18px 10px 12px', borderRadius: 999, background: 'rgba(10,12,24,.5)', backdropFilter: 'blur(8px)', ...enter(T, 0.25, 0.5) }}>
-          <span style={{ width: 40, height: 40, borderRadius: 999, background: BRAND, color: '#fff', fontSize: 22, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FJP }}>日</span>
-          <span style={{ color: '#fff', fontSize: 22, fontWeight: 600 }}>Japanese Shikhi</span>
+        <div style={{ position: 'absolute', top: 44, right: 44, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px 10px 14px', borderRadius: 999, background: '#FCF2D9', boxShadow: '0 6px 22px rgba(0,0,0,.35)', ...enter(T, 0.25, 0.5) }}>
+          <img src={LOGO_ICON_URL} alt="" crossOrigin="anonymous" style={{ width: 46, height: 36, objectFit: 'contain' }} />
+          <span style={{ color: NAVY, fontSize: 22, fontWeight: 700, letterSpacing: '.01em' }}>Japanese Manabi</span>
         </div>
 
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 74, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, opacity: wordDim }}>
@@ -337,10 +342,11 @@ function Stage({ T, theme, data, cues, endTime }: {
         background: 'linear-gradient(160deg,#0a0c18,#14102a)', opacity: outro,
         transform: `scale(${(0.98 + 0.02 * outro).toFixed(3)})`, pointerEvents: 'none',
       }}>
-        <div style={{ width: 150, height: 150, borderRadius: 999, background: BRAND, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FJP, fontSize: 74, fontWeight: 900, marginBottom: 44 }}>日</div>
-        <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 82, color: '#fff', lineHeight: 1.1, textAlign: 'center' }}>Japanese <span style={{ color: AMBER }}>Shikhi</span></div>
-        <div style={{ fontSize: 36, color: 'rgba(255,255,255,.6)', marginTop: 22, textAlign: 'center', maxWidth: 760 }}>{data.cta.line}</div>
-        <div style={{ marginTop: 52, padding: '22px 46px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 38, fontWeight: 700 }}>{data.cta.handle}</div>
+        <div style={{ padding: '40px 56px', borderRadius: 32, background: '#FCF2D9', boxShadow: '0 30px 80px rgba(0,0,0,.5)', marginBottom: 44 }}>
+          <img src={LOGO_WORDMARK_URL} alt="Japanese Manabi" crossOrigin="anonymous" style={{ width: 640, height: 300, objectFit: 'contain', display: 'block' }} />
+        </div>
+        <div style={{ fontSize: 36, color: 'rgba(255,255,255,.7)', marginTop: 4, textAlign: 'center', maxWidth: 760 }}>{data.cta.line}</div>
+        <div style={{ marginTop: 40, padding: '22px 46px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 38, fontWeight: 700 }}>{data.cta.handle}</div>
       </div>
 
       <div style={{ position: 'absolute', top: 0, left: 0, height: 8, width: 1080, background: 'rgba(255,255,255,.14)' }} />
@@ -383,7 +389,7 @@ function computeDynamicCues(
   const english = dur('english', 4.0)
   const rWord = dur('replay-word', word1), rSent = dur('replay-sentence', kaiwaA)
 
-  const hookLen = 3.6
+  const hookLen = HOOK_LEN
   const wordPhase = Math.max(4.4, 0.3 + word1 + tailGap + word2 + tailGap)
   const kaiwaAPhase = Math.max(3.8, 0.2 + kaiwaA + tailGap)
   const kaiwaBPhase = Math.max(3.4, 0.2 + kaiwaB + tailGap)
@@ -466,11 +472,28 @@ export function NewPage() {
   const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map())
   const durationRef = useRef<Map<string, number>>(new Map())
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([])
+  const hookSfxRef = useRef<AudioBuffer | null>(null)
 
   const getAudioCtx = useCallback(() => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
     return audioCtxRef.current
   }, [])
+
+  const getHookSfx = useCallback(async (): Promise<AudioBuffer | null> => {
+    if (hookSfxRef.current) return hookSfxRef.current
+    try {
+      const res = await fetch(HOOK_SFX_URL)
+      if (!res.ok) throw new Error(`hook sfx ${res.status}`)
+      const arr = await res.arrayBuffer()
+      const ctx = getAudioCtx()
+      const buf = await ctx.decodeAudioData(arr.slice(0))
+      hookSfxRef.current = buf
+      return buf
+    } catch (e) {
+      console.warn('hook sfx load failed', e)
+      return null
+    }
+  }, [getAudioCtx])
 
   const activeData: ReelData = useMemo(() => (
     imgOverride ? { ...data, image: { ...data.image, src: imgOverride } } : data
@@ -652,6 +675,13 @@ export function NewPage() {
       if (ctx.state === 'suspended') await ctx.resume()
       const t0 = ctx.currentTime + 0.15
       const nodes: AudioBufferSourceNode[] = []
+      // Opener SFX at T=0 with reduced gain.
+      const hook = await getHookSfx()
+      if (hook) {
+        const g = ctx.createGain(); g.gain.value = 0.75; g.connect(ctx.destination)
+        const s = ctx.createBufferSource(); s.buffer = hook; s.connect(g); s.start(t0)
+        nodes.push(s)
+      }
       lineSpecs.forEach(spec => {
         const buf = bufs.get(spec.key)
         const start = starts.get(spec.key)
@@ -677,14 +707,27 @@ export function NewPage() {
       setTtsError(e?.message || String(e))
       setPreviewingKey(null)
     }
-  }, [prepareSchedule, lineSpecs, getAudioCtx, stopPreview])
+  }, [prepareSchedule, lineSpecs, getAudioCtx, stopPreview, getHookSfx])
 
-  /** Bake full audio track using computed schedule + OfflineAudioContext. */
+  /** Bake full audio track using computed schedule + OfflineAudioContext.
+   *  Also mixes the hook SFX (woosh) at T=0 with reduced gain so the opener
+   *  builds tension before speakers arrive at Word (~5s).
+   */
   const bakeFullAudio = useCallback(async (
     schedule: { bufs: Map<string, AudioBuffer>; starts: Map<string, number>; end: number },
   ): Promise<AudioBuffer> => {
     const sampleRate = 48000
     const oac = new OfflineAudioContext(2, Math.ceil(schedule.end * sampleRate), sampleRate)
+    const hook = await getHookSfx()
+    if (hook) {
+      const gain = oac.createGain()
+      gain.gain.value = 0.75
+      gain.connect(oac.destination)
+      const src = oac.createBufferSource()
+      src.buffer = hook
+      src.connect(gain)
+      src.start(0)
+    }
     for (const spec of lineSpecs) {
       const buf = schedule.bufs.get(spec.key)
       const start = schedule.starts.get(spec.key)
@@ -695,7 +738,7 @@ export function NewPage() {
       src.start(start)
     }
     return oac.startRendering()
-  }, [lineSpecs])
+  }, [lineSpecs, getHookSfx])
 
   /**
    * FAST export via pure canvas 2D renderer + shared WebCodecs encoder.
@@ -734,14 +777,14 @@ export function NewPage() {
       }
     }
 
-    // 2) Preload image (may be dataURL or /assets path)
+    // 2) Preload image (may be dataURL or /assets path) + brand logos.
     setExpStatus('Loading image…')
     let img: HTMLImageElement | null = null
-    try {
-      img = await loadImage(activeData.image.src)
-    } catch (e) {
-      console.warn('image load failed, using fallback bg', e)
-    }
+    let logoIcon: HTMLImageElement | null = null
+    let logoWordmark: HTMLImageElement | null = null
+    try { img = await loadImage(activeData.image.src) } catch (e) { console.warn('image load failed, using fallback bg', e) }
+    try { logoIcon = await loadImage(LOGO_ICON_URL) } catch (e) { console.warn('logo-1 load failed', e) }
+    try { logoWordmark = await loadImage(LOGO_WORDMARK_URL) } catch (e) { console.warn('logo-2 load failed', e) }
 
     // 3) Encoder wants an AudioBuffer — synthesize silence if we skipped TTS.
     if (!audioBuf) {
@@ -758,7 +801,7 @@ export function NewPage() {
         fps,
         durationSec: exportEnd,
         audio: audioBuf,
-        draw: (frameCtx, t) => renderCanvasFrame(frameCtx, t, activeData, theme, exportCues, exportEnd, img),
+        draw: (frameCtx, t) => renderCanvasFrame(frameCtx, t, activeData, theme, exportCues, exportEnd, img, { icon: logoIcon, wordmark: logoWordmark }),
         onProgress: (ratio, note) => {
           setExpProgress(ratio)
           if (note) setExpStatus(note)

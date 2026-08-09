@@ -164,7 +164,9 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 // ── Region drawers ───────────────────────────────────────────────────────
-function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData, t: Theme, img: HTMLImageElement | null, endTime: number, wordDim: number, pulse: number) {
+export interface BrandLogos { icon: HTMLImageElement | null; wordmark: HTMLImageElement | null }
+
+function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData, t: Theme, img: HTMLImageElement | null, endTime: number, wordDim: number, pulse: number, logos?: BrandLogos) {
   ctx.save()
   // clip to top 60%
   ctx.beginPath(); ctx.rect(0, 0, 1080, 1150); ctx.clip()
@@ -209,37 +211,43 @@ function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData
   drawPill(ctx, lx, 44, '今日のことば', { bg: 'rgba(255,255,255,.14)', fg: '#fff', font: `600 24px ${FJP}` })
   ctx.restore()
 
-  // Brand pill (top-right) — red circle + text
+  // Brand pill (top-right) — cream plate + logo icon + "Japanese Manabi"
   const enterR = enter(T, 0.25, 0.5)
   ctx.save()
   ctx.globalAlpha = enterR.alpha
   ctx.translate(0, enterR.ty)
-  ctx.font = `600 22px ${FUI}`
-  const brandText = 'Japanese Shikhi'
+  ctx.font = `700 22px ${FUI}`
+  const brandText = 'Japanese Manabi'
   const brandTextW = ctx.measureText(brandText).width
-  const brandPadL = 12, brandPadR = 18, brandPadY = 10
-  const brandCircle = 40, brandGap = 12
-  const brandW = brandPadL + brandCircle + brandGap + brandTextW + brandPadR
-  const brandH = brandCircle + brandPadY * 2
+  const brandPadL = 14, brandPadR = 20, brandPadY = 10
+  const iconW = 46, iconH = 36, brandGap = 12
+  const contentH = Math.max(iconH, 22)
+  const brandW = brandPadL + iconW + brandGap + brandTextW + brandPadR
+  const brandH = contentH + brandPadY * 2
   const brandX = 1080 - 44 - brandW
   const brandY = 44
-  ctx.fillStyle = 'rgba(10,12,24,.5)'
+  // subtle drop shadow
+  ctx.save()
+  ctx.shadowColor = 'rgba(0,0,0,.35)'
+  ctx.shadowBlur = 22
+  ctx.shadowOffsetY = 6
+  ctx.fillStyle = '#FCF2D9'
   roundRect(ctx, brandX, brandY, brandW, brandH, 999)
   ctx.fill()
-  // red circle
-  ctx.fillStyle = BRAND
-  ctx.beginPath()
-  ctx.arc(brandX + brandPadL + brandCircle / 2, brandY + brandH / 2, brandCircle / 2, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = '#fff'
-  ctx.font = `700 22px ${FJP}`
+  ctx.restore()
+  if (logos?.icon) {
+    ctx.drawImage(logos.icon, brandX + brandPadL, brandY + (brandH - iconH) / 2, iconW, iconH)
+  } else {
+    ctx.fillStyle = BRAND
+    ctx.beginPath()
+    ctx.arc(brandX + brandPadL + iconW / 2, brandY + brandH / 2, iconH / 2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.fillStyle = NAVY
+  ctx.font = `700 22px ${FUI}`
   ctx.textBaseline = 'middle'
-  ctx.textAlign = 'center'
-  ctx.fillText('日', brandX + brandPadL + brandCircle / 2, brandY + brandH / 2 + 1)
-  ctx.fillStyle = '#fff'
-  ctx.font = `600 22px ${FUI}`
   ctx.textAlign = 'left'
-  ctx.fillText(brandText, brandX + brandPadL + brandCircle + brandGap, brandY + brandH / 2 + 1)
+  ctx.fillText(brandText, brandX + brandPadL + iconW + brandGap, brandY + brandH / 2 + 1)
   ctx.restore()
 
   // Word block (bottom of panel)
@@ -536,7 +544,7 @@ function drawBandR(ctx: CanvasRenderingContext2D, T: number, data: ReelData, t: 
   })
 }
 
-function drawOutro(ctx: CanvasRenderingContext2D, T: number, data: ReelData, cues: Cues) {
+function drawOutro(ctx: CanvasRenderingContext2D, T: number, data: ReelData, cues: Cues, logos?: BrandLogos) {
   const outro = easeOutCubic(clamp((T - cues.Outro) / 0.6, 0, 1))
   if (outro <= 0.001) return
   ctx.save()
@@ -553,39 +561,43 @@ function drawOutro(ctx: CanvasRenderingContext2D, T: number, data: ReelData, cue
   ctx.fillStyle = g
   ctx.fillRect(0, 0, 1080, 1920)
 
-  // Red circle + 日
   const cx = 1080 / 2, cy = 1920 / 2
-  const circleR = 75
-  const circleTop = cy - 260
-  ctx.fillStyle = BRAND
-  ctx.beginPath()
-  ctx.arc(cx, circleTop, circleR, 0, Math.PI * 2)
+
+  // Cream plate with logo wordmark. Fallback to Japanese Manabi serif text
+  // if wordmark image isn't loaded.
+  const plateW = 760, plateH = 380
+  const plateX = cx - plateW / 2, plateY = cy - 320
+  ctx.save()
+  ctx.shadowColor = 'rgba(0,0,0,.5)'
+  ctx.shadowBlur = 40
+  ctx.shadowOffsetY = 20
+  ctx.fillStyle = '#FCF2D9'
+  roundRect(ctx, plateX, plateY, plateW, plateH, 32)
   ctx.fill()
-  ctx.fillStyle = '#fff'
-  ctx.font = `900 74px ${FJP}`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText('日', cx, circleTop + 3)
+  ctx.restore()
 
-  // Wordmark
-  ctx.font = `400 82px ${FSERIF}`
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = '#fff'
-  const jsText = 'Japanese '
-  const jsW = ctx.measureText(jsText).width
-  const shikhiText = 'Shikhi'
-  const shikhiW = ctx.measureText(shikhiText).width
-  const totalW = jsW + shikhiW
-  ctx.fillText(jsText, cx - totalW / 2, cy - 40)
-  ctx.fillStyle = AMBER
-  ctx.fillText(shikhiText, cx - totalW / 2 + jsW, cy - 40)
+  if (logos?.wordmark) {
+    const wm = logos.wordmark
+    const padX = 56, padY = 40
+    const boxW = plateW - padX * 2, boxH = plateH - padY * 2
+    const s = Math.min(boxW / wm.naturalWidth, boxH / wm.naturalHeight)
+    const dw = wm.naturalWidth * s, dh = wm.naturalHeight * s
+    ctx.drawImage(wm, plateX + (plateW - dw) / 2, plateY + (plateH - dh) / 2, dw, dh)
+  } else {
+    ctx.fillStyle = NAVY
+    ctx.font = `400 82px ${FSERIF}`
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+    ctx.fillText('Japanese Manabi', cx, plateY + plateH / 2)
+  }
 
-  // Line
-  ctx.fillStyle = 'rgba(255,255,255,.6)'
+  // CTA line
+  ctx.fillStyle = 'rgba(255,255,255,.7)'
   ctx.font = `400 36px ${FUI}`
   const lineLines = wrapWords(ctx, data.cta.line, 760)
-  let ly = cy + 30
-  for (const line of lineLines) { ctx.textAlign = 'center'; ctx.fillText(line, cx, ly); ly += 44 }
+  let ly = plateY + plateH + 70
+  ctx.textAlign = 'center'
+  for (const line of lineLines) { ctx.fillText(line, cx, ly); ly += 44 }
 
   // Handle pill (red)
   ctx.font = `700 38px ${FUI}`
@@ -593,7 +605,7 @@ function drawOutro(ctx: CanvasRenderingContext2D, T: number, data: ReelData, cue
   const pillW = handleTextW + 92
   const pillH = 38 + 44
   const pillX = cx - pillW / 2
-  const pillY = ly + 22
+  const pillY = ly + 30
   ctx.fillStyle = BRAND
   roundRect(ctx, pillX, pillY, pillW, pillH, 999)
   ctx.fill()
@@ -618,6 +630,7 @@ export function renderFrame(
   cues: Cues,
   endTime: number,
   img: HTMLImageElement | null,
+  logos?: BrandLogos,
 ) {
   const t = THEMES[themeKey]
   // seam background covers everything (image scrim bottom + subtitle panel bg
@@ -629,9 +642,9 @@ export function renderFrame(
   const speaking = (T >= cues.Word + 0.3 && T < cues.KaiwaA - 0.1)
   const pulse = speaking ? 1 + 0.03 * Math.sin((T - (cues.Word + 0.3)) * 7) : 1
 
-  drawImagePanel(ctx, T, data, t, img, endTime, wordDim, pulse)
+  drawImagePanel(ctx, T, data, t, img, endTime, wordDim, pulse, logos)
   drawSubtitlePanel(ctx, T, data, t, cues)
-  drawOutro(ctx, T, data, cues)
+  drawOutro(ctx, T, data, cues, logos)
 
   // Progress hairline (top 8px)
   ctx.fillStyle = 'rgba(255,255,255,.14)'
