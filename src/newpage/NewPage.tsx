@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AZURE_VOICES, synthesizeAzure } from '@/listening/azure'
 import {
-  DEFAULT_MONTHLY_QUOTA, getAzureUsage, resetAzureUsage, setAzureQuota,
+  getAzureUsage, resetAzureUsage, setAzureQuota,
   fetchAzureLiveUsage,
   type AzureUsageState, type AzureUsageResponse,
 } from '@/listening/azureUsage'
@@ -662,7 +662,7 @@ function AzureUsagePanel({ usage, onChange, disabled }: {
         </div>
       )}
       <div style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', marginTop: 8, lineHeight: 1.5 }}>
-        Default quota {DEFAULT_MONTHLY_QUOTA.toLocaleString()} = F0 free tier. Live source refreshes every ~60s (Azure caches metrics briefly).
+        Chars are only spent when you click <b>Preview all</b> or <b>Export MP4</b> (with "Bake TTS audio" checked). A refresh alone doesn't call Azure — the number above is the month-to-date total already recorded by Azure Monitor.
       </div>
     </div>
   )
@@ -675,7 +675,9 @@ export function NewPage() {
   const [jsonDraft, setJsonDraft] = useState(SAMPLE_JSON)
   const [jsonError, setJsonError] = useState('')
   const [imgOverride, setImgOverride] = useState<string | null>(null)
-  const [playing, setPlaying] = useState(true)
+  // Start paused so a page refresh never auto-runs the animation (and so no
+  // one confuses playback with anything that could hit Azure).
+  const [playing, setPlaying] = useState(false)
   const [T, setT] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -720,6 +722,11 @@ export function NewPage() {
   const durationRef = useRef<Map<string, number>>(new Map())
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([])
   const sfxCacheRef = useRef<Map<string, AudioBuffer>>(new Map())
+  // Belt-and-suspenders: only user-initiated flows (previewLine, previewAll,
+  // exportMp4) flip this true before calling synthLine. Any accidental
+  // background call — a future effect, a stray remount — will throw instead
+  // of silently burning Azure chars.
+  const userIntentRef = useRef(false)
 
   const getAudioCtx = useCallback(() => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
@@ -881,6 +888,10 @@ export function NewPage() {
     const cacheKey = `${providerTag}:${spec.role}:${voiceLabel}:${spec.text}`
     const cached = bufferCacheRef.current.get(cacheKey)
     if (cached) return cached
+    // Refuse to burn Azure chars unless a user click set the intent flag.
+    if (useAzure && !userIntentRef.current) {
+      throw new Error('TTS synth blocked — click Preview all / preview line / Export first.')
+    }
 
     const ctx = getAudioCtx()
     let buf: AudioBuffer
@@ -903,6 +914,7 @@ export function NewPage() {
   }, [])
 
   const previewLine = useCallback(async (spec: LineSpec) => {
+    userIntentRef.current = true
     setTtsError('')
     stopPreview()
     setPreviewingKey(spec.key)
@@ -948,6 +960,7 @@ export function NewPage() {
   }, [lineSpecs, synthLine, tailGap, getHookSfx])
 
   const previewAll = useCallback(async () => {
+    userIntentRef.current = true
     setTtsError('')
     stopPreview()
     setPreviewingKey('prewarm')
@@ -1039,6 +1052,7 @@ export function NewPage() {
       alert('MP4 export requires WebCodecs — use Chrome/Edge/Safari 17+.')
       return
     }
+    userIntentRef.current = true
     stopPreview()
     setPlaying(false)
     setExporting(true)
