@@ -35,6 +35,59 @@ const HOOK_SFX_URL = '/sounds/woosh.mp3'
 const LOGO_ICON_URL = '/assets/manabi/logo-1.png'
 const LOGO_WORDMARK_URL = '/assets/manabi/logo-2.png'
 
+/**
+ * Sample the bottom edge of an image and return the dominant color as hex.
+ * Used to auto-tint the subtitle panel so it blends into the photo above.
+ * Returns null on CORS / load failure — caller should fall back to theme.
+ */
+function sampleImageBottomColor(src: string): Promise<string | null> {
+  return new Promise(resolve => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onerror = () => resolve(null)
+    img.onload = () => {
+      try {
+        const w = 64, h = 64
+        const c = document.createElement('canvas')
+        c.width = w; c.height = h
+        const ctx = c.getContext('2d')
+        if (!ctx) { resolve(null); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        // Sample bottom 18% rows.
+        const yStart = Math.floor(h * 0.82)
+        const data = ctx.getImageData(0, yStart, w, h - yStart).data
+        let r = 0, g = 0, b = 0, n = 0
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 128) continue
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; n++
+        }
+        if (!n) { resolve(null); return }
+        const rr = Math.round(r / n), gg = Math.round(g / n), bb = Math.round(b / n)
+        resolve(`#${rr.toString(16).padStart(2, '0')}${gg.toString(16).padStart(2, '0')}${bb.toString(16).padStart(2, '0')}`)
+      } catch { resolve(null) }
+    }
+    img.src = src
+  })
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex)
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff }
+}
+function darken(hex: string, amt: number): string {
+  const c = hexToRgb(hex); if (!c) return hex
+  const f = 1 - amt
+  const r = Math.max(0, Math.round(c.r * f))
+  const g = Math.max(0, Math.round(c.g * f))
+  const b = Math.max(0, Math.round(c.b * f))
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
+export function buildTintedBg(tint: string): { seam: string; stops: [string, string, string] } {
+  return { seam: tint, stops: [tint, darken(tint, 0.35), darken(tint, 0.6)] }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────
 type ThemeKey = 'indigo' | 'navy' | 'crimson' | 'forest' | 'paper' | 'black'
 type Provider = 'azure' | 'voicevox'
@@ -200,10 +253,23 @@ function Eq({ on, color }: { on: boolean; color: string }) {
 }
 
 // ── Stage — pure function of T + data + theme + cues + endTime ──────────
-function Stage({ T, theme, data, cues, endTime }: {
+function Stage({ T, theme, data, cues, endTime, bgTint }: {
   T: number; theme: ThemeKey; data: ReelData; cues: Cues; endTime: number
+  bgTint?: string | null
 }) {
-  const t = THEMES[theme]
+  const baseTheme = THEMES[theme]
+  // If a bgTint is provided (auto-sampled from image), override seam + bg
+  // so the subtitle panel picks up the image's bottom color and reads as one
+  // continuous surface. All other theme tokens (fg, accent, chips) stay.
+  const t = useMemo<Theme>(() => {
+    if (!bgTint) return baseTheme
+    const tinted = buildTintedBg(bgTint)
+    return {
+      ...baseTheme,
+      seam: tinted.seam,
+      bg: `linear-gradient(160deg,${tinted.stops[0]} 0%,${tinted.stops[1]} 55%,${tinted.stops[2]} 100%)`,
+    }
+  }, [baseTheme, bgTint])
   const k1 = data.kaiwa[0], k2 = data.kaiwa[1] || data.kaiwa[0]
 
   const AUDIO = [
@@ -608,6 +674,11 @@ export function NewPage() {
   const [expStatus, setExpStatus] = useState('')
   const [copiedMsg, setCopiedMsg] = useState('')
   const [azureUsage, setAzureUsageState] = useState<AzureUsageState>(() => getAzureUsage())
+  // Auto-tinting: sampled dominant color from the image's bottom edge.
+  const [autoTint, setAutoTint] = useState(true)
+  const [sampledTint, setSampledTint] = useState<string | null>(null)
+  // Hook SFX: play once at T=0 when user manually starts playback.
+  const [hookOnPlay, setHookOnPlay] = useState(true)
 
   // Dynamic timing
   const [cues, setCues] = useState<Cues>(DEFAULT_CUES)
@@ -660,6 +731,20 @@ export function NewPage() {
   ), [data, imgOverride])
 
   const lineSpecs = useMemo(() => buildLineSpecs(activeData), [activeData])
+
+  // Sample the image's bottom-edge dominant color so the subtitle panel below
+  // can inherit it (no more visible seam when the user's photo has a bg that
+  // clashes with the picked theme).
+  useEffect(() => {
+    let dead = false
+    setSampledTint(null)
+    sampleImageBottomColor(activeData.image.src).then(hex => {
+      if (!dead) setSampledTint(hex)
+    })
+    return () => { dead = true }
+  }, [activeData.image.src])
+
+  const effectiveTint = autoTint ? sampledTint : null
 
   // Live-sync Azure TTS quota panel — recordAzureUsage() fires this event
   // whenever /api/tts/azure succeeds, plus the `storage` event covers other
@@ -974,7 +1059,11 @@ export function NewPage() {
         fps,
         durationSec: exportEnd,
         audio: audioBuf,
-        draw: (frameCtx, t) => renderCanvasFrame(frameCtx, t, activeData, theme, exportCues, exportEnd, img, { icon: logoIcon, wordmark: logoWordmark }),
+        draw: (frameCtx, t) => renderCanvasFrame(
+          frameCtx, t, activeData, theme, exportCues, exportEnd, img,
+          { icon: logoIcon, wordmark: logoWordmark },
+          effectiveTint ? buildTintedBg(effectiveTint) : null,
+        ),
         onProgress: (ratio, note) => {
           setExpProgress(ratio)
           if (note) setExpStatus(note)
@@ -1019,7 +1108,28 @@ export function NewPage() {
       {/* Left: preview */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,.08)', flexWrap: 'wrap' }}>
-          <button onClick={() => setPlaying(p => !p)} disabled={exporting} style={{ ...btn, background: playing ? BRAND : 'rgba(255,255,255,.08)' }}>
+          <button
+            onClick={async () => {
+              const willPlay = !playing
+              setPlaying(willPlay)
+              // Fire hook SFX when user manually kicks off playback from the
+              // start — matches the exported video's opener. Silent on auto
+              // loop-back so the studio isn't noisy while iterating.
+              if (willPlay && hookOnPlay && T < 0.25) {
+                try {
+                  const buf = await getHookSfx()
+                  if (!buf) return
+                  const ctx = getAudioCtx()
+                  if (ctx.state === 'suspended') await ctx.resume()
+                  const gain = ctx.createGain(); gain.gain.value = 0.75; gain.connect(ctx.destination)
+                  const src = ctx.createBufferSource(); src.buffer = buf; src.connect(gain)
+                  src.start()
+                } catch { /* ignore — hook is best-effort */ }
+              }
+            }}
+            disabled={exporting}
+            style={{ ...btn, background: playing ? BRAND : 'rgba(255,255,255,.08)' }}
+          >
             {playing ? 'Pause' : 'Play'}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
@@ -1058,7 +1168,7 @@ export function NewPage() {
                 boxShadow: '0 30px 80px rgba(0,0,0,.6)', borderRadius: 24, overflow: 'hidden',
               }}
             >
-              <Stage T={T} theme={theme} data={activeData} cues={cues} endTime={endTime} />
+              <Stage T={T} theme={theme} data={activeData} cues={cues} endTime={endTime} bgTint={effectiveTint} />
             </div>
           </div>
         </div>
@@ -1086,6 +1196,20 @@ export function NewPage() {
               <button onClick={() => setImgOverride(null)} style={{ ...btn, padding: '4px 10px' }}>Clear</button>
             </div>
           )}
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.75)' }}>
+            <input
+              type="checkbox" checked={autoTint} onChange={e => setAutoTint(e.target.checked)} disabled={exporting}
+              id="auto-tint"
+            />
+            <label htmlFor="auto-tint" style={{ flex: 1, cursor: 'pointer' }}>Auto-tint lower panel from image</label>
+            {sampledTint && (
+              <span title={`Sampled ${sampledTint}`} style={{ width: 22, height: 22, borderRadius: 6, background: sampledTint, border: '1px solid rgba(255,255,255,.15)' }} />
+            )}
+          </div>
+          <label style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.75)' }}>
+            <input type="checkbox" checked={hookOnPlay} onChange={e => setHookOnPlay(e.target.checked)} disabled={exporting} />
+            Play hook SFX when I press Play (first 5s)
+          </label>
         </div>
 
         <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>

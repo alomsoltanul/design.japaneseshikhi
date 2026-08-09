@@ -189,6 +189,9 @@ export function tintedImage(img: HTMLImageElement, color: string): HTMLCanvasEle
 // ── Region drawers ───────────────────────────────────────────────────────
 export interface BrandLogos { icon: HTMLImageElement | null; wordmark: HTMLImageElement | null }
 
+/** Tinted-bg override — matches what NewPage.tsx computes for the DOM stage. */
+export interface BgTint { seam: string; stops: [string, string, string] }
+
 function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData, t: Theme, img: HTMLImageElement | null, endTime: number, wordDim: number, pulse: number, logos?: BrandLogos) {
   ctx.save()
   // clip to top 60%
@@ -650,8 +653,14 @@ export function renderFrame(
   endTime: number,
   img: HTMLImageElement | null,
   logos?: BrandLogos,
+  bgTint?: BgTint | null,
 ) {
-  const t = THEMES[themeKey]
+  const baseTheme = THEMES[themeKey]
+  // Auto-tint override: swap seam + bgStops so the subtitle panel inherits
+  // the image's dominant bottom color. Keeps all other theme tokens intact.
+  const t: Theme = bgTint
+    ? { ...baseTheme, seam: bgTint.seam, bgStops: bgTint.stops }
+    : baseTheme
   // seam background covers everything (image scrim bottom + subtitle panel bg
   // both build on top of this baseline).
   ctx.fillStyle = t.seam
