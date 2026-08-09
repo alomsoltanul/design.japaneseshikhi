@@ -469,14 +469,15 @@ function AzureUsagePanel({ usage, onChange, disabled }: {
   const liveCostAmt = liveConfigured ? live.cost?.cost ?? null : null
   const liveCurrency = liveConfigured ? live.cost?.currency ?? 'USD' : 'USD'
 
-  // Prefer Monitor's `SynthesizedCharacters`; fall back to cost quantity;
-  // then to the local counter if neither is available yet.
-  const effectiveUsed = liveChars ?? (liveCostQty != null ? Math.round(liveCostQty) : null) ?? usage.used
+  // Prefer Monitor's `SynthesizedCharacters` (real char count). Cost quantity
+  // is per-meter units (e.g. millions of chars) and can't be normalized to
+  // chars without MeterName/UnitOfMeasure — so it's shown as MTD spend only,
+  // not used as a char fallback. Fall back to the local counter instead.
+  const effectiveUsed = liveChars ?? usage.used
   const effectiveSource = liveChars != null
     ? 'Azure Monitor · SynthesizedCharacters'
-    : liveCostQty != null
-      ? 'Azure Cost Management · UsageQuantity'
-      : 'Local counter (fallback)'
+    : 'Local counter (Monitor unavailable)'
+  void liveCostQty
 
   const pct = usage.quota > 0 ? Math.min(100, (effectiveUsed / usage.quota) * 100) : 0
   const barColor = pct >= 95 ? '#ff5f6d' : pct >= 75 ? AMBER : TEAL
