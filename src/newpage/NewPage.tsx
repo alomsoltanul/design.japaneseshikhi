@@ -26,12 +26,18 @@ const NAVY = '#1D3557'
 
 // ── Cues (defaults from handoff; extended dynamically once TTS synthed) ─
 interface Cues { Hook: number; Word: number; KaiwaA: number; KaiwaB: number; Explain: number; Replay: number; Outro: number }
-// Hook extended to 5s so the opener SFX (woosh) can breathe before speakers.
-const DEFAULT_CUES: Cues = { Hook: 0, Word: 5.0, KaiwaA: 9.4, KaiwaB: 13.2, Explain: 16.6, Replay: 20.8, Outro: 23.8 }
-const DEFAULT_END = 26.4
+// Hook length is derived from the actual woosh SFX duration at runtime
+// (see HOOK_LEN_FALLBACK). These defaults assume ~1.2s hook so the initial
+// static preview doesn't stall on a big silent gap before "Preview all"
+// recomputes real cues.
+const DEFAULT_CUES: Cues = { Hook: 0, Word: 1.2, KaiwaA: 5.6, KaiwaB: 9.4, Explain: 12.8, Replay: 17.0, Outro: 20.0 }
+const DEFAULT_END = 22.6
 const OUTRO_LEN = 2.6
-const HOOK_LEN = 5.0
+const HOOK_LEN_FALLBACK = 1.2
 const HOOK_SFX_URL = '/sounds/woosh.mp3'
+const CTA_SFX_URL = '/sounds/end.mp3'
+// Small silence after each SFX so speech doesn't stomp the tail.
+const HOOK_TAIL_GAP = 0.4
 const LOGO_ICON_URL = '/assets/manabi/logo-1.png'
 const LOGO_WORDMARK_URL = '/assets/manabi/logo-2.png'
 
@@ -455,6 +461,7 @@ function buildLineSpecs(d: ReelData): LineSpec[] {
 function computeDynamicCues(
   durations: Map<string, number>,
   tailGap: number,
+  hookLen: number,
 ): { cues: Cues; end: number } {
   const dur = (k: string, fb: number) => durations.get(k) ?? fb
 
@@ -463,7 +470,6 @@ function computeDynamicCues(
   const english = dur('english', 4.0)
   const rWord = dur('replay-word', word1), rSent = dur('replay-sentence', kaiwaA)
 
-  const hookLen = HOOK_LEN
   const wordPhase = Math.max(4.4, 0.3 + word1 + tailGap + word2 + tailGap)
   const kaiwaAPhase = Math.max(3.8, 0.2 + kaiwaA + tailGap)
   const kaiwaBPhase = Math.max(3.4, 0.2 + kaiwaB + tailGap)
@@ -707,28 +713,32 @@ export function NewPage() {
   const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map())
   const durationRef = useRef<Map<string, number>>(new Map())
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([])
-  const hookSfxRef = useRef<AudioBuffer | null>(null)
+  const sfxCacheRef = useRef<Map<string, AudioBuffer>>(new Map())
 
   const getAudioCtx = useCallback(() => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
     return audioCtxRef.current
   }, [])
 
-  const getHookSfx = useCallback(async (): Promise<AudioBuffer | null> => {
-    if (hookSfxRef.current) return hookSfxRef.current
+  const loadSfx = useCallback(async (url: string): Promise<AudioBuffer | null> => {
+    const cached = sfxCacheRef.current.get(url)
+    if (cached) return cached
     try {
-      const res = await fetch(HOOK_SFX_URL)
-      if (!res.ok) throw new Error(`hook sfx ${res.status}`)
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`sfx ${url} ${res.status}`)
       const arr = await res.arrayBuffer()
       const ctx = getAudioCtx()
       const buf = await ctx.decodeAudioData(arr.slice(0))
-      hookSfxRef.current = buf
+      sfxCacheRef.current.set(url, buf)
       return buf
     } catch (e) {
-      console.warn('hook sfx load failed', e)
+      console.warn('sfx load failed', url, e)
       return null
     }
   }, [getAudioCtx])
+
+  const getHookSfx = useCallback(() => loadSfx(HOOK_SFX_URL), [loadSfx])
+  const getCtaSfx = useCallback(() => loadSfx(CTA_SFX_URL), [loadSfx])
 
   const activeData: ReelData = useMemo(() => (
     imgOverride ? { ...data, image: { ...data.image, src: imgOverride } } : data
@@ -909,10 +919,13 @@ export function NewPage() {
     }
   }, [synthLine, getAudioCtx, stopPreview])
 
-  /** Synth all lines, compute dynamic timings, return schedule map. */
+  /** Synth all lines, compute dynamic timings, return schedule map.
+   *  hookLen is derived from the actual woosh SFX duration so speech starts
+   *  right after the SFX tail (+ small silence pad) — no more 5s empty gap.
+   */
   const prepareSchedule = useCallback(async (
     onStatus?: (s: string) => void,
-  ): Promise<{ bufs: Map<string, AudioBuffer>; cues: Cues; end: number; starts: Map<string, number> }> => {
+  ): Promise<{ bufs: Map<string, AudioBuffer>; cues: Cues; end: number; starts: Map<string, number>; hookLen: number }> => {
     const bufs = new Map<string, AudioBuffer>()
     for (const spec of lineSpecs) {
       onStatus?.(`Synth ${spec.key}…`)
@@ -920,10 +933,13 @@ export function NewPage() {
     }
     const durs = new Map<string, number>()
     bufs.forEach((buf, key) => durs.set(key, buf.duration))
-    const { cues: newCues, end } = computeDynamicCues(durs, tailGap)
+    // Prewarm hook so we can size the hook phase to actual SFX length.
+    const hook = await getHookSfx()
+    const hookLen = hook ? hook.duration + HOOK_TAIL_GAP : HOOK_LEN_FALLBACK
+    const { cues: newCues, end } = computeDynamicCues(durs, tailGap, hookLen)
     const starts = computeLineStarts(lineSpecs, durs, newCues, tailGap)
-    return { bufs, cues: newCues, end, starts }
-  }, [lineSpecs, synthLine, tailGap])
+    return { bufs, cues: newCues, end, starts, hookLen }
+  }, [lineSpecs, synthLine, tailGap, getHookSfx])
 
   const previewAll = useCallback(async () => {
     setTtsError('')
@@ -937,11 +953,16 @@ export function NewPage() {
       if (ctx.state === 'suspended') await ctx.resume()
       const t0 = ctx.currentTime + 0.15
       const nodes: AudioBufferSourceNode[] = []
-      // Opener SFX at T=0 with reduced gain.
-      const hook = await getHookSfx()
+      // Opener SFX at T=0 + CTA SFX at outro cue, both with reduced gain.
+      const [hook, cta] = await Promise.all([getHookSfx(), getCtaSfx()])
       if (hook) {
         const g = ctx.createGain(); g.gain.value = 0.75; g.connect(ctx.destination)
         const s = ctx.createBufferSource(); s.buffer = hook; s.connect(g); s.start(t0)
+        nodes.push(s)
+      }
+      if (cta) {
+        const g = ctx.createGain(); g.gain.value = 0.7; g.connect(ctx.destination)
+        const s = ctx.createBufferSource(); s.buffer = cta; s.connect(g); s.start(t0 + newCues.Outro)
         nodes.push(s)
       }
       lineSpecs.forEach(spec => {
@@ -969,26 +990,26 @@ export function NewPage() {
       setTtsError(e?.message || String(e))
       setPreviewingKey(null)
     }
-  }, [prepareSchedule, lineSpecs, getAudioCtx, stopPreview, getHookSfx])
+  }, [prepareSchedule, lineSpecs, getAudioCtx, stopPreview, getHookSfx, getCtaSfx])
 
   /** Bake full audio track using computed schedule + OfflineAudioContext.
    *  Also mixes the hook SFX (woosh) at T=0 with reduced gain so the opener
    *  builds tension before speakers arrive at Word (~5s).
    */
   const bakeFullAudio = useCallback(async (
-    schedule: { bufs: Map<string, AudioBuffer>; starts: Map<string, number>; end: number },
+    schedule: { bufs: Map<string, AudioBuffer>; starts: Map<string, number>; end: number; cues: Cues },
   ): Promise<AudioBuffer> => {
     const sampleRate = 48000
     const oac = new OfflineAudioContext(2, Math.ceil(schedule.end * sampleRate), sampleRate)
-    const hook = await getHookSfx()
+    const [hook, cta] = await Promise.all([getHookSfx(), getCtaSfx()])
     if (hook) {
-      const gain = oac.createGain()
-      gain.gain.value = 0.75
-      gain.connect(oac.destination)
-      const src = oac.createBufferSource()
-      src.buffer = hook
-      src.connect(gain)
-      src.start(0)
+      const gain = oac.createGain(); gain.gain.value = 0.75; gain.connect(oac.destination)
+      const src = oac.createBufferSource(); src.buffer = hook; src.connect(gain); src.start(0)
+    }
+    if (cta) {
+      // Land the CTA SFX right on the outro cue so it accents the brand reveal.
+      const gain = oac.createGain(); gain.gain.value = 0.7; gain.connect(oac.destination)
+      const src = oac.createBufferSource(); src.buffer = cta; src.connect(gain); src.start(schedule.cues.Outro)
     }
     for (const spec of lineSpecs) {
       const buf = schedule.bufs.get(spec.key)
@@ -1000,7 +1021,7 @@ export function NewPage() {
       src.start(start)
     }
     return oac.startRendering()
-  }, [lineSpecs, getHookSfx])
+  }, [lineSpecs, getHookSfx, getCtaSfx])
 
   /**
    * FAST export via pure canvas 2D renderer + shared WebCodecs encoder.
