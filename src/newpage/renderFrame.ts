@@ -163,6 +163,29 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
+/**
+ * Return an offscreen canvas containing the source image tinted to `color`,
+ * preserving alpha. Used to render brand logos as solid-white on dark bgs
+ * without needing a separate white PNG file.
+ */
+const _tintCache = new WeakMap<HTMLImageElement, Map<string, HTMLCanvasElement>>()
+export function tintedImage(img: HTMLImageElement, color: string): HTMLCanvasElement {
+  let perImg = _tintCache.get(img)
+  if (!perImg) { perImg = new Map(); _tintCache.set(img, perImg) }
+  const hit = perImg.get(color)
+  if (hit) return hit
+  const c = document.createElement('canvas')
+  c.width = img.naturalWidth
+  c.height = img.naturalHeight
+  const cx = c.getContext('2d')!
+  cx.drawImage(img, 0, 0)
+  cx.globalCompositeOperation = 'source-in'
+  cx.fillStyle = color
+  cx.fillRect(0, 0, c.width, c.height)
+  perImg.set(color, c)
+  return c
+}
+
 // ── Region drawers ───────────────────────────────────────────────────────
 export interface BrandLogos { icon: HTMLImageElement | null; wordmark: HTMLImageElement | null }
 
@@ -211,7 +234,7 @@ function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData
   drawPill(ctx, lx, 44, '今日のことば', { bg: 'rgba(255,255,255,.14)', fg: '#fff', font: `600 24px ${FJP}` })
   ctx.restore()
 
-  // Brand pill (top-right) — cream plate + logo icon + "Japanese Manabi"
+  // Brand pill (top-right) — semi-transparent dark plate + white logo + text
   const enterR = enter(T, 0.25, 0.5)
   ctx.save()
   ctx.globalAlpha = enterR.alpha
@@ -226,24 +249,19 @@ function drawImagePanel(ctx: CanvasRenderingContext2D, T: number, data: ReelData
   const brandH = contentH + brandPadY * 2
   const brandX = 1080 - 44 - brandW
   const brandY = 44
-  // subtle drop shadow
-  ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,.35)'
-  ctx.shadowBlur = 22
-  ctx.shadowOffsetY = 6
-  ctx.fillStyle = '#FCF2D9'
+  ctx.fillStyle = 'rgba(10,12,24,.5)'
   roundRect(ctx, brandX, brandY, brandW, brandH, 999)
   ctx.fill()
-  ctx.restore()
   if (logos?.icon) {
-    ctx.drawImage(logos.icon, brandX + brandPadL, brandY + (brandH - iconH) / 2, iconW, iconH)
+    const tinted = tintedImage(logos.icon, '#ffffff')
+    ctx.drawImage(tinted, brandX + brandPadL, brandY + (brandH - iconH) / 2, iconW, iconH)
   } else {
     ctx.fillStyle = BRAND
     ctx.beginPath()
     ctx.arc(brandX + brandPadL + iconW / 2, brandY + brandH / 2, iconH / 2, 0, Math.PI * 2)
     ctx.fill()
   }
-  ctx.fillStyle = NAVY
+  ctx.fillStyle = '#ffffff'
   ctx.font = `700 22px ${FUI}`
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
@@ -554,62 +572,63 @@ function drawOutro(ctx: CanvasRenderingContext2D, T: number, data: ReelData, cue
   ctx.scale(scale, scale)
   ctx.translate(-1080 / 2, -1920 / 2)
 
-  // bg gradient
+  // BRAND red gradient — outro "last color" matches the CTA handle so the
+  // subtitle panel (lower 40%) hands off cleanly regardless of theme.
   const g = ctx.createLinearGradient(1080 * 0.5, 0, 1080 * 0.5 + Math.sin((160 - 90) * Math.PI / 180) * 1080, 1920)
-  g.addColorStop(0, '#0a0c18')
-  g.addColorStop(1, '#14102a')
+  g.addColorStop(0, '#c62d3a')
+  g.addColorStop(0.55, BRAND)
+  g.addColorStop(1, '#a91d29')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, 1080, 1920)
 
   const cx = 1080 / 2, cy = 1920 / 2
 
-  // Cream plate with logo wordmark. Fallback to Japanese Manabi serif text
-  // if wordmark image isn't loaded.
-  const plateW = 760, plateH = 380
-  const plateX = cx - plateW / 2, plateY = cy - 320
-  ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,.5)'
-  ctx.shadowBlur = 40
-  ctx.shadowOffsetY = 20
-  ctx.fillStyle = '#FCF2D9'
-  roundRect(ctx, plateX, plateY, plateW, plateH, 32)
-  ctx.fill()
-  ctx.restore()
-
+  // Transparent logo tinted white so it reads against BRAND red.
+  const logoBoxW = 760, logoBoxH = 360
+  const logoBoxX = cx - logoBoxW / 2, logoBoxY = cy - 300
   if (logos?.wordmark) {
     const wm = logos.wordmark
-    const padX = 56, padY = 40
-    const boxW = plateW - padX * 2, boxH = plateH - padY * 2
-    const s = Math.min(boxW / wm.naturalWidth, boxH / wm.naturalHeight)
+    const tinted = tintedImage(wm, '#ffffff')
+    const s = Math.min(logoBoxW / wm.naturalWidth, logoBoxH / wm.naturalHeight)
     const dw = wm.naturalWidth * s, dh = wm.naturalHeight * s
-    ctx.drawImage(wm, plateX + (plateW - dw) / 2, plateY + (plateH - dh) / 2, dw, dh)
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,.35)'
+    ctx.shadowBlur = 30
+    ctx.shadowOffsetY = 12
+    ctx.drawImage(tinted, logoBoxX + (logoBoxW - dw) / 2, logoBoxY + (logoBoxH - dh) / 2, dw, dh)
+    ctx.restore()
   } else {
-    ctx.fillStyle = NAVY
+    ctx.fillStyle = '#fff'
     ctx.font = `400 82px ${FSERIF}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
-    ctx.fillText('Japanese Manabi', cx, plateY + plateH / 2)
+    ctx.fillText('Japanese Manabi', cx, logoBoxY + logoBoxH / 2)
   }
 
   // CTA line
-  ctx.fillStyle = 'rgba(255,255,255,.7)'
+  ctx.fillStyle = 'rgba(255,255,255,.92)'
   ctx.font = `400 36px ${FUI}`
   const lineLines = wrapWords(ctx, data.cta.line, 760)
-  let ly = plateY + plateH + 70
+  let ly = logoBoxY + logoBoxH + 60
   ctx.textAlign = 'center'
   for (const line of lineLines) { ctx.fillText(line, cx, ly); ly += 44 }
 
-  // Handle pill (red)
-  ctx.font = `700 38px ${FUI}`
+  // Handle pill — inverted (white bg, red text) so it pops against the red bg.
+  ctx.font = `800 38px ${FUI}`
   const handleTextW = ctx.measureText(data.cta.handle).width
   const pillW = handleTextW + 92
   const pillH = 38 + 44
   const pillX = cx - pillW / 2
   const pillY = ly + 30
-  ctx.fillStyle = BRAND
+  ctx.save()
+  ctx.shadowColor = 'rgba(0,0,0,.3)'
+  ctx.shadowBlur = 24
+  ctx.shadowOffsetY = 10
+  ctx.fillStyle = '#fff'
   roundRect(ctx, pillX, pillY, pillW, pillH, 999)
   ctx.fill()
-  ctx.fillStyle = '#fff'
+  ctx.restore()
+  ctx.fillStyle = BRAND
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'center'
   ctx.fillText(data.cta.handle, cx, pillY + pillH / 2)

@@ -6,6 +6,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AZURE_VOICES, synthesizeAzure } from '@/listening/azure'
+import {
+  DEFAULT_MONTHLY_QUOTA, getAzureUsage, resetAzureUsage, setAzureQuota,
+  type AzureUsageState,
+} from '@/listening/azureUsage'
 import { getSpeakers, synthesizeText as vvSynth, reelEnvBlocked, type VvSpeaker } from '@/listening/voicevox'
 import { encodeReelMp4, webcodecsSupported } from '@/studio/reel/encodeMp4'
 import { renderFrame as renderCanvasFrame, loadImage } from './renderFrame'
@@ -247,9 +251,9 @@ function Stage({ T, theme, data, cues, endTime }: {
           <span style={{ padding: '10px 20px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 26, fontWeight: 700, letterSpacing: '.06em' }}>{data.level}</span>
           <span style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(8px)', color: '#fff', fontSize: 24, fontWeight: 600, fontFamily: FJP }}>今日のことば</span>
         </div>
-        <div style={{ position: 'absolute', top: 44, right: 44, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px 10px 14px', borderRadius: 999, background: '#FCF2D9', boxShadow: '0 6px 22px rgba(0,0,0,.35)', ...enter(T, 0.25, 0.5) }}>
-          <img src={LOGO_ICON_URL} alt="" crossOrigin="anonymous" style={{ width: 46, height: 36, objectFit: 'contain' }} />
-          <span style={{ color: NAVY, fontSize: 22, fontWeight: 700, letterSpacing: '.01em' }}>Japanese Manabi</span>
+        <div style={{ position: 'absolute', top: 44, right: 44, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px 10px 14px', borderRadius: 999, background: 'rgba(10,12,24,.5)', backdropFilter: 'blur(8px)', ...enter(T, 0.25, 0.5) }}>
+          <img src={LOGO_ICON_URL} alt="" crossOrigin="anonymous" style={{ width: 46, height: 36, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+          <span style={{ color: '#fff', fontSize: 22, fontWeight: 700, letterSpacing: '.01em' }}>Japanese Manabi</span>
         </div>
 
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 74, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, opacity: wordDim }}>
@@ -339,14 +343,16 @@ function Stage({ T, theme, data, cues, endTime }: {
 
       <div style={{
         position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(160deg,#0a0c18,#14102a)', opacity: outro,
-        transform: `scale(${(0.98 + 0.02 * outro).toFixed(3)})`, pointerEvents: 'none',
+        // Last color === CTA (BRAND red) so the outro flows into the handle.
+        background: `linear-gradient(160deg,#c62d3a 0%,${BRAND} 55%,#a91d29 100%)`,
+        opacity: outro, transform: `scale(${(0.98 + 0.02 * outro).toFixed(3)})`, pointerEvents: 'none',
       }}>
-        <div style={{ padding: '40px 56px', borderRadius: 32, background: '#FCF2D9', boxShadow: '0 30px 80px rgba(0,0,0,.5)', marginBottom: 44 }}>
-          <img src={LOGO_WORDMARK_URL} alt="Japanese Manabi" crossOrigin="anonymous" style={{ width: 640, height: 300, objectFit: 'contain', display: 'block' }} />
-        </div>
-        <div style={{ fontSize: 36, color: 'rgba(255,255,255,.7)', marginTop: 4, textAlign: 'center', maxWidth: 760 }}>{data.cta.line}</div>
-        <div style={{ marginTop: 40, padding: '22px 46px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 38, fontWeight: 700 }}>{data.cta.handle}</div>
+        <img
+          src={LOGO_WORDMARK_URL} alt="Japanese Manabi" crossOrigin="anonymous"
+          style={{ width: 760, height: 360, objectFit: 'contain', display: 'block', filter: 'brightness(0) invert(1) drop-shadow(0 12px 40px rgba(0,0,0,.35))', marginBottom: 32 }}
+        />
+        <div style={{ fontSize: 36, color: 'rgba(255,255,255,.9)', marginTop: 4, textAlign: 'center', maxWidth: 760 }}>{data.cta.line}</div>
+        <div style={{ marginTop: 40, padding: '22px 46px', borderRadius: 999, background: '#fff', color: BRAND, fontSize: 38, fontWeight: 800, boxShadow: '0 12px 40px rgba(0,0,0,.28)' }}>{data.cta.handle}</div>
       </div>
 
       <div style={{ position: 'absolute', top: 0, left: 0, height: 8, width: 1080, background: 'rgba(255,255,255,.14)' }} />
@@ -432,6 +438,62 @@ function computeLineStarts(
   return out
 }
 
+// ── Azure TTS quota panel ────────────────────────────────────────────────
+function AzureUsagePanel({ usage, onChange, disabled }: {
+  usage: AzureUsageState
+  onChange: (s: AzureUsageState) => void
+  disabled: boolean
+}) {
+  const [quotaDraft, setQuotaDraft] = useState<string>(String(usage.quota))
+  useEffect(() => { setQuotaDraft(String(usage.quota)) }, [usage.quota])
+
+  const pct = usage.quota > 0 ? Math.min(100, (usage.used / usage.quota) * 100) : 0
+  const barColor = pct >= 95 ? '#ff5f6d' : pct >= 75 ? AMBER : TEAL
+  const remaining = Math.max(0, usage.quota - usage.used)
+  const lastAt = usage.lastAt ? new Date(usage.lastAt).toLocaleString() : '—'
+
+  const applyQuota = () => {
+    const n = Number(quotaDraft.replace(/[,_\s]/g, ''))
+    if (!Number.isFinite(n) || n <= 0) return
+    onChange(setAzureQuota(n))
+  }
+  const reset = () => onChange(resetAzureUsage())
+
+  return (
+    <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)', background: 'linear-gradient(180deg,rgba(42,157,143,.06),transparent)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'rgba(255,255,255,.75)' }}>Azure TTS quota</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', fontFamily: 'ui-monospace,monospace' }}>{usage.monthKey}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{usage.used.toLocaleString()}</span>
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>/ {usage.quota.toLocaleString()} chars</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: barColor, fontWeight: 600 }}>{pct.toFixed(1)}%</span>
+      </div>
+      <div style={{ height: 8, background: 'rgba(255,255,255,.08)', borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: barColor, transition: 'width .3s ease' }} />
+      </div>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginBottom: 10, lineHeight: 1.5 }}>
+        {remaining.toLocaleString()} chars remaining · Last synth: {lastAt}
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <label style={{ fontSize: 11, color: 'rgba(255,255,255,.6)' }}>Quota</label>
+        <input
+          type="text" inputMode="numeric" value={quotaDraft}
+          onChange={e => setQuotaDraft(e.target.value)}
+          disabled={disabled}
+          style={{ flex: 1, padding: '4px 8px', background: '#06060a', color: '#fff', border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, fontSize: 12, fontFamily: 'ui-monospace,monospace' }}
+        />
+        <button onClick={applyQuota} disabled={disabled} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Set</button>
+        <button onClick={reset} disabled={disabled} title="Reset month counter to zero" style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Reset</button>
+      </div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', marginTop: 8, lineHeight: 1.5 }}>
+        Local counter — tracks chars sent to /api/tts/azure this browser. Default {DEFAULT_MONTHLY_QUOTA.toLocaleString()} = F0 free tier; set your S0 monthly cap here. Rolls over on the 1st (UTC).
+      </div>
+    </div>
+  )
+}
+
 // ── Component ────────────────────────────────────────────────────────────
 export function NewPage() {
   const [data, setData] = useState<ReelData>(DEFAULT_REEL)
@@ -448,6 +510,7 @@ export function NewPage() {
   const [expProgress, setExpProgress] = useState(0)
   const [expStatus, setExpStatus] = useState('')
   const [copiedMsg, setCopiedMsg] = useState('')
+  const [azureUsage, setAzureUsageState] = useState<AzureUsageState>(() => getAzureUsage())
 
   // Dynamic timing
   const [cues, setCues] = useState<Cues>(DEFAULT_CUES)
@@ -500,6 +563,19 @@ export function NewPage() {
   ), [data, imgOverride])
 
   const lineSpecs = useMemo(() => buildLineSpecs(activeData), [activeData])
+
+  // Live-sync Azure TTS quota panel — recordAzureUsage() fires this event
+  // whenever /api/tts/azure succeeds, plus the `storage` event covers other
+  // tabs / other studio routes.
+  useEffect(() => {
+    const onChange = () => setAzureUsageState(getAzureUsage())
+    window.addEventListener('azure-usage-change', onChange as EventListener)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('azure-usage-change', onChange as EventListener)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
 
   // Reset synth cache + timing when text/voices/provider change
   useEffect(() => {
@@ -893,6 +969,12 @@ export function NewPage() {
 
       {/* Right: controls — SCROLLABLE (fixes prior overlap) */}
       <aside style={{ width: 420, borderLeft: '1px solid rgba(255,255,255,.08)', display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#0e0e12' }}>
+        <AzureUsagePanel
+          usage={azureUsage}
+          onChange={setAzureUsageState}
+          disabled={exporting}
+        />
+
         <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)' }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>1. Image</div>
           <input

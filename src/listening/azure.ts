@@ -4,6 +4,7 @@
  * /api/tts/azure. Works on prod HTTPS unlike VOICEVOX which needs a
  * localhost engine.
  */
+import { recordAzureUsage } from './azureUsage'
 
 export interface AzureVoice {
   /** Azure voice name e.g. "ja-JP-NanamiNeural" — passed to the API. */
@@ -94,6 +95,9 @@ export async function synthesizeAzure(
     const detail = await res.text().catch(() => '')
     throw new Error(`azure tts ${res.status}: ${detail.slice(0, 200)}`)
   }
+  // Azure bills per character of SSML body content. Local counter mirrors
+  // what the /api/tts/azure route actually sent upstream. See azureUsage.ts.
+  recordAzureUsage(clean.length)
   return res.arrayBuffer()
 }
 
