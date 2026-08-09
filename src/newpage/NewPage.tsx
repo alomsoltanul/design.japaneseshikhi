@@ -253,9 +253,10 @@ function Eq({ on, color }: { on: boolean; color: string }) {
 }
 
 // ── Stage — pure function of T + data + theme + cues + endTime ──────────
-function Stage({ T, theme, data, cues, endTime, bgTint }: {
+function Stage({ T, theme, data, cues, endTime, bgTint, scrim }: {
   T: number; theme: ThemeKey; data: ReelData; cues: Cues; endTime: number
   bgTint?: string | null
+  scrim: number
 }) {
   const baseTheme = THEMES[theme]
   // If a bgTint is provided (auto-sampled from image), override seam + bg
@@ -312,7 +313,7 @@ function Stage({ T, theme, data, cues, endTime, bgTint }: {
           position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
           transformOrigin: '50% 45%', transform: `scale(${kb.toFixed(3)})`,
         }} />
-        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(10,12,24,.55) 0%,rgba(10,12,24,0) 26%,rgba(10,12,24,0) 42%,rgba(10,12,24,.86) 88%,${t.seam} 100%)` }} />
+        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(10,12,24,${(scrim * 0.64).toFixed(3)}) 0%,rgba(10,12,24,0) 26%,rgba(10,12,24,0) 42%,rgba(10,12,24,${scrim.toFixed(3)}) 88%,${t.seam} 100%)` }} />
 
         <div style={{ position: 'absolute', top: 44, left: 44, display: 'flex', gap: 12, alignItems: 'center', ...enter(T, 0.15, 0.5) }}>
           <span style={{ padding: '10px 20px', borderRadius: 999, background: BRAND, color: '#fff', fontSize: 26, fontWeight: 700, letterSpacing: '.06em' }}>{data.level}</span>
@@ -679,6 +680,9 @@ export function NewPage() {
   const [sampledTint, setSampledTint] = useState<string | null>(null)
   // Hook SFX: play once at T=0 when user manually starts playback.
   const [hookOnPlay, setHookOnPlay] = useState(true)
+  // Image scrim opacity — controls the dark gradient over the photo (top +
+  // bottom). Default 0.55 was 0.86 before: user asked for a less-heavy veil.
+  const [scrimOpacity, setScrimOpacity] = useState(0.55)
 
   // Dynamic timing
   const [cues, setCues] = useState<Cues>(DEFAULT_CUES)
@@ -1063,6 +1067,7 @@ export function NewPage() {
           frameCtx, t, activeData, theme, exportCues, exportEnd, img,
           { icon: logoIcon, wordmark: logoWordmark },
           effectiveTint ? buildTintedBg(effectiveTint) : null,
+          scrimOpacity,
         ),
         onProgress: (ratio, note) => {
           setExpProgress(ratio)
@@ -1086,7 +1091,7 @@ export function NewPage() {
     } finally {
       setExporting(false)
     }
-  }, [bakeAudio, prepareSchedule, bakeFullAudio, activeData, theme, cues, endTime, data.id, stopPreview])
+  }, [bakeAudio, prepareSchedule, bakeFullAudio, activeData, theme, cues, endTime, data.id, stopPreview, effectiveTint, scrimOpacity])
 
   const stageWidth = useMemo(() => 1080 * scale, [scale])
   const stageHeight = useMemo(() => 1920 * scale, [scale])
@@ -1168,7 +1173,7 @@ export function NewPage() {
                 boxShadow: '0 30px 80px rgba(0,0,0,.6)', borderRadius: 24, overflow: 'hidden',
               }}
             >
-              <Stage T={T} theme={theme} data={activeData} cues={cues} endTime={endTime} bgTint={effectiveTint} />
+              <Stage T={T} theme={theme} data={activeData} cues={cues} endTime={endTime} bgTint={effectiveTint} scrim={scrimOpacity} />
             </div>
           </div>
         </div>
@@ -1210,6 +1215,20 @@ export function NewPage() {
             <input type="checkbox" checked={hookOnPlay} onChange={e => setHookOnPlay(e.target.checked)} disabled={exporting} />
             Play hook SFX when I press Play (first 5s)
           </label>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,.7)', marginBottom: 4 }}>
+              <span>Image dark scrim</span><span style={{ fontFamily: 'ui-monospace,monospace' }}>{Math.round(scrimOpacity * 100)}%</span>
+            </div>
+            <input
+              type="range" min={0} max={1} step={0.01} value={scrimOpacity}
+              onChange={e => setScrimOpacity(parseFloat(e.target.value))}
+              disabled={exporting}
+              style={{ width: '100%' }}
+            />
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', marginTop: 4, lineHeight: 1.4 }}>
+              0% = fully transparent (raw photo). Applies to preview + exported MP4.
+            </div>
+          </div>
         </div>
 
         <div style={{ padding: 16, borderBottom: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>
