@@ -4,7 +4,7 @@ import { resolve } from 'path'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { spawn } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { nadeshikoSearch, writeBangla } from './api/_lib/nadeshiko'
+import { nadeshikoSearch } from './api/_lib/nadeshiko'
 import { translateLines } from './api/_lib/translate'
 
 /** Display names for the four reel languages, matching scripts/reel-frame.mjs. */
@@ -92,7 +92,6 @@ function clipsDevApi(env: Record<string, string>): Plugin {
 
       const routes: Record<string, (body: any) => Promise<unknown>> = {
         '/api/clips/search': body => nadeshikoSearch(body),
-        '/api/clips/bangla': body => writeBangla(body?.word ?? '', body?.lines ?? []),
         '/api/clips/translate': body => translateLines(body || {}),
         '/api/clips/render': body => renderReel(body),
       }
