@@ -1,0 +1,92 @@
+/* Clip Finder scoped styles — same design tokens as the Subtitle Studio. */
+.clips-root {
+  --js-primary: #E63946;
+  --js-secondary: #1D3557;
+  --js-success: #2A9D8F;
+  --js-fg-1: #0F1729;
+  --js-fg-2: #374151;
+  --js-fg-3: #6B7280;
+  --js-fg-4: #9CA3AF;
+  --js-border: #E2E4EA;
+  --js-border-subtle: #EDEFF3;
+  --js-surface-alt: #F5F6F9;
+  --js-shadow-sm: 0 1px 2px rgba(15,23,41,.06);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--js-fg-1);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #EEF0F4;
+}
+.clips-root *, .clips-root *::before, .clips-root *::after { box-sizing: border-box; }
+.clips-root input, .clips-root select, .clips-root textarea, .clips-root button { font-family: inherit; }
+.clips-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.clips-scroll::-webkit-scrollbar { width: 10px; }
+.clips-scroll::-webkit-scrollbar-thumb { background: #cdd2db; border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+
+.clips-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 18px; background: #fff; border-bottom: 1px solid var(--js-border);
+}
+.clips-title { font-size: 15px; font-weight: 800; color: var(--js-secondary); margin-right: 4px; }
+.clips-step { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--js-fg-4); }
+
+.clips-field { display: flex; flex-direction: column; gap: 3px; }
+.clips-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--js-fg-4); }
+.clips-input, .clips-select {
+  border: 1px solid var(--js-border); border-radius: 8px; padding: 6px 9px;
+  font-size: 13px; color: var(--js-fg-1); background: #fff; outline: none;
+}
+.clips-input:focus, .clips-select:focus { border-color: var(--js-primary); }
+.clips-input.jp { font-size: 15px; font-weight: 700; }
+
+.clips-btn {
+  border: 0; border-radius: 9px; padding: 8px 14px; font-size: 13px; font-weight: 700;
+  background: var(--js-primary); color: #fff; cursor: pointer;
+}
+.clips-btn:disabled { background: var(--js-fg-4); cursor: not-allowed; }
+.clips-btn.ghost { background: #fff; color: var(--js-secondary); border: 1px solid var(--js-border); }
+.clips-btn.ghost:disabled { color: var(--js-fg-4); background: var(--js-surface-alt); }
+
+.clips-chip {
+  border: 1px solid var(--js-border); border-radius: 9999px; padding: 3px 10px;
+  font-size: 11px; font-weight: 700; background: #fff; color: var(--js-fg-2); cursor: pointer;
+}
+.clips-chip.on { background: var(--js-secondary); border-color: var(--js-secondary); color: #fff; }
+
+.clips-body { max-width: 1180px; margin: 0 auto; padding: 18px; display: grid; gap: 16px; }
+.clips-panel { background: #fff; border: 1px solid var(--js-border); border-radius: 14px; padding: 16px; box-shadow: var(--js-shadow-sm); }
+.clips-panel h3 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--js-secondary); }
+
+.clips-total { display: flex; align-items: baseline; gap: 10px; }
+.clips-total b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.clips-meter { position: relative; height: 10px; border-radius: 9999px; background: var(--js-surface-alt); overflow: hidden; margin-top: 8px; }
+.clips-meter i { position: absolute; inset: 0 auto 0 0; border-radius: 9999px; background: var(--js-primary); }
+.clips-meter u { position: absolute; top: 0; bottom: 0; background: rgba(42,157,143,.22); }
+
+.clips-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.clips-card { background: #fff; border: 1px solid var(--js-border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.clips-card.off { opacity: .5; }
+.clips-card video { width: 100%; aspect-ratio: 16/9; background: #0F1729; object-fit: contain; display: block; }
+.clips-card-body { padding: 12px; display: grid; gap: 8px; }
+.clips-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--js-fg-4); font-weight: 600; }
+.clips-jp { font-family: 'Noto Sans JP','Hiragino Sans',system-ui,sans-serif; font-size: 18px; font-weight: 700; line-height: 2.1; color: var(--js-secondary); }
+.clips-jp ruby rt { font-size: 9px; font-weight: 600; color: var(--js-fg-3); }
+.clips-romaji { font-size: 12px; font-style: italic; color: var(--js-fg-3); }
+.clips-en { font-size: 12px; color: var(--js-fg-2); }
+.clips-card-body input {
+  width: 100%; border: 1px solid var(--js-border); border-radius: 8px; padding: 7px 10px;
+  font-size: 13px; background: #fff; color: var(--js-fg-1); outline: none;
+}
+.clips-card-body input.bn { font-family: 'Noto Sans Bengali', sans-serif; }
+.clips-card-body input:focus { border-color: var(--js-primary); }
+.clips-cands { display: flex; flex-wrap: wrap; gap: 5px; }
+.clips-cand { border: 1px dashed var(--js-border); background: var(--js-surface-alt); border-radius: 7px; padding: 2px 7px; font-size: 11px; color: var(--js-fg-2); cursor: pointer; }
+
+.clips-note { font-size: 12px; color: var(--js-fg-3); line-height: 1.55; margin: 0; }
+.clips-warn { background: #FEF3F2; border: 1px solid #FDA29B; color: #B42318; border-radius: 10px; padding: 9px 12px; font-size: 12px; font-weight: 600; }
+.clips-ok { background: #ECFDF3; border: 1px solid #A6F4C5; color: #027A48; border-radius: 10px; padding: 9px 12px; font-size: 12px; font-weight: 600; }
+.clips-paste { width: 100%; min-height: 110px; border: 1px solid var(--js-border); border-radius: 10px; padding: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; outline: none; resize: vertical; }
+.clips-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--js-secondary); color: #fff; padding: 9px 16px; border-radius: 9999px; font-size: 13px; font-weight: 700; z-index: 50; }

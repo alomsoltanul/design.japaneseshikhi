@@ -11,11 +11,15 @@
     "factory": "node scripts/factory-dev.mjs",
     "obs:scenes": "node scripts/gen-obs-scenes.mjs",
     "obs:switch": "node scripts/obs-auto-switch.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "reel": "node scripts/merge-reel.mjs",
+    "check:japanese": "node scripts/check-japanese.mjs",
+    "check:gate": "node scripts/check-gate.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
     "@supabase/supabase-js": "^2.108.1",
+    "@vercel/functions": "^3.9.5",
     "@vercel/og": "^0.11.1",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

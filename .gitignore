@@ -33,3 +33,7 @@ dist-ssr
 # Design handoff source files (local only)
 public/assets/design_handoff_musliminjapan/
 .gstack/
+
+# Clip Finder output (manifests, merged reels, retimed subtitles)
+/reels/
+/dist-reels/

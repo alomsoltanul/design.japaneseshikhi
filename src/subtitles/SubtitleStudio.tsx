@@ -90,6 +90,21 @@ export function SubtitleStudio() {
   const [syncCursor, setSyncCursor] = useState(0)
   const [toast, setToast] = useState('')
   const [level, setLevel] = useState<Level>('N5')
+  const [importOpen, setImportOpen] = useState(false)
+  const [importText, setImportText] = useState('')
+
+  // Clip Finder writes the exported document here before switching view, so
+  // step 0 hands off to step 2 without a trip through the clipboard.
+  useEffect(() => {
+    try {
+      const handoff = localStorage.getItem('js-clip-finder-handoff')
+      if (handoff) {
+        setImportText(handoff)
+        setImportOpen(true)
+        localStorage.removeItem('js-clip-finder-handoff')
+      }
+    } catch { /* private mode */ }
+  }, [])
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const scrubRef = useRef<HTMLDivElement | null>(null)
@@ -236,6 +251,52 @@ export function SubtitleStudio() {
     setSource(s => ({ ...s, transform: { ...(s.transform || DEFAULT_TRANSFORM), ...patch } }))
   }
   const resetTransform = () => setSource(s => ({ ...s, transform: { ...DEFAULT_TRANSFORM } }))
+
+  // ---------- json import ----------
+  /**
+   * Reads the Clip Finder export shape:
+   *   { level, lines: [{ id, start, end, japanese_furigana, romaji, vocab, bangla }] }
+   * `start`/`end` are seconds and become per-line overrides, so imported
+   * timings survive into Sync as a spot-check rather than a manual pass.
+   */
+  const applyJsonImport = useCallback(() => {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(importText)
+    } catch (e) {
+      showToast('Invalid JSON: ' + (e as Error).message)
+      return
+    }
+    const obj = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>
+    const rows = Array.isArray(obj.lines) ? obj.lines : Array.isArray(parsed) ? parsed : null
+    if (!rows) { showToast('JSON needs a "lines" array'); return }
+
+    const next: Line[] = (rows as Record<string, unknown>[]).map(r => {
+      const line: Line = {
+        jp: String(r.japanese_furigana ?? r.jp ?? ''),
+        romaji: String(r.romaji ?? ''),
+        bangla: String(r.bangla ?? ''),
+        vocab: String(r.vocab ?? ''),
+        times: [],
+      }
+      const start = Number(r.start)
+      const end = Number(r.end)
+      if (Number.isFinite(start) && start >= 0) line.startMs = Math.round(start * 1000)
+      if (Number.isFinite(end) && end > 0) line.endMs = Math.round(end * 1000)
+      return line
+    }).filter(l => l.jp.trim())
+
+    if (!next.length) { showToast('No usable lines in that JSON'); return }
+
+    const lvl = String(obj.level ?? '')
+    if ((LEVELS as readonly string[]).includes(lvl)) setLevel(lvl as Level)
+    setLines(next)
+    setSelectedLine(0)
+    setSyncCursor(0)
+    setImportOpen(false)
+    const blanks = next.filter(l => !l.bangla.trim()).length
+    showToast(blanks ? `Imported ${next.length} lines — ${blanks} without Bangla` : `Imported ${next.length} lines`)
+  }, [importText, showToast])
 
   // ---------- lines ----------
   const updateLine = (i: number, key: keyof Line, val: string) => {
@@ -600,6 +661,41 @@ export function SubtitleStudio() {
                     For furigana, wrap the reading in parentheses right after the kanji:{' '}
                     <span style={{ fontFamily: "'Noto Sans JP',sans-serif", background: 'rgba(230,57,70,.07)', color: 'var(--js-primary)', padding: '2px 7px', borderRadius: 6, fontWeight: 600 }}>漢字(かんじ)</span> → renders かんじ above 漢字.
                   </p>
+                </div>
+
+                <div style={{ border: '1px solid var(--js-border)', borderRadius: 12, background: '#fff' }}>
+                  <button
+                    type="button"
+                    onClick={() => setImportOpen(o => !o)}
+                    style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 14px', border: 0, background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: 'var(--js-secondary)' }}
+                  >
+                    <span>📋 JSON Import — paste a Clip Finder export</span>
+                    <span style={{ color: 'var(--js-fg-4)' }}>{importOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {importOpen && (
+                    <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <textarea
+                        value={importText}
+                        onChange={e => setImportText(e.target.value)}
+                        spellCheck={false}
+                        placeholder={'{\n  "level": "N5",\n  "lines": [\n    { "id": 1, "start": 2.0, "end": 5.43, "japanese_furigana": "\u89aa\u7236(\u304a\u3084\u3058)\u306f\u8a00(\u3044)\u3063\u305f\u3002", "romaji": "oyaji wa itta", "vocab": "\u89aa\u7236=\u09ac\u09be\u09ac\u09be", "bangla": "\u09ac\u09be\u09ac\u09be \u09ac\u09b2\u09c7\u099b\u09bf\u09b2\u0964" }\n  ]\n}'}
+                        style={{ minHeight: 130, border: '1px solid var(--js-border)', borderRadius: 9, padding: 10, fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, color: 'var(--js-fg-1)', background: '#fff', outline: 'none', resize: 'vertical' }}
+                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="button" onClick={applyJsonImport} disabled={!importText.trim()}
+                          style={{ border: 0, borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 700, background: importText.trim() ? 'var(--js-primary)' : 'var(--js-fg-4)', color: '#fff', cursor: importText.trim() ? 'pointer' : 'not-allowed' }}>
+                          Replace lines
+                        </button>
+                        <button type="button" onClick={() => setImportText('')}
+                          style={{ borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 700, background: '#fff', color: 'var(--js-secondary)', border: '1px solid var(--js-border)', cursor: 'pointer' }}>
+                          Clear
+                        </button>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--js-fg-4)', lineHeight: 1.5 }}>
+                        Replaces every line. <code>start</code>/<code>end</code> are seconds and become per-line timing overrides.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {lines.map((l, i) => {
