@@ -1,0 +1,6 @@
+# designjapaneseshikhi is a private studio, not a public site.
+# Every route sits behind an access gate and every response carries
+# X-Robots-Tag: noindex. Crawling is allowed only so that header is visible —
+# blocking it here would stop search engines from ever seeing the noindex.
+User-agent: *
+Allow: /
