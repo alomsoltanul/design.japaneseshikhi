@@ -72,14 +72,76 @@ function loadSession(): AuthUser | null {
   }
 }
 
+/**
+ * In production the Vercel middleware has already verified a Supabase access
+ * token's ES256 signature and checked the email against ALLOWED_EMAILS before
+ * any of this code is served. So the app does not re-authenticate — it only
+ * reads who the verified user is, straight out of the token's payload.
+ *
+ * Decoding without verifying is safe *here* and only here: nothing downstream
+ * of the middleware is reachable without a signature that already passed, and
+ * this value drives a name badge, not an access decision.
+ *
+ * `npm run dev` never runs the middleware, so when there is no token the
+ * provider falls back to the local demo accounts and development is unchanged.
+ */
+function readSupabaseSession(): AuthUser | null {
+  try {
+    const raw = document.cookie
+      .split(';')
+      .map(c => c.trim())
+      .find(c => c.startsWith('sb-access-token='))
+    if (!raw) return null
+
+    const token = decodeURIComponent(raw.slice('sb-access-token='.length))
+    const body = token.split('.')[1]
+    if (!body) return null
+
+    const json = atob(body.replace(/-/g, '+').replace(/_/g, '/'))
+    const claims = JSON.parse(decodeURIComponent(escape(json))) as {
+      email?: string
+      exp?: number
+      user_metadata?: { name?: string; full_name?: string }
+    }
+    if (!claims.email) return null
+    if (typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now()) return null
+
+    const meta = claims.user_metadata || {}
+    return {
+      id: claims.email,
+      email: claims.email,
+      name: meta.name || meta.full_name || claims.email.split('@')[0],
+      // Everyone past the gate is studio staff on the access list; the
+      // middleware is the boundary, not this field.
+      role: 'admin' as UserRole,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Hand sign-out to the middleware so it can clear the httpOnly-adjacent cookies too. */
+function supabaseSignOut() {
+  window.location.href = '/__gate/logout'
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const [viaSupabase, setViaSupabase] = useState(false)
+
   useEffect(() => {
+    const supabase = readSupabaseSession()
+    if (supabase) {
+      setViaSupabase(true)
+      setUser(supabase)
+      setIsLoading(false)
+      return
+    }
+    // Local development only — the middleware never runs under Vite.
     seedDefaultUsers()
-    const session = loadSession()
-    setUser(session)
+    setUser(loadSession())
     setIsLoading(false)
   }, [])
 
@@ -119,7 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(() => {
     setUser(null)
     localStorage.removeItem(AUTH_KEY)
-  }, [])
+    if (viaSupabase) supabaseSignOut()
+  }, [viaSupabase])
 
   const isAdmin = user?.role === 'admin'
   const isEditor = user?.role === 'admin' || user?.role === 'editor'

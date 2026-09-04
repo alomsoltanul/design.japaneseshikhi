@@ -9,7 +9,7 @@ import { translateLines } from './api/_lib/translate'
 
 /** Display names for the four reel languages, matching scripts/reel-frame.mjs. */
 const LANG_NAMES: Record<string, string> = {
-  en: 'English', bn: 'Bangla', vi: 'Vietnamese', ne: 'Nepali',
+  en: 'English', es: 'Spanish', bn: 'Bangla', vi: 'Vietnamese', ne: 'Nepali',
 }
 
 /**

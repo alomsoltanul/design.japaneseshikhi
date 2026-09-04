@@ -26,8 +26,10 @@ import path from 'node:path'
 
 export const FRAME = { w: 1080, h: 1920 }
 /** One reel per language; each carries exactly one translation row. */
-export const LANGS = ['en', 'bn', 'vi', 'ne']
-export const LANG_NAMES = { en: 'English', bn: 'Bangla', vi: 'Vietnamese', ne: 'Nepali' }
+export const LANGS = ['en', 'es', 'bn', 'vi', 'ne']
+export const LANG_NAMES = {
+  en: 'English', es: 'Spanish', bn: 'Bangla', vi: 'Vietnamese', ne: 'Nepali',
+}
 /** Top block, video pane, bottom block — must sum to FRAME.h exactly. */
 export const LAYOUT = { top: 470, pane: 608, bottom: 842 }
 export const PANE_Y = LAYOUT.top
@@ -104,7 +106,7 @@ body{
 .key{color:#E63946}
 
 /* One translation row per reel, in that language's own script. */
-.t-en,.t-vi{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}
+.t-en,.t-es,.t-vi{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}
 .t-bn{font-family:'Kohinoor Bangla','Bangla MN','Noto Sans Bengali',sans-serif}
 .t-ne{font-family:'Kohinoor Devanagari','Devanagari Sangam MN','Noto Sans Devanagari',sans-serif}
 
@@ -188,7 +190,7 @@ export function buildHtml(spec) {
   // Bengali and Devanagari carry more vertical detail than Latin at the same
   // point size, and both wrap sooner, so they get their own scale.
   const translation = String(line.translation || '')
-  const trBase = lang === 'bn' || lang === 'ne' ? 46 : 42
+  const trBase = lang === 'bn' || lang === 'ne' ? 46 : 42 // Latin scripts read fine smaller
   const trSize = translation.length <= 46 ? trBase : translation.length <= 80 ? trBase - 6 : trBase - 11
   return page(`
 <div class="top">${cardHtml(spec)}</div>

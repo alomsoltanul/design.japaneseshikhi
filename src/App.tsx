@@ -5,6 +5,7 @@ import { LoginPage } from '@/auth/LoginPage'
 import { SignupPage } from '@/auth/SignupPage'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { GlobalNav } from '@/components/GlobalNav'
+import { GlobalFooter } from '@/components/GlobalFooter'
 import { ImagePromptExtractor } from '@/components/ImagePromptExtractor'
 import { JsonImporter } from '@/components/JsonImporter'
 import { PosterMaker } from '@/poster-maker/PosterMaker'
@@ -115,7 +116,7 @@ export default function App() {
     <AuthGuard>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
         <GlobalNav view={view} onChange={handleChangeView} />
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           {view === 'home' && (
             <div className="home-view">
               <div className="home-hero">
@@ -194,6 +195,7 @@ export default function App() {
             {view === 'newpage' && <NewPage />}
           </ErrorBoundary>
         </div>
+        <GlobalFooter user={user} />
       </div>
     </AuthGuard>
   )

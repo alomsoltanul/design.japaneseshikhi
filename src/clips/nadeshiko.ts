@@ -18,11 +18,16 @@ export const TITLE_CARD_SEC = 2
  * One reel per language, each carrying exactly one translation row. English is
  * never machine-translated — Nadeshiko ships human-written English subs.
  */
-export const LANGS = ['en', 'bn', 'vi', 'ne'] as const
+export const LANGS = ['en', 'es', 'bn', 'vi', 'ne'] as const
 export type LangCode = typeof LANGS[number]
 export const LANG_NAMES: Record<LangCode, string> = {
-  en: 'English', bn: 'বাংলা', vi: 'Tiếng Việt', ne: 'नेपाली',
+  en: 'English', es: 'Español', bn: 'বাংলা', vi: 'Tiếng Việt', ne: 'नेपाली',
 }
+/**
+ * English and Spanish never reach a translator: Nadeshiko ships human-written
+ * subtitles for both with every segment, so they are free and better than any
+ * machine output.
+ */
 export const TRANSLATABLE: LangCode[] = ['bn', 'vi', 'ne']
 
 export type ClipCategory = 'ANIME' | 'JDRAMA' | 'YOUTUBE'
@@ -74,6 +79,7 @@ type RawSegment = {
   urls?: { imageUrl?: string; audioUrl?: string; videoUrl?: string }
   textJa?: { content?: string; tokens?: NadeshikoToken[] }
   textEn?: { content?: string }
+  textEs?: { content?: string }
 }
 
 type RawMedia = { nameEn?: string; nameRomaji?: string; nameJa?: string; category?: string }
@@ -108,7 +114,10 @@ export function mapSegments(raw: RawResponse, word: string): Clip[] {
       episode: seg.episode ?? null,
       category: m?.category || '',
       keep: true,
-      translations: { en: stripInvisible(seg.textEn?.content || '') },
+      translations: {
+        en: stripInvisible(seg.textEn?.content || ''),
+        es: stripInvisible(seg.textEs?.content || ''),
+      },
       vocabs: {},
     }
   }).filter(c => c.videoUrl)

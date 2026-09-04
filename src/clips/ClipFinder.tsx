@@ -6,7 +6,7 @@ import {
   searchClips, mapSegments, translateBatch, applyTranslations, buildSubtitleDoc,
   buildManifest, readingForWord, autoPick, renderReel,
   TITLE_CARD_SEC, LANGS, LANG_NAMES,
-  type Clip, type ClipCategory, type Quota, type RawResponse, type RenderResult, type LangCode,
+  type Clip, type ClipCategory, type Quota, type RawResponse, type RenderedReel, type LangCode,
 } from './nadeshiko'
 
 /** Subtitle Studio reads this on mount and prefills its JSON Import box. */
@@ -16,6 +16,35 @@ const LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
 const CATEGORIES: ClipCategory[] = ['ANIME', 'JDRAMA', 'YOUTUBE']
 const TARGET_MIN = 30
 const TARGET_MAX = 40
+
+type Stage = 'queued' | 'searching' | 'translating' | 'rendering' | 'done' | 'failed'
+
+type BatchRow = {
+  word: string
+  stage: Stage
+  detail?: string
+  reels: RenderedReel[]
+  clipCount?: number
+  seconds?: number
+}
+
+const STAGE_LABEL: Record<Stage, string> = {
+  queued: 'Queued',
+  searching: 'Searching…',
+  translating: 'Translating…',
+  rendering: 'Rendering…',
+  done: 'Done',
+  failed: 'Failed',
+}
+
+/** Accepts commas, newlines, or Japanese full-width commas between words. */
+function parseWords(raw: string): string[] {
+  const seen = new Set<string>()
+  return raw
+    .split(/[,、\n]+/)
+    .map(w => w.trim())
+    .filter(w => w && !seen.has(w) && seen.add(w))
+}
 
 function Ruby({ text }: { text: string }) {
   return (
@@ -30,7 +59,7 @@ function Ruby({ text }: { text: string }) {
 }
 
 export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
-  const [word, setWord] = useState('親父')
+  const [words, setWords] = useState('親父')
   const [level, setLevel] = useState<string>('N4')
   const [langs, setLangs] = useState<LangCode[]>(['en', 'bn'])
   const [provider, setProvider] = useState<'free' | 'claude'>('free')
@@ -44,22 +73,25 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const [clips, setClips] = useState<Clip[]>([])
+  const [reviewWord, setReviewWord] = useState('')
   const [quota, setQuota] = useState<Quota | null>(null)
   const [reading, setReading] = useState('')
   const [meaningEn, setMeaningEn] = useState('')
 
-  const [stage, setStage] = useState('')
+  const [batch, setBatch] = useState<BatchRow[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notices, setNotices] = useState<string[]>([])
-  const [rendered, setRendered] = useState<RenderResult | null>(null)
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [toast, setToast] = useState('')
 
+  const wordList = useMemo(() => parseWords(words), [words])
+  const totalVideos = wordList.length * langs.length
+
   const showToast = useCallback((msg: string) => {
     setToast(msg)
-    setTimeout(() => setToast(''), 2400)
+    setTimeout(() => setToast(''), 2600)
   }, [])
 
   // Keep the review tab on a language that is actually selected.
@@ -72,7 +104,6 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
   const totalSecs = clipSecs + TITLE_CARD_SEC
   const inBand = totalSecs >= TARGET_MIN && totalSecs <= TARGET_MAX
 
-  /** Kept clips with nothing to show in a selected language's row. */
   const missing = useMemo(() => {
     const out: { lang: LangCode; count: number }[] = []
     for (const l of langs) {
@@ -82,100 +113,146 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
     return out
   }, [kept, langs])
 
-  // ── steps ─────────────────────────────────────────────────────────────────
-  const doSearch = useCallback(async (): Promise<Clip[]> => {
-    const w = word.trim()
-    setStage('Searching Nadeshiko…')
+  // ── one word, end to end ──────────────────────────────────────────────────
+  const searchFor = useCallback(async (word: string): Promise<Clip[]> => {
     const { clips: found, quota: q } = await searchClips({
-      word: w, exactMatch, categories, minSec, maxSec, take,
+      word, exactMatch, categories, minSec, maxSec, take,
       // A fresh seed every run, so the same word gives a different reel.
       seed: Math.floor(Math.random() * 100000),
     })
     setQuota(q)
     if (!found.length) {
-      throw new Error(`No clips for ${w}. Try “broader search”, another category, or a wider length range — formal words return very little spoken media.`)
+      throw new Error('no clips — try “broader search”, another category, or a wider length range')
     }
-    const picked = autoPick(found)
-    setClips(picked)
-    const r = readingForWord(picked, w)
-    if (r) setReading(r)
-    return picked
-  }, [word, exactMatch, categories, minSec, maxSec, take])
+    return autoPick(found)
+  }, [exactMatch, categories, minSec, maxSec, take])
 
-  /** English needs no translator; a failure here must never block the render. */
-  const doTranslate = useCallback(async (source: Clip[]): Promise<{ clips: Clip[]; meaning: string }> => {
-    const targets = langs.filter(l => l !== 'en')
+  /**
+   * English and Spanish come from Nadeshiko's own subtitles, so only the
+   * remaining languages reach a translator. A failure here never blocks the
+   * render; the affected lines simply stay blank and are flagged.
+   */
+  const translateFor = useCallback(async (word: string, source: Clip[]) => {
+    const targets = langs.filter(l => l !== 'en' && l !== 'es')
     const keepers = source.filter(c => c.keep)
-    if (!targets.length || !keepers.length) return { clips: source, meaning: meaningEn }
-
-    setStage(`Translating into ${targets.map(l => LANG_NAMES[l]).join(', ')}…`)
+    if (!targets.length || !keepers.length) return { clips: source, meaning: '' }
     try {
-      const result = await translateBatch({ provider, word: word.trim(), langs: targets, clips: keepers })
-      const next = applyTranslations(source, result)
-      setClips(next)
-      if (result.warnings?.length) setNotices(n => [...n, ...result.warnings])
-      const meaning = result.meaningEn || meaningEn
-      if (result.meaningEn) setMeaningEn(result.meaningEn)
-      return { clips: next, meaning }
+      const result = await translateBatch({ provider, word, langs: targets, clips: keepers })
+      if (result.warnings?.length) {
+        setNotices(n => Array.from(new Set([...n, ...result.warnings])))
+      }
+      return { clips: applyTranslations(source, result), meaning: result.meaningEn || '' }
     } catch (e) {
-      setNotices(n => [...n, `Translation skipped: ${(e as Error).message}`])
-      return { clips: source, meaning: meaningEn }
+      setNotices(n => Array.from(new Set([...n, `Translation skipped: ${(e as Error).message}`])))
+      return { clips: source, meaning: '' }
     }
-  }, [langs, provider, word, meaningEn])
+  }, [langs, provider])
 
-  const doRender = useCallback(async (source: Clip[], meaning: string) => {
-    setStage(`Rendering ${langs.length} reel${langs.length === 1 ? '' : 's'} — clips download once, then one encode per language…`)
+  const renderFor = useCallback(async (word: string, source: Clip[], meaning: string) => {
     const manifest = buildManifest({
-      word: word.trim(), reading, meaningEn: meaning, level, clips: source, langs,
+      word, reading: readingForWord(source, word), meaningEn: meaning, level, clips: source, langs,
     })
-    setRendered(await renderReel(manifest))
-  }, [word, reading, level, langs])
+    return renderReel(manifest)
+  }, [level, langs])
 
-  const guardRun = useCallback(async (fn: () => Promise<void>) => {
-    setBusy(true); setError(null); setNotices([]); setRendered(null)
-    try {
-      await fn()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false); setStage('')
-    }
+  // ── the batch ─────────────────────────────────────────────────────────────
+  const patchRow = useCallback((i: number, next: Partial<BatchRow>) => {
+    setBatch(rows => rows.map((r, j) => (j === i ? { ...r, ...next } : r)))
   }, [])
 
-  const makeReels = useCallback(() => guardRun(async () => {
-    const found = await doSearch()
-    const { clips: translated, meaning } = await doTranslate(found)
-    await doRender(translated, meaning)
-    showToast(`${langs.length} reel${langs.length === 1 ? '' : 's'} saved`)
-  }), [guardRun, doSearch, doTranslate, doRender, langs, showToast])
+  const runBatch = useCallback(async () => {
+    const list = wordList
+    if (!list.length || !langs.length) return
 
-  const findOnly = useCallback(() => guardRun(async () => {
-    const found = await doSearch()
-    showToast(`${found.filter(c => c.keep).length} clips picked from ${found.length}`)
-  }), [guardRun, doSearch, showToast])
+    setBusy(true); setError(null); setNotices([])
+    setBatch(list.map(w => ({ word: w, stage: 'queued' as Stage, reels: [] })))
 
-  const exportOnly = useCallback(() => guardRun(async () => {
-    const { clips: translated, meaning } = await doTranslate(clips)
-    await doRender(translated, meaning)
-    showToast(`${langs.length} reel${langs.length === 1 ? '' : 's'} saved`)
-  }), [guardRun, doTranslate, doRender, clips, langs, showToast])
+    let made = 0
+    for (let i = 0; i < list.length; i++) {
+      const word = list[i]
+      try {
+        patchRow(i, { stage: 'searching' })
+        const picked = await searchFor(word)
+
+        // Show the newest word's clips so the grid stays reviewable as it runs.
+        setClips(picked)
+        setReviewWord(word)
+        setReading(readingForWord(picked, word))
+
+        patchRow(i, {
+          stage: 'translating',
+          clipCount: picked.filter(c => c.keep).length,
+          seconds: picked.filter(c => c.keep).reduce((a, c) => a + c.durationSec, 0) + TITLE_CARD_SEC,
+        })
+        const { clips: translated, meaning } = await translateFor(word, picked)
+        setClips(translated)
+        if (meaning) setMeaningEn(meaning)
+
+        patchRow(i, { stage: 'rendering' })
+        const result = await renderFor(word, translated, meaning)
+        patchRow(i, { stage: 'done', reels: result.reels })
+        made += result.reels.length
+      } catch (e) {
+        patchRow(i, { stage: 'failed', detail: (e as Error).message })
+      }
+    }
+
+    setBusy(false)
+    showToast(made ? `${made} video${made === 1 ? '' : 's'} saved` : 'Nothing was produced — see the queue')
+  }, [wordList, langs, patchRow, searchFor, translateFor, renderFor, showToast])
+
+  /** Search only, for reviewing a single word before committing to a batch. */
+  const findOnly = useCallback(async () => {
+    const word = wordList[0]
+    if (!word) return
+    setBusy(true); setError(null); setNotices([]); setBatch([])
+    try {
+      const picked = await searchFor(word)
+      setClips(picked)
+      setReviewWord(word)
+      setReading(readingForWord(picked, word))
+      showToast(`${picked.filter(c => c.keep).length} clips picked from ${picked.length}`)
+    } catch (e) {
+      setError(`${word}: ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }, [wordList, searchFor, showToast])
+
+  /** Render exactly what is on screen, after any hand edits. */
+  const exportCurrent = useCallback(async () => {
+    if (!reviewWord || !kept.length) return
+    setBusy(true); setError(null)
+    setBatch([{ word: reviewWord, stage: 'rendering', reels: [], clipCount: kept.length, seconds: totalSecs }])
+    try {
+      const result = await renderFor(reviewWord, clips, meaningEn)
+      setBatch([{ word: reviewWord, stage: 'done', reels: result.reels, clipCount: kept.length, seconds: totalSecs }])
+      showToast(`${result.reels.length} video${result.reels.length === 1 ? '' : 's'} saved`)
+    } catch (e) {
+      setBatch([{ word: reviewWord, stage: 'failed', detail: (e as Error).message, reels: [] }])
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }, [reviewWord, kept.length, totalSecs, clips, meaningEn, renderFor, showToast])
 
   // ── manual helpers ────────────────────────────────────────────────────────
   const loadPasted = useCallback(() => {
     setError(null)
+    const word = wordList[0] ?? ''
     try {
       const raw = JSON.parse(pasteText) as RawResponse
-      const found = mapSegments(raw, word.trim())
+      const found = mapSegments(raw, word)
       if (!found.length) { setError('That response contained no segments with a video URL.'); return }
       const picked = autoPick(found)
       setClips(picked)
-      const r = readingForWord(picked, word.trim())
-      if (r) setReading(r)
+      setReviewWord(word)
+      setReading(readingForWord(picked, word))
       showToast(`Loaded ${found.length} clips from pasted response`)
     } catch (e) {
       setError(`Could not parse that: ${(e as Error).message}`)
     }
-  }, [pasteText, word, showToast])
+  }, [pasteText, wordList, showToast])
 
   const patch = useCallback((id: string, next: Partial<Clip>) => {
     setClips(cs => cs.map(c => (c.id === id ? { ...c, ...next } : c)))
@@ -207,17 +284,23 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
   const toggleCategory = (c: ClipCategory) =>
     setCategories(cs => (cs.includes(c) ? cs.filter(x => x !== c) : [...cs, c]))
 
+  const doneCount = batch.filter(r => r.stage === 'done').length
+  const allReels = batch.flatMap(r => r.reels)
+
   return (
     <div className="clips-root">
       <div className="clips-bar">
         <span className="clips-step">Step 0</span>
         <span className="clips-title">Find clips</span>
 
-        <div className="clips-field">
-          <span className="clips-label">Japanese word</span>
-          <input className="clips-input jp" style={{ width: 150 }} value={word}
-                 onChange={e => setWord(e.target.value)}
-                 onKeyDown={e => { if (e.key === 'Enter' && !busy) makeReels() }} />
+        <div className="clips-field" style={{ flex: 1, minWidth: 220 }}>
+          <span className="clips-label">
+            Japanese words — one reel per word, per language
+          </span>
+          <input className="clips-input jp" value={words}
+                 onChange={e => setWords(e.target.value)}
+                 placeholder="親父, 時間, 食べる"
+                 onKeyDown={e => { if (e.key === 'Enter' && !busy) void runBatch() }} />
         </div>
 
         <div className="clips-field">
@@ -228,22 +311,27 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
         </div>
 
         <div className="clips-field">
-          <span className="clips-label">Subtitle language — one reel each</span>
+          <span className="clips-label">Subtitle language</span>
           <div style={{ display: 'flex', gap: 5 }}>
             {LANGS.map(l => (
               <button key={l} type="button"
                       className={`clips-chip${langs.includes(l) ? ' on' : ''}`}
-                      title={l === 'en' ? 'Human-written subs from the source — never machine translated' : `Translated into ${LANG_NAMES[l]}`}
+                      title={l === 'en' || l === 'es'
+                        ? 'Human-written subs from the source — never machine translated'
+                        : `Translated into ${LANG_NAMES[l]}`}
                       onClick={() => toggleLang(l)}>{LANG_NAMES[l]}</button>
             ))}
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-end' }}>
-          <button className="clips-btn" onClick={makeReels} disabled={busy || !word.trim() || !langs.length} style={{ padding: '9px 20px' }}>
-            {busy ? 'Working…' : `🎬 Make ${langs.length} reel${langs.length === 1 ? '' : 's'}`}
+          <button className="clips-btn" onClick={() => void runBatch()}
+                  disabled={busy || !wordList.length || !langs.length} style={{ padding: '9px 20px' }}>
+            {busy ? 'Working…' : `🎬 Make ${totalVideos} video${totalVideos === 1 ? '' : 's'}`}
           </button>
-          <button className="clips-btn ghost" onClick={findOnly} disabled={busy || !word.trim()}>Find clips only</button>
+          <button className="clips-btn ghost" onClick={() => void findOnly()} disabled={busy || !wordList.length}>
+            Preview first word
+          </button>
           <button className="clips-btn ghost" onClick={() => setShowAdvanced(a => !a)} disabled={busy}>
             {showAdvanced ? 'Hide options' : 'Options'}
           </button>
@@ -252,7 +340,7 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
         <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--js-fg-4)', fontWeight: 600, textAlign: 'right' }}>
           {quota && quota.monthlyUsed != null
             ? <>Quota {quota.monthlyUsed}/{quota.monthlyLimit} this month</>
-            : <>Each reel carries one language only</>}
+            : <>{wordList.length} word{wordList.length === 1 ? '' : 's'} × {langs.length} language{langs.length === 1 ? '' : 's'}</>}
         </div>
       </div>
 
@@ -303,24 +391,43 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
 
       <div className="clips-scroll">
         <div className="clips-body">
-          {busy && <div className="clips-ok">⏳ {stage}</div>}
           {error && <div className="clips-warn">{error}</div>}
           {notices.map((n, i) => <div key={i} className="clips-warn">{n}</div>)}
 
-          {rendered && (
-            <div className="clips-panel" style={{ borderColor: 'var(--js-success)' }}>
-              <h3>{rendered.reels.length} reel{rendered.reels.length === 1 ? '' : 's'} saved</h3>
-              {rendered.reels.map(r => (
-                <div key={r.lang} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 0', borderBottom: '1px solid var(--js-border-subtle)' }}>
-                  <span className="clips-chip on" style={{ cursor: 'default' }}>{r.name}</span>
-                  <span className="clips-note" style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5, flex: 1, minWidth: 240 }}>{r.video}</span>
-                  <a className="clips-btn" href={r.downloadUrl} download style={{ textDecoration: 'none' }}>⬇ Download</a>
+          {batch.length > 0 && (
+            <div className="clips-panel" style={{ borderColor: doneCount === batch.length ? 'var(--js-success)' : 'var(--js-border)' }}>
+              <h3>
+                Queue — {doneCount}/{batch.length} word{batch.length === 1 ? '' : 's'}
+                {allReels.length > 0 && ` · ${allReels.length} video${allReels.length === 1 ? '' : 's'} saved`}
+              </h3>
+              {batch.map((row, i) => (
+                <div key={`${row.word}-${i}`} style={{ padding: '10px 0', borderBottom: '1px solid var(--js-border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span className="clips-input jp" style={{ border: 0, padding: 0, fontSize: 17, minWidth: 90 }}>{row.word}</span>
+                    <span className={row.stage === 'failed' ? 'clips-warn' : 'clips-note'}
+                          style={{ padding: row.stage === 'failed' ? '3px 9px' : 0, fontWeight: 700, fontSize: 12 }}>
+                      {STAGE_LABEL[row.stage]}
+                    </span>
+                    {row.clipCount != null && (
+                      <span className="clips-note">{row.clipCount} clips · {row.seconds?.toFixed(1)}s</span>
+                    )}
+                    {row.detail && <span className="clips-note" style={{ color: 'var(--js-primary)' }}>{row.detail}</span>}
+                  </div>
+                  {row.reels.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                      {row.reels.map(r => (
+                        <a key={r.lang} className="clips-btn ghost" href={r.downloadUrl} download
+                           style={{ textDecoration: 'none', fontSize: 12, padding: '5px 11px' }}>
+                          ⬇ {r.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <button className="clips-btn ghost" onClick={copyJson}>Copy {LANG_NAMES[activeLang]} subtitles</button>
-                {onOpenStudio && <button className="clips-btn ghost" onClick={sendToStudio}>Open in Subtitle Studio</button>}
-              </div>
+              <p className="clips-note" style={{ marginTop: 10 }}>
+                Everything is written to <code>reels/</code> as well, named by word and language.
+              </p>
             </div>
           )}
 
@@ -343,12 +450,11 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
 
           {clips.length > 0 && (
             <div className="clips-panel">
-              <h3>The reel</h3>
+              <h3>Reviewing {reviewWord}</h3>
               <div className="clips-total">
                 <b style={{ color: inBand ? 'var(--js-success)' : 'var(--js-primary)' }}>{totalSecs.toFixed(1)}s</b>
                 <span className="clips-note">
                   {kept.length} of {clips.length} clips kept + {TITLE_CARD_SEC}s title card · target {TARGET_MIN}–{TARGET_MAX}s
-                  · × {langs.length} language{langs.length === 1 ? '' : 's'}
                 </span>
               </div>
               <div className="clips-meter">
@@ -380,8 +486,8 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
               ))}
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <button className="clips-btn" onClick={exportOnly} disabled={busy || !kept.length || !langs.length}>
-                  Export this selection
+                <button className="clips-btn" onClick={() => void exportCurrent()} disabled={busy || !kept.length || !langs.length}>
+                  Render this word ({langs.length})
                 </button>
                 <button className="clips-btn ghost" onClick={copyJson} disabled={!kept.length}>
                   Copy {LANG_NAMES[activeLang]} for JSON Import
@@ -402,7 +508,7 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
                           onClick={() => setActiveLang(l)}>{LANG_NAMES[l]}</button>
                 ))}
                 <span className="clips-note" style={{ marginLeft: 'auto' }}>
-                  {activeLang === 'en'
+                  {activeLang === 'en' || activeLang === 'es'
                     ? 'Human-written subs from the source.'
                     : provider === 'free'
                       ? 'Machine output — read every line before publishing.'
@@ -422,11 +528,11 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
                       <Ruby text={c.furigana} />
                       <div className="clips-romaji">{c.romaji}</div>
 
-                      <input className={activeLang === 'en' || activeLang === 'vi' ? '' : 'bn'}
+                      <input className={activeLang === 'bn' || activeLang === 'ne' ? 'bn' : ''}
                              value={c.translations[activeLang] || ''}
                              placeholder={`${LANG_NAMES[activeLang]} line`}
                              onChange={e => setField(c, 'translations', e.target.value)} />
-                      <input className={activeLang === 'en' || activeLang === 'vi' ? '' : 'bn'}
+                      <input className={activeLang === 'bn' || activeLang === 'ne' ? 'bn' : ''}
                              value={c.vocabs[activeLang] || ''}
                              placeholder="親父=…, 行く=…"
                              onChange={e => setField(c, 'vocabs', e.target.value)} />
@@ -456,19 +562,17 @@ export function ClipFinder({ onOpenStudio }: { onOpenStudio?: () => void }) {
             </>
           )}
 
-          {clips.length === 0 && !error && !busy && (
+          {clips.length === 0 && batch.length === 0 && !error && !busy && (
             <div className="clips-panel">
-              <h3>Paste a Japanese word, tick the languages, press once</h3>
+              <h3>Type a few words, tick the languages, press once</h3>
               <p className="clips-note">
-                One press searches Nadeshiko with a fresh random seed, keeps eight or nine clips that land in the
-                30–40s band, translates, and renders <b>one reel per language</b> — each carrying that language
-                and nothing else. Clips download once and are shared across every language, so four reels cost
-                far less than four runs.
+                Separate words with commas — <span className="clips-input jp" style={{ border: 0, padding: 0 }}>親父, 時間, 食べる</span>.
+                Each word gets its own search with a fresh random seed, eight or nine clips in the 30–40s band,
+                and <b>one reel per language</b>, each carrying that language and nothing else.
               </p>
               <p className="clips-note" style={{ marginTop: 8 }}>
-                English is never machine translated: Nadeshiko ships human-written English subs with every clip.
-                The free translator (MyMemory) needs no key and allows about four reels a day;
-                Claude costs roughly two cents a reel and reads far better on slang.
+                English and Spanish are never machine translated — Nadeshiko ships human-written subtitles for
+                both. Only বাংলা, Tiếng Việt and नेपाली go to a translator.
               </p>
               <p className="clips-note" style={{ marginTop: 8 }}>
                 Rendering runs on this machine — it needs ffmpeg and Chrome, so it only works under

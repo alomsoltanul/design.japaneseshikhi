@@ -23,6 +23,7 @@
     "@vercel/og": "^0.11.1",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
+    "jose": "^6.2.11",
     "jszip": "^3.10.1",
     "mp4-muxer": "^5.2.2",
     "obs-websocket-js": "^5.0.8",

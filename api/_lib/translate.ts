@@ -1,8 +1,8 @@
 /**
  * Subtitle translation for the Clip Finder's per-language reels.
  *
- * English is never translated — Nadeshiko ships human-written English subs with
- * every segment, so the English reel uses the source text directly.
+ * English and Spanish are never translated — Nadeshiko ships human-written subs
+ * for both with every segment, so those reels use the source text directly.
  *
  * Two providers:
  *   free    MyMemory. No key, no account. 5,000 chars/day anonymous (50,000 with
@@ -18,7 +18,7 @@ export type LangCode = 'bn' | 'vi' | 'ne'
 export const TRANSLATABLE: LangCode[] = ['bn', 'vi', 'ne']
 
 export const LANG_NAMES: Record<string, string> = {
-  en: 'English', bn: 'Bangla', vi: 'Vietnamese', ne: 'Nepali',
+  en: 'English', es: 'Spanish', bn: 'Bangla', vi: 'Vietnamese', ne: 'Nepali',
 }
 
 export type TranslateLine = { id: string; jp: string; english: string; vocab?: string[] }
