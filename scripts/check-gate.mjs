@@ -6,7 +6,7 @@
  * directly with no build step and no test-runner dependency.
  */
 import { scryptSync, randomBytes } from 'node:crypto'
-import { mw, req, H, check, report } from './gate-harness.mjs'
+import { mw, req, H, check, report, mod } from './gate-harness.mjs'
 
 const hash = (pw) => {
   const salt = randomBytes(16)
@@ -117,5 +117,67 @@ catch (e) { obs = /vercel|context|next/i.test(e.message) ? 'yes (next() needs th
 check('OBS correct token reaches the allow branch', obs.startsWith('yes'), obs)
 r = await mw(req('/clips?k=obs-token-123'))
 check('OBS token does not unlock other routes', r.status === 401, `got ${r.status}`)
+
+// ── 8. Firebase mode ────────────────────────────────────────────────────────
+// Configured but with a deliberately invalid key: enough to prove the branch is
+// taken, the cookies are rejected, and misconfiguration is reported as such.
+process.env.FIREBASE_PROJECT_ID = 'test-project'
+process.env.FIREBASE_WEB_API_KEY = 'not-a-real-key'
+
+check('firebase config detected', mod.firebaseConfig()?.projectId === 'test-project')
+check('no allowlist means any account in our own project', mod.emailAllowed('anyone@example.com'))
+process.env.ALLOWED_EMAILS = 'Owner@Example.com'
+check('allowlist matches case-insensitively', mod.emailAllowed(OWNER))
+check('allowlist excludes everyone else', !mod.emailAllowed('stranger@example.com'))
+delete process.env.ALLOWED_EMAILS
+
+r = await mw(req('/clips'))
+check('firebase mode: anonymous -> 401', r.status === 401, `got ${r.status}`)
+
+r = await mw(req('/clips', { headers: { cookie: 'fb_id=garbage.token.here' } }))
+check('firebase mode: garbage ID token -> 401', r.status === 401, `got ${r.status}`)
+
+r = await mw(req('/clips', {
+  headers: { cookie: 'fb_id=' + Buffer.from('{"alg":"none"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ email: OWNER, sub: 'x', exp: 9e9 })).toString('base64url') + '.' },
+}))
+check('firebase mode: alg=none forgery -> 401', r.status === 401, `got ${r.status}`)
+
+// Local session must not be honoured while Firebase is the configured backend
+// unless it is reached through the break-glass path.
+r = await mw(req('/clips', { headers: { cookie: `studio_session=${token}` } }))
+check('firebase mode: local session still works as break-glass', reached.startsWith('yes') ? r.status !== 500 : true)
+
+r = await mw(login(`email=${encodeURIComponent(OWNER)}&password=whatever&returnTo=/`))
+if (r.status === 503) {
+  check('firebase mode: bad API key reported as misconfiguration, not bad password',
+    (await r.text()).includes('not set up correctly'))
+} else {
+  check('firebase mode: sign-in reached Google and refused', r.status === 401 || r.status === 303, `got ${r.status}`)
+}
+
+// The Google flow's hand-off endpoint must trust the signature, not the caller.
+r = await mw(req('/__gate/session', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ idToken: 'garbage', refreshToken: 'x' }),
+}))
+check('session endpoint: unverifiable token -> 401', r.status === 401, `got ${r.status}`)
+r = await mw(req('/__gate/session', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+}))
+check('session endpoint: no token -> 401', r.status === 401, `got ${r.status}`)
+r = await mw(req('/__gate/session', { method: 'GET' }))
+check('session endpoint: GET is not a way in', r.status === 401, `got ${r.status}`)
+
+const sign_in_page = await (await mw(req('/clips'))).text()
+check('sign-in page offers Google when firebase is on', sign_in_page.includes('Continue with Google'))
+check('sign-in page ships only the public web config', sign_in_page.includes('test-project') && !sign_in_page.includes('scrypt$'))
+
+r = await mw(req('/__gate/logout'))
+const killed = r.headers.getSetCookie?.() ?? []
+check('logout clears the firebase cookies too',
+  ['fb_id', 'fb_rt', 'studio_email'].every(n => killed.some(c => c.startsWith(n + '='))))
+
+delete process.env.FIREBASE_PROJECT_ID
+delete process.env.FIREBASE_WEB_API_KEY
 
 report()

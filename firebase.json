@@ -1,0 +1,17 @@
+{
+  "auth": {
+    "authorizedDomains": [
+      "localhost",
+      "design-japanese-shikhi.firebaseapp.com",
+      "design-japanese-shikhi.web.app",
+      "designjapaneseshikhi.vercel.app"
+    ],
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Japanese Shikhi Content Studio",
+        "supportEmail": "alomsoltanul@gmail.com"
+      }
+    }
+  }
+}

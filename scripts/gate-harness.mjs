@@ -1,5 +1,6 @@
 /** Shared plumbing for scripts/check-gate.mjs. */
-export const mw = (await import('../middleware.ts')).default
+export const mod = await import('../middleware.ts')
+export const mw = mod.default
 
 export const H = { 'content-type': 'application/x-www-form-urlencoded' }
 export const req = (path, opts = {}) =>
