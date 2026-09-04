@@ -15,7 +15,8 @@
     "reel": "node scripts/merge-reel.mjs",
     "check:japanese": "node scripts/check-japanese.mjs",
     "check:gate": "node scripts/check-gate.mjs",
-    "user": "node scripts/make-user.mjs"
+    "user": "node scripts/make-user.mjs",
+    "fbuser": "node scripts/firebase-user.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

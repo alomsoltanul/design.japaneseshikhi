@@ -74,16 +74,23 @@ reuse it — ask.
 bundle, every asset and every `/api` route were public. The fix:
 
 1. `middleware.ts` matches every path except `/_vercel/`.
-2. Accounts live in `STUDIO_USERS` as `email:scrypt$N$r$p$salt$hash` entries.
-   Passwords are never stored, only scrypt hashes, so the variable is safe to
-   keep in project settings. Add people with `npm run user -- <email>`.
-3. Sign-in verifies the hash and issues an HMAC-signed session cookie. Removing
-   someone from `STUDIO_USERS` invalidates their cookie **immediately** — the
-   session is re-checked against the account list on every request.
-4. Unauthenticated requests get **401** plus a self-contained sign-in page
+2. Identity comes from **Firebase Auth**, project `design-japanese-shikhi` —
+   which belongs to this tool alone. Email/password sign-in runs server-side in
+   the middleware, so the ID and refresh token cookies are **HttpOnly**. Google
+   sign-in is a browser flow, so the page gets an ID token from the SDK and
+   posts it to `/__gate/session`, which verifies the RS256 signature against
+   Google's JWKS before issuing any cookie — trusted because it verifies, never
+   because the client sent it.
+3. **Signup is open by default on a Firebase project.** `ALLOWED_EMAILS` is
+   what actually grants entry; a verified account that is not on the list gets
+   403. Add people with `npm run fbuser -- <email>`, then extend the list.
+4. `STUDIO_USERS` (scrypt hashes, `npm run user -- <email>`) is **break-glass
+   only** — it applies when Google is unreachable, never as an alternative to a
+   real account. A wrong Firebase password is a refusal, not a fallback.
+5. Unauthenticated requests get **401** plus a self-contained sign-in page
    served by the middleware itself, so the application bundle never leaves the
    gate. A crawler gets a refusal, not content.
-5. Missing configuration **fails closed** (503). A missing secret must never
+6. Missing configuration **fails closed** (503). A missing secret must never
    mean "let everyone in".
 
 **No external identity provider is in this path, deliberately.** Nothing to
@@ -119,7 +126,9 @@ Vercel project. `.env.example` lists the keys with empty values.
 
 | Variable | Used by | Notes |
 |---|---|---|
-| `STUDIO_USERS` | middleware | `email:scrypt$…` entries, comma or newline separated. **This is the account list.** |
+| `FIREBASE_PROJECT_ID` / `FIREBASE_WEB_API_KEY` | middleware | `design-japanese-shikhi`. The web key is public by design. |
+| `ALLOWED_EMAILS` | middleware | **This is what grants entry.** Firebase signup is open by default. |
+| `STUDIO_USERS` | middleware | `email:scrypt$…` break-glass, used only when Google is unreachable |
 | `SESSION_SECRET` | middleware | signs the session cookie |
 | `OBS_ACCESS_TOKEN` | middleware | lets an OBS browser source reach `/listening/studio?k=…` |
 | `NADESHIKO_API_KEY` | `api/_lib/nadeshiko.ts` | server-side only |
