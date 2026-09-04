@@ -60,32 +60,43 @@ reels/                   output — gitignored
 
 ## 3. Security model
 
+**This tool is private.** It is a creator studio used only by the owner and
+their workers to produce Instagram and Facebook content promoting the separate
+public product, *japaneseshikhi*. It is not customer-facing, must never be
+publicly reachable, and **shares no database, auth pool or storage with any
+other product**. If a resource merely looks related, that is not a reason to
+reuse it — ask.
+
 **The middleware is the boundary. Nothing else is.**
 
 `src/auth/AuthContext.tsx` used to keep users and plaintext passwords in
 `localStorage`. It decided what the UI rendered and protected nothing — the
-bundle, every asset and every `/api` route were public. That is fixed, but the
-shape of the fix matters:
+bundle, every asset and every `/api` route were public. The fix:
 
 1. `middleware.ts` matches every path except `/_vercel/`.
-2. It verifies a **Supabase access token** (ES256) from the `sb-access-token`
-   cookie against the project's JWKS, using `jose`.
-3. A valid token is **not** authorisation. The Supabase project
-   (`fpbvbmindazpkqnnkwnh`) also backs the public learning app and has **100+
-   real end users**, with signup enabled and Google/Facebook providers on. Any
-   of them can mint a valid token. `ALLOWED_EMAILS` is what actually decides
-   who gets in; a verified stranger gets **403**, not 200.
+2. Accounts live in `STUDIO_USERS` as `email:scrypt$N$r$p$salt$hash` entries.
+   Passwords are never stored, only scrypt hashes, so the variable is safe to
+   keep in project settings. Add people with `npm run user -- <email>`.
+3. Sign-in verifies the hash and issues an HMAC-signed session cookie. Removing
+   someone from `STUDIO_USERS` invalidates their cookie **immediately** — the
+   session is re-checked against the account list on every request.
 4. Unauthenticated requests get **401** plus a self-contained sign-in page
    served by the middleware itself, so the application bundle never leaves the
    gate. A crawler gets a refusal, not content.
 5. Missing configuration **fails closed** (503). A missing secret must never
    mean "let everyone in".
 
-`AuthContext` decodes the JWT payload without verifying it. That is safe *only
-there*: nothing downstream of the middleware is reachable without a signature
-that already passed, and the value drives a name badge, not an access decision.
-Under `npm run dev` there is no middleware, so it falls back to the local demo
-accounts — that fallback must never be relied on in production.
+**No external identity provider is in this path, deliberately.** Nothing to
+pause, nothing to rate-limit, no other product's outage that can lock the team
+out of their own studio. Sign-in always answers "Those details are not right"
+whether the email is unknown or the password is wrong, and always runs one
+scrypt either way, so responses cannot be used to enumerate accounts.
+
+`AuthContext` reads the session payload without re-verifying the signature.
+That is safe *only there*: nothing downstream of the middleware is reachable
+without a signature that already passed, and the value drives a name badge, not
+an access decision. Under `npm run dev` there is no middleware, so it falls back
+to the local demo accounts — that fallback must never be relied on in production.
 
 ### Not indexed
 `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex` on every
@@ -97,8 +108,6 @@ crawl, which stops search engines from ever *seeing* the noindex and leaves an
 already-indexed URL in place as a bare entry. Do not "fix" this to `Disallow`.
 
 ### Still open
-- Supabase signup is enabled. The allowlist covers it, but turning signup off
-  in the dashboard is the belt to that braces.
 - No rate limiting on sign-in attempts.
 
 ---
@@ -110,13 +119,12 @@ Vercel project. `.env.example` lists the keys with empty values.
 
 | Variable | Used by | Notes |
 |---|---|---|
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | middleware | anon key is *publishable* — safe in the client by design |
-| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | client | same values, exposed to the bundle on purpose |
-| `ALLOWED_EMAILS` | middleware | comma-separated. **This is the access list.** |
+| `STUDIO_USERS` | middleware | `email:scrypt$…` entries, comma or newline separated. **This is the account list.** |
+| `SESSION_SECRET` | middleware | signs the session cookie |
+| `OBS_ACCESS_TOKEN` | middleware | lets an OBS browser source reach `/listening/studio?k=…` |
 | `NADESHIKO_API_KEY` | `api/_lib/nadeshiko.ts` | server-side only |
 | `ANTHROPIC_API_KEY` | `api/_lib/translate.ts` | optional; only for the Claude translator |
-| `OBS_ACCESS_TOKEN` | middleware | lets an OBS browser source reach `/listening/studio?k=…` |
-| `SESSION_SECRET` | middleware | legacy; retained for the OBS path |
+| `SUPABASE_*` | `api/_lib/store.ts` only | **pre-existing content storage, unrelated to auth.** Never reuse these names for anything else — see §6. |
 
 Preview environment variables are **not** set — the Vercel CLI at 50.38.2 loops
 on its own suggested command. Preview deploys therefore fail closed with 503,
@@ -199,6 +207,12 @@ zero gaps, within ~0.03s of the real merged duration. Preserve this.
   middleware in `vite.config.ts`.
 - Clips are downloaded and probed **once** and shared across every language;
   only overlay frames and the final encode differ.
+- **`api/_lib/store.ts` reads `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`** for
+  content and audio Storage. That is a *different concern from auth* and points
+  at a *different product's* project. Do not reuse those variable names, and do
+  not assume the storage backend and the auth backend are related — they are
+  not, and conflating them once put this private studio behind another
+  product's auth pool.
 
 ---
 

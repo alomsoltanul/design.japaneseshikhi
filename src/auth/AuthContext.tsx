@@ -73,46 +73,40 @@ function loadSession(): AuthUser | null {
 }
 
 /**
- * In production the Vercel middleware has already verified a Supabase access
- * token's ES256 signature and checked the email against ALLOWED_EMAILS before
- * any of this code is served. So the app does not re-authenticate — it only
- * reads who the verified user is, straight out of the token's payload.
+ * In production the Vercel middleware has already verified this session cookie's
+ * HMAC signature and checked the account against STUDIO_USERS before any of this
+ * code is served. So the app does not re-authenticate — it only reads who the
+ * verified user is, out of the cookie's payload.
  *
- * Decoding without verifying is safe *here* and only here: nothing downstream
+ * Reading without re-verifying is safe *here* and only here: nothing downstream
  * of the middleware is reachable without a signature that already passed, and
  * this value drives a name badge, not an access decision.
  *
- * `npm run dev` never runs the middleware, so when there is no token the
+ * `npm run dev` never runs the middleware, so when there is no cookie the
  * provider falls back to the local demo accounts and development is unchanged.
  */
-function readSupabaseSession(): AuthUser | null {
+function readStudioSession(): AuthUser | null {
   try {
     const raw = document.cookie
       .split(';')
       .map(c => c.trim())
-      .find(c => c.startsWith('sb-access-token='))
+      .find(c => c.startsWith('studio_session='))
     if (!raw) return null
 
-    const token = decodeURIComponent(raw.slice('sb-access-token='.length))
-    const body = token.split('.')[1]
-    if (!body) return null
+    const parts = decodeURIComponent(raw.slice('studio_session='.length)).split('.')
+    if (parts.length !== 3 || parts[0] !== 'v1') return null
 
-    const json = atob(body.replace(/-/g, '+').replace(/_/g, '/'))
-    const claims = JSON.parse(decodeURIComponent(escape(json))) as {
-      email?: string
-      exp?: number
-      user_metadata?: { name?: string; full_name?: string }
-    }
+    const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+    const claims = JSON.parse(json) as { email?: string; exp?: number }
     if (!claims.email) return null
-    if (typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now()) return null
+    if (typeof claims.exp === 'number' && claims.exp <= Date.now()) return null
 
-    const meta = claims.user_metadata || {}
     return {
       id: claims.email,
       email: claims.email,
-      name: meta.name || meta.full_name || claims.email.split('@')[0],
-      // Everyone past the gate is studio staff on the access list; the
-      // middleware is the boundary, not this field.
+      name: claims.email.split('@')[0],
+      // Everyone past the gate is studio staff; the middleware is the boundary,
+      // not this field.
       role: 'admin' as UserRole,
     }
   } catch {
@@ -120,8 +114,8 @@ function readSupabaseSession(): AuthUser | null {
   }
 }
 
-/** Hand sign-out to the middleware so it can clear the httpOnly-adjacent cookies too. */
-function supabaseSignOut() {
+/** Hand sign-out to the middleware so it can clear the session cookie too. */
+function studioSignOut() {
   window.location.href = '/__gate/logout'
 }
 
@@ -129,13 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const [viaSupabase, setViaSupabase] = useState(false)
+  const [viaGate, setViaGate] = useState(false)
 
   useEffect(() => {
-    const supabase = readSupabaseSession()
-    if (supabase) {
-      setViaSupabase(true)
-      setUser(supabase)
+    const gated = readStudioSession()
+    if (gated) {
+      setViaGate(true)
+      setUser(gated)
       setIsLoading(false)
       return
     }
@@ -181,8 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(() => {
     setUser(null)
     localStorage.removeItem(AUTH_KEY)
-    if (viaSupabase) supabaseSignOut()
-  }, [viaSupabase])
+    if (viaGate) studioSignOut()
+  }, [viaGate])
 
   const isAdmin = user?.role === 'admin'
   const isEditor = user?.role === 'admin' || user?.role === 'editor'

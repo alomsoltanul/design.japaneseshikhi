@@ -1,38 +1,39 @@
 import { next } from '@vercel/functions'
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
-import { timingSafeEqual } from 'node:crypto'
+import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto'
 
 /**
- * Site-wide access gate for designjapaneseshikhi.
+ * Access gate for designjapaneseshikhi.
+ *
+ * This tool is a private creator studio for the owner and their workers. It is
+ * not customer-facing, must never be publicly reachable, and is deliberately
+ * self-contained: it shares no database, auth pool or storage with any other
+ * product. There is no external identity provider in this path — nothing to
+ * pause, nothing to rate-limit, nothing to couple us to somebody else's outage.
+ *
+ * Accounts live in STUDIO_USERS as `email:scrypt$N$r$p$salt$hash` entries.
+ * Passwords are never stored, only scrypt hashes, so the variable is safe to
+ * hold in project settings. Add people with `npm run user -- <email>`.
  *
  * Every request is checked here before any file is served, so this is the real
- * boundary — not the in-app UI. Identity comes from Supabase Auth: the browser
- * holds a Supabase access token in a cookie, and this verifies its ES256
- * signature against the project's JWKS before letting anything through.
- *
- * A valid token is necessary but NOT sufficient. The Supabase project has
- * signup enabled and Google/Facebook providers on, so anyone could mint a valid
- * token for themselves. ALLOWED_EMAILS is the actual authorisation list; a
- * verified stranger gets 403, not 200.
+ * boundary — the in-app UI is a name badge, not a gate.
  *
  * Runs on Vercel only. `npm run dev` serves through Vite and never reaches this
  * file, so local work is unaffected.
  *
  * Environment (Vercel project settings):
- *   SUPABASE_URL          https://<ref>.supabase.co
- *   SUPABASE_ANON_KEY     publishable key — safe in the client by design
- *   ALLOWED_EMAILS        comma-separated list of who may enter
- *   SESSION_SECRET        still used to sign the OBS bypass cookie
- *   OBS_ACCESS_TOKEN      optional; lets an OBS browser source in
+ *   STUDIO_USERS      email:hash entries, comma or newline separated
+ *   SESSION_SECRET    signs the session cookie
+ *   OBS_ACCESS_TOKEN  optional; lets an OBS browser source in
  *
- * With SUPABASE_URL or ALLOWED_EMAILS missing the gate fails closed.
+ * With STUDIO_USERS or SESSION_SECRET missing the gate fails closed.
  */
 
 const GATE_PATH = '/__gate'
-const TOKEN_COOKIE = 'sb-access-token'
+const COOKIE = 'studio_session'
+const SESSION_MAX_AGE = 60 * 60 * 24 * 14 // 14 days
 const ROBOTS = 'noindex, nofollow, noarchive, nosnippet, noimageindex'
 
-const ROBOTS_TXT = `# designjapaneseshikhi is a private studio, not a public site.
+const ROBOTS_TXT = `# designjapaneseshikhi is a private creator tool, not a public site.
 # Every route is behind an access gate and every response carries
 # X-Robots-Tag: noindex. Crawling is allowed only so that header is visible —
 # blocking it here would stop search engines from ever seeing the noindex.
@@ -40,39 +41,99 @@ User-agent: *
 Allow: /
 `
 
-// ── Supabase token verification ─────────────────────────────────────────────
+// ── passwords ───────────────────────────────────────────────────────────────
 
-/**
- * Module scope on purpose: Fluid Compute reuses instances, so the JWKS is
- * fetched once and reused across requests rather than on every page load.
- */
-let jwks: ReturnType<typeof createRemoteJWKSet> | null = null
+const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 }
 
-function getJwks(supabaseUrl: string) {
-  if (!jwks) jwks = createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`))
-  return jwks
+/** `scrypt$N$r$p$saltHex$hashHex` — the format scripts/make-user.mjs emits. */
+export function verifyPassword(password: string, stored: string): boolean {
+  const parts = stored.split('$')
+  if (parts.length !== 6 || parts[0] !== 'scrypt') return false
+  const [, nS, rS, pS, saltHex, hashHex] = parts
+  const N = Number(nS), r = Number(rS), p = Number(pS)
+  if (!Number.isFinite(N) || !Number.isFinite(r) || !Number.isFinite(p)) return false
+
+  let expected: Buffer
+  try {
+    expected = Buffer.from(hashHex, 'hex')
+  } catch {
+    return false
+  }
+  if (!expected.length) return false
+
+  const actual = scryptSync(password, Buffer.from(saltHex, 'hex'), expected.length, {
+    N, r, p,
+    // scrypt at N=16384 needs more than Node's default 32MB budget.
+    maxmem: 256 * 1024 * 1024,
+  })
+  return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-async function verifySupabaseToken(token: string, supabaseUrl: string): Promise<JWTPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getJwks(supabaseUrl), {
-      issuer: `${supabaseUrl}/auth/v1`,
-      // `exp` is enforced by jwtVerify; a stale token simply fails.
+type Account = { email: string; hash: string }
+
+function parseAccounts(raw: string): Account[] {
+  return raw
+    .split(/[,\n]+/)
+    .map(entry => entry.trim())
+    .filter(Boolean)
+    .map(entry => {
+      const at = entry.indexOf(':')
+      if (at < 0) return null
+      return {
+        email: entry.slice(0, at).trim().toLowerCase(),
+        hash: entry.slice(at + 1).trim(),
+      }
     })
-    return payload
+    .filter((a): a is Account => Boolean(a && a.email && a.hash))
+}
+
+/**
+ * Always runs one scrypt, even for an unknown email, so a wrong address and a
+ * wrong password take the same time and the response cannot be used to
+ * enumerate who has an account.
+ */
+function authenticate(email: string, password: string, accounts: Account[]): Account | null {
+  const wanted = email.trim().toLowerCase()
+  const found = accounts.find(a => a.email === wanted)
+  const target = found ?? accounts[0]
+  if (!target) return null
+  const ok = verifyPassword(password, target.hash)
+  return found && ok ? found : null
+}
+
+// ── session cookie ──────────────────────────────────────────────────────────
+
+const sign = (payload: string, secret: string) =>
+  createHmac('sha256', secret).update(payload).digest('base64url')
+
+const b64url = (s: string) => Buffer.from(s, 'utf8').toString('base64url')
+
+function issueSession(email: string, secret: string): string {
+  const body = b64url(JSON.stringify({ email, exp: Date.now() + SESSION_MAX_AGE * 1000 }))
+  return `v1.${body}.${sign(`v1.${body}`, secret)}`
+}
+
+function readSession(token: string | undefined, secret: string, accounts: Account[]): string | null {
+  if (!token) return null
+  const parts = token.split('.')
+  if (parts.length !== 3 || parts[0] !== 'v1') return null
+
+  const expected = Buffer.from(sign(`v1.${parts[1]}`, secret))
+  const given = Buffer.from(parts[2])
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null
+
+  try {
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as
+      { email?: string; exp?: number }
+    if (!claims.email || typeof claims.exp !== 'number' || claims.exp <= Date.now()) return null
+    // Revocation: removing someone from STUDIO_USERS invalidates their cookie
+    // immediately, without waiting for it to expire.
+    if (!accounts.some(a => a.email === claims.email)) return null
+    return claims.email
   } catch {
     return null
   }
 }
-
-/** Authorisation, separate from authentication. */
-function isAllowed(payload: JWTPayload, allowed: string[]): boolean {
-  const email = String((payload as { email?: unknown }).email ?? '').toLowerCase().trim()
-  if (!email) return false
-  return allowed.includes(email)
-}
-
-// ── cookies ─────────────────────────────────────────────────────────────────
 
 function readCookie(request: Request, name: string): string | undefined {
   const header = request.headers.get('cookie')
@@ -85,7 +146,9 @@ function readCookie(request: Request, name: string): string | undefined {
   return undefined
 }
 
-/** Constant-time where it matters; the length check leaks only the length. */
+const sessionCookie = (token: string, secure: boolean) =>
+  `${COOKIE}=${token}; Path=/; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}${secure ? '; Secure' : ''}`
+
 function tokenMatches(given: string, expected: string): boolean {
   const a = Buffer.from(given)
   const b = Buffer.from(expected)
@@ -107,13 +170,8 @@ const htmlHeaders = (extra: Record<string, string> = {}) => ({
   ...extra,
 })
 
-/**
- * The login page is served by the middleware itself, not by the app, so the
- * application bundle stays behind the gate. It talks to Supabase's REST auth
- * endpoint directly with the publishable key and writes the returned access
- * token to a cookie the middleware can read on the next request.
- */
-function loginPage(opts: { supabaseUrl: string; anonKey: string; returnTo: string; notice?: string }): string {
+/** Served by the middleware itself, so the application bundle stays behind the gate. */
+function gatePage(opts: { returnTo: string; error?: string; notice?: string }): string {
   return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -128,10 +186,10 @@ function loginPage(opts: { supabaseUrl: string; anonKey: string; returnTo: strin
        color:#f4f7fa;font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
   .card{width:min(390px,92vw);background:#141824;border:1px solid #232a3a;border-radius:18px;
         padding:34px;box-shadow:0 30px 70px -20px rgba(0,0,0,.7)}
-  .mark{width:44px;height:44px;border-radius:12px;background:#E63946;display:flex;align-items:center;
-        justify-content:center;font-size:22px;font-weight:800;margin-bottom:18px}
+  .mark{width:44px;height:44px;border-radius:12px;background:#E63946;display:flex;
+        align-items:center;justify-content:center;font-size:22px;font-weight:800;margin-bottom:18px}
   h1{margin:0 0 6px;font-size:20px;letter-spacing:-.01em}
-  p.sub{margin:0 0 24px;font-size:13px;color:#8a94a6}
+  p.sub{margin:0 0 10px;font-size:13px;color:#8a94a6}
   label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
         color:#8a94a6;margin:14px 0 6px}
   input{width:100%;padding:11px 13px;border-radius:9px;border:1px solid #2c3448;background:#0f1320;
@@ -139,68 +197,27 @@ function loginPage(opts: { supabaseUrl: string; anonKey: string; returnTo: strin
   input:focus{border-color:#E63946}
   button{width:100%;margin-top:20px;padding:11px;border:0;border-radius:9px;background:#E63946;
          color:#fff;font-size:15px;font-weight:700;cursor:pointer}
-  button:disabled{background:#4a4f5e;cursor:not-allowed}
-  .msg{margin-top:16px;padding:10px 12px;border-radius:9px;font-size:13px;display:none}
+  .msg{margin-top:16px;padding:10px 12px;border-radius:9px;font-size:13px}
   .err{background:#2a1418;border:1px solid #64232c;color:#ff9aa4}
-  .note{background:#1a1d2b;border:1px solid #2c3448;color:#8a94a6;display:block}
+  .note{background:#1a1d2b;border:1px solid #2c3448;color:#8a94a6}
 </style>
 </head><body>
 <div class="card">
   <div class="mark">文</div>
   <h1>Content Studio</h1>
-  <p class="sub">Private workspace. Sign in with your account.</p>
-  <form id="f">
+  <p class="sub">Private workspace for the team.</p>
+  <form method="POST" action="${GATE_PATH}/login">
+    <input type="hidden" name="returnTo" value="${escapeHtml(opts.returnTo)}">
     <label for="e">Email</label>
-    <input id="e" type="email" autocomplete="username" required autofocus>
+    <input id="e" name="email" type="email" autocomplete="username" required autofocus>
     <label for="p">Password</label>
-    <input id="p" type="password" autocomplete="current-password" required>
-    <button id="b" type="submit">Sign in</button>
+    <input id="p" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
   </form>
-  <div id="m" class="msg err"></div>
+  ${opts.error ? `<div class="msg err">${escapeHtml(opts.error)}</div>` : ''}
   ${opts.notice ? `<div class="msg note">${escapeHtml(opts.notice)}</div>` : ''}
 </div>
-<script>
-const URL_ = ${JSON.stringify(opts.supabaseUrl)};
-const KEY = ${JSON.stringify(opts.anonKey)};
-const RETURN_TO = ${JSON.stringify(opts.returnTo)};
-const f = document.getElementById('f'), m = document.getElementById('m'), b = document.getElementById('b');
-function fail(t){ m.textContent = t; m.style.display = 'block'; b.disabled = false; b.textContent = 'Sign in'; }
-f.addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  m.style.display = 'none'; b.disabled = true; b.textContent = 'Signing in…';
-  try {
-    const r = await fetch(URL_ + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: KEY },
-      body: JSON.stringify({ email: document.getElementById('e').value, password: document.getElementById('p').value }),
-    });
-    const d = await r.json();
-    if (!r.ok || !d.access_token) return fail(d.error_description || d.msg || 'Those details are not right.');
-    // Not HttpOnly by necessity: the app reads the same session client-side.
-    // Scoped, Secure, SameSite=Lax, and short-lived — Supabase expires it in an hour.
-    const secure = location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = 'sb-access-token=' + encodeURIComponent(d.access_token) +
-      '; Path=/; Max-Age=' + (d.expires_in || 3600) + '; SameSite=Lax' + secure;
-    if (d.refresh_token) document.cookie = 'sb-refresh-token=' + encodeURIComponent(d.refresh_token) +
-      '; Path=/; Max-Age=2592000; SameSite=Lax' + secure;
-    location.replace(RETURN_TO);
-  } catch (e) { fail('Could not reach the sign-in service.'); }
-});
-</script>
 </body></html>`
-}
-
-function noticePage(message: string, status: number): Response {
-  return new Response(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="${ROBOTS}"><title>Content Studio</title>
-<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-background:#0b0d13;color:#f4f7fa;font:15px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:24px}
-div{max-width:440px;background:#141824;border:1px solid #232a3a;border-radius:16px;padding:30px}
-a{color:#E63946}</style></head><body><div>${escapeHtml(message)}
-<p><a href="${GATE_PATH}/logout">Sign in as someone else</a></p></div></body></html>`,
-    { status, headers: htmlHeaders() })
 }
 
 /** Only same-origin absolute paths, so the form cannot bounce someone off-site. */
@@ -216,8 +233,6 @@ export default async function middleware(request: Request): Promise<Response> {
   const secure = url.protocol === 'https:'
   const path = url.pathname
 
-  // Reachable without the gate: a crawler that cannot fetch this learns
-  // nothing, and every other response already says noindex.
   if (path === '/robots.txt') {
     return new Response(ROBOTS_TXT, {
       status: 200,
@@ -225,45 +240,56 @@ export default async function middleware(request: Request): Promise<Response> {
     })
   }
 
-  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '')
-  const anonKey = process.env.SUPABASE_ANON_KEY || ''
-  const allowed = (process.env.ALLOWED_EMAILS || '')
-    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  const secret = process.env.SESSION_SECRET || ''
+  const accounts = parseAccounts(process.env.STUDIO_USERS || '')
 
-  if (!supabaseUrl || !anonKey || !allowed.length) {
+  if (!secret || !accounts.length) {
     // Fail closed. A missing setting must never mean "let everyone in".
-    return noticePage(
-      'The access gate is not configured. Set SUPABASE_URL, SUPABASE_ANON_KEY and ALLOWED_EMAILS in the Vercel project environment, then redeploy.',
-      503,
+    return new Response(
+      gatePage({
+        returnTo: '/',
+        notice: 'The access gate is not configured. Set STUDIO_USERS and SESSION_SECRET in the Vercel project environment, then redeploy.',
+      }),
+      { status: 503, headers: htmlHeaders() },
     )
   }
 
   if (path === `${GATE_PATH}/logout`) {
-    const kill = (n: string) => `${n}=; Path=/; Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`
-    const headers = new Headers(htmlHeaders({ Location: GATE_PATH }))
-    headers.append('Set-Cookie', kill(TOKEN_COOKIE))
-    headers.append('Set-Cookie', kill('sb-refresh-token'))
-    return new Response(null, { status: 303, headers })
+    return new Response(null, {
+      status: 303,
+      headers: htmlHeaders({
+        Location: GATE_PATH,
+        'Set-Cookie': `${COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${secure ? '; Secure' : ''}`,
+      }),
+    })
   }
 
-  const token = readCookie(request, TOKEN_COOKIE)
-  if (token) {
-    const payload = await verifySupabaseToken(token, supabaseUrl)
-    if (payload) {
-      if (isAllowed(payload, allowed)) {
-        return next({ headers: { 'X-Robots-Tag': ROBOTS } })
-      }
-      // Authenticated but not authorised — signup is open on this project, so
-      // a real Supabase account is not by itself permission to be here.
-      return noticePage(
-        'That account is not on the access list for this studio. Ask the owner to add your email.',
-        403,
-      )
+  if (path === `${GATE_PATH}/login` && request.method === 'POST') {
+    const form = new URLSearchParams(await request.text())
+    const returnTo = safeReturnTo(form.get('returnTo'))
+    const account = authenticate(form.get('email') ?? '', form.get('password') ?? '', accounts)
+    if (account) {
+      return new Response(null, {
+        status: 303,
+        headers: htmlHeaders({
+          Location: returnTo,
+          'Set-Cookie': sessionCookie(issueSession(account.email, secret), secure),
+        }),
+      })
     }
+    // One message for both cases, so the response cannot confirm an address.
+    return new Response(
+      gatePage({ returnTo, error: 'Those details are not right.' }),
+      { status: 401, headers: htmlHeaders() },
+    )
   }
 
-  // OBS browser sources cannot sign in, so the chromeless studio route accepts
-  // a token in the URL.
+  if (readSession(readCookie(request, COOKIE), secret, accounts)) {
+    return next({ headers: { 'X-Robots-Tag': ROBOTS } })
+  }
+
+  // OBS browser sources cannot fill in a form, so the chromeless studio route
+  // accepts a token in the URL.
   const obsToken = process.env.OBS_ACCESS_TOKEN
   if (obsToken && path.startsWith('/listening/studio')) {
     const given = url.searchParams.get('k') ?? ''
@@ -272,17 +298,14 @@ export default async function middleware(request: Request): Promise<Response> {
     }
   }
 
-  const returnTo = path === GATE_PATH ? '/' : safeReturnTo(path + url.search)
   // 401 rather than a redirect: a crawler or scraper gets a refusal, not content.
   return new Response(
-    loginPage({ supabaseUrl, anonKey, returnTo }),
+    gatePage({ returnTo: path === GATE_PATH ? '/' : safeReturnTo(path + url.search) }),
     { status: path === GATE_PATH ? 200 : 401, headers: htmlHeaders() },
   )
 }
 
 export const config = {
   runtime: 'nodejs',
-  // Everything the deployment serves — pages, assets and /api alike. Vercel's
-  // own internals under /_vercel are the only exclusion.
   matcher: '/((?!_vercel/).*)',
 }

@@ -6,8 +6,11 @@ hard platform constraints that have already broken a deployment once.
 
 Short version, so you do not learn these the expensive way:
 
+- **designjapaneseshikhi is a private creator tool, separate from the public
+  japaneseshikhi product. Never share a database, auth pool or storage between
+  them.**
 - `middleware.ts` is the only real security boundary. `AuthContext` is a name
-  badge, not a gate.
+  badge, not a gate. Accounts live in `STUDIO_USERS`; no external provider.
 - **Hobby plan caps a deployment at 12 Serverless Functions.** Nine already
   exist. Exceeding it fails the deploy *after* a successful build and silently
   leaves the previous version serving.
