@@ -10,6 +10,7 @@ interface SlideCanvasProps {
   canvasRef?: RefObject<HTMLDivElement | null>
   isThumbnail?: boolean
   thumbnailWidth?: number
+  isFullscreen?: boolean
 }
 
 export function SlideCanvas({
@@ -17,6 +18,7 @@ export function SlideCanvas({
   canvasRef,
   isThumbnail = false,
   thumbnailWidth = 200,
+  isFullscreen = false,
 }: SlideCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState<number>(isThumbnail ? thumbnailWidth / 1920 : 0.5)
@@ -30,9 +32,9 @@ export function SlideCanvas({
     const updateScale = () => {
       if (!containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
-      // Leave padding margin around canvas (e.g. 36px)
-      const availW = Math.max(200, rect.width - 48)
-      const availH = Math.max(150, rect.height - 48)
+      // In fullscreen mode, use 100% of available viewport edge-to-edge
+      const availW = isFullscreen ? rect.width : Math.max(200, rect.width - 48)
+      const availH = isFullscreen ? rect.height : Math.max(150, rect.height - 48)
       const computedScale = Math.min(availW / 1920, availH / 1080)
       setScale(computedScale)
     }
@@ -47,7 +49,7 @@ export function SlideCanvas({
       ro.disconnect()
       window.removeEventListener('resize', updateScale)
     }
-  }, [isThumbnail, thumbnailWidth])
+  }, [isThumbnail, thumbnailWidth, isFullscreen])
 
   const renderSlideContent = () => {
     switch (slide.type) {
@@ -108,6 +110,7 @@ export function SlideCanvas({
         justifyContent: 'center',
         overflow: 'hidden',
         position: 'relative',
+        padding: isFullscreen ? 0 : 24,
       }}
     >
       <div
@@ -115,6 +118,8 @@ export function SlideCanvas({
         className="ps-slide-canvas"
         style={{
           transform: `scale(${scale})`,
+          borderRadius: isFullscreen ? 0 : 12,
+          boxShadow: isFullscreen ? 'none' : undefined,
         }}
       >
         {renderSlideContent()}

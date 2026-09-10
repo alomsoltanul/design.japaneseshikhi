@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import type { PresentationDeck, Slide, SlideType } from './types'
 import { DARE_PRESENTATION_PRESET, PRESET_LIBRARY } from './presets'
 import { SlideCanvas } from './SlideCanvas'
@@ -8,6 +9,63 @@ import { exportSlidePng, exportDeckZip } from './exportPresentation'
 import './presentation.css'
 
 const STORAGE_KEY = 'js-presentation-deck-v1'
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+function getFullscreenElement(): Element | null {
+  const doc = document as any
+  return (
+    doc.fullscreenElement ||
+    doc.webkitFullscreenElement ||
+    doc.webkitCurrentFullScreenElement ||
+    doc.mozFullScreenElement ||
+    doc.msFullscreenElement ||
+    null
+  )
+}
+
+function requestNativeFullscreen(el: HTMLElement): Promise<void> {
+  const rfs =
+    el.requestFullscreen ||
+    (el as any).webkitRequestFullscreen ||
+    (el as any).webkitRequestFullScreen ||
+    (el as any).mozRequestFullScreen ||
+    (el as any).msRequestFullscreen
+
+  if (rfs) {
+    try {
+      const p = rfs.call(el)
+      if (p && typeof p.then === 'function') {
+        return p.catch(() => {})
+      }
+    } catch (e) {
+      console.warn('requestFullscreen error', e)
+    }
+  }
+  return Promise.resolve()
+}
+
+function exitNativeFullscreen(): Promise<void> {
+  const doc = document as any
+  const efs =
+    doc.exitFullscreen ||
+    doc.webkitExitFullscreen ||
+    doc.webkitCancelFullScreen ||
+    doc.mozCancelFullScreen ||
+    doc.msExitFullscreen
+
+  if (efs && getFullscreenElement()) {
+    try {
+      const p = efs.call(doc)
+      if (p && typeof p.then === 'function') {
+        return p.catch(() => {})
+      }
+    } catch (e) {
+      console.warn('exitFullscreen error', e)
+    }
+  }
+  return Promise.resolve()
+}
 
 function loadSavedDeck(): PresentationDeck {
   try {
@@ -61,23 +119,16 @@ export function PresentationStudio() {
 
   const enterFullscreen = useCallback(() => {
     setIsPresenting(true)
-    const el = document.documentElement
-    if (el.requestFullscreen && !document.fullscreenElement) {
-      el.requestFullscreen().catch(() => {
-        // Fallback to overlay if browser blocks requestFullscreen
-      })
-    }
+    requestNativeFullscreen(document.documentElement)
   }, [])
 
   const exitFullscreen = useCallback(() => {
     setIsPresenting(false)
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {})
-    }
+    exitNativeFullscreen()
   }, [])
 
   const toggleFullscreen = useCallback(() => {
-    if (isPresenting || document.fullscreenElement) {
+    if (isPresenting || getFullscreenElement()) {
       exitFullscreen()
     } else {
       enterFullscreen()
@@ -87,17 +138,20 @@ export function PresentationStudio() {
   // Sync with browser native fullscreen events (e.g. user hits Esc)
   useEffect(() => {
     const handleFsChange = () => {
-      if (!document.fullscreenElement) {
+      const fsEl = getFullscreenElement()
+      if (!fsEl) {
         setIsPresenting(false)
-      } else {
-        setIsPresenting(true)
       }
     }
     document.addEventListener('fullscreenchange', handleFsChange)
     document.addEventListener('webkitfullscreenchange', handleFsChange)
+    document.addEventListener('mozfullscreenchange', handleFsChange)
+    document.addEventListener('MSFullscreenChange', handleFsChange)
     return () => {
       document.removeEventListener('fullscreenchange', handleFsChange)
       document.removeEventListener('webkitfullscreenchange', handleFsChange)
+      document.removeEventListener('mozfullscreenchange', handleFsChange)
+      document.removeEventListener('MSFullscreenChange', handleFsChange)
     }
   }, [])
 
@@ -592,50 +646,75 @@ export function PresentationStudio() {
         />
       </div>
 
-      {/* Fullscreen Presentation Mode */}
-      {isPresenting && (
-        <div className="ps-present-mode">
-          <SlideCanvas slide={currentSlide} />
+      {/* Fullscreen Presentation Mode rendered at document.body level */}
+      {isPresenting &&
+        createPortal(
+          <div
+            className="ps-present-mode"
+            onClick={e => {
+              // Left-click advances slide (like PPTX) unless clicking controls
+              if ((e.target as HTMLElement).closest('.ps-present-controls')) return
+              handleNextSlide()
+            }}
+            onContextMenu={e => {
+              // Right-click goes to previous slide
+              e.preventDefault()
+              handlePrevSlide()
+            }}
+            onMouseMove={handleMouseMove}
+          >
+            <SlideCanvas slide={currentSlide} isFullscreen />
 
-          <div className="ps-present-controls">
-            <button
-              className="ps-btn"
-              onClick={handlePrevSlide}
-              disabled={safeIdx === 0}
-              type="button"
-            >
-              ◀
-            </button>
-            <span style={{ color: '#ffffff', fontSize: 13, fontWeight: 700 }}>
-              {safeIdx + 1} / {deck.slides.length}
-            </span>
-            <button
-              className="ps-btn"
-              onClick={handleNextSlide}
-              disabled={safeIdx === deck.slides.length - 1}
-              type="button"
-            >
-              ▶
-            </button>
-            <button
-              className={`ps-btn${laserActive ? ' ps-btn-primary' : ''}`}
-              onClick={() => setLaserActive(prev => !prev)}
-              type="button"
-              title="Laser pointer"
-            >
-              🔴
-            </button>
-            <button
-              className="ps-btn"
-              onClick={exitFullscreen}
-              type="button"
-              title="Exit fullscreen (Esc)"
-            >
-              ✕ Exit
-            </button>
-          </div>
-        </div>
-      )}
+            {/* Laser Pointer Dot in Fullscreen */}
+            {laserActive && (
+              <div
+                className="ps-laser-dot"
+                style={{ left: laserPos.x, top: laserPos.y }}
+              />
+            )}
+
+            <div className="ps-present-controls" onClick={e => e.stopPropagation()}>
+              <button
+                className="ps-btn"
+                onClick={handlePrevSlide}
+                disabled={safeIdx === 0}
+                type="button"
+                title="Previous Slide (← / Right Click)"
+              >
+                ◀
+              </button>
+              <span style={{ color: '#ffffff', fontSize: 13, fontWeight: 700 }}>
+                {safeIdx + 1} / {deck.slides.length}
+              </span>
+              <button
+                className="ps-btn"
+                onClick={handleNextSlide}
+                disabled={safeIdx === deck.slides.length - 1}
+                type="button"
+                title="Next Slide (→ / Click / Space)"
+              >
+                ▶
+              </button>
+              <button
+                className={`ps-btn${laserActive ? ' ps-btn-primary' : ''}`}
+                onClick={() => setLaserActive(prev => !prev)}
+                type="button"
+                title="Toggle laser pointer"
+              >
+                🔴
+              </button>
+              <button
+                className="ps-btn"
+                onClick={exitFullscreen}
+                type="button"
+                title="Exit fullscreen (Esc)"
+              >
+                ✕ Exit
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Offscreen Node for ZIP Render */}
       {offscreenSlideIdx !== null && deck.slides[offscreenSlideIdx] && (
