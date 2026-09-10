@@ -17,14 +17,16 @@ import { SubtitleStudio } from '@/subtitles/SubtitleStudio'
 import { ClipFinder } from '@/clips/ClipFinder'
 import { KanjiStudio } from '@/kanji/KanjiStudio'
 import { NewPage } from '@/newpage/NewPage'
+import { PresentationStudio } from '@/presentation/PresentationStudio'
 
 const STORAGE_KEY = 'js-poster-studio-v2'
 const VIEW_STORAGE_KEY = 'js-poster-studio-view'
 
-export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import' | 'reel-studio' | 'clips' | 'subtitles' | 'kanji' | 'newpage'
+export type AppView = 'home' | 'poster' | 'prompt' | 'poster-maker' | 'listening' | 'json-import' | 'reel-studio' | 'clips' | 'subtitles' | 'kanji' | 'newpage' | 'presentation'
 
 function getInitialView(): AppView {
   const path = window.location.pathname
+  if (path.startsWith('/presentation')) return 'presentation'
   if (path.startsWith('/newpage')) return 'newpage'
   if (path.startsWith('/kanji')) return 'kanji'
   if (path.startsWith('/subtitles')) return 'subtitles'
@@ -54,7 +56,7 @@ export default function App() {
   const [view, setView] = useState<AppView>(getInitialView)
 
   useEffect(() => {
-    if (view !== 'poster-maker' && view !== 'listening' && view !== 'reel-studio' && view !== 'clips' && view !== 'subtitles' && view !== 'kanji' && view !== 'newpage') {
+    if (view !== 'poster-maker' && view !== 'listening' && view !== 'reel-studio' && view !== 'clips' && view !== 'subtitles' && view !== 'kanji' && view !== 'newpage' && view !== 'presentation') {
       localStorage.setItem(VIEW_STORAGE_KEY, view)
     }
   }, [view])
@@ -68,6 +70,7 @@ export default function App() {
   const handleChangeView = useCallback((next: AppView) => {
     setView(next)
     const target =
+      next === 'presentation' ? '/presentation' :
       next === 'newpage' ? '/newpage' :
       next === 'kanji' ? '/kanji' :
       next === 'subtitles' ? '/subtitles' :
@@ -125,6 +128,7 @@ export default function App() {
               </div>
               <div className="home-grid">
                 {[
+                  { id: 'presentation' as AppView, label: 'Presentation Guide', desc: 'PPTX-level video slides from JSON workflow with 16:9 canvas.', icon: '📽️' },
                   { id: 'poster' as AppView, label: 'Poster Studio', desc: 'Design beautiful Japanese learning posters.', icon: '🎨' },
                   { id: 'json-import' as AppView, label: 'JSON Import', desc: 'Paste JSON to auto-create content.', icon: '📋' },
                   { id: 'prompt' as AppView, label: 'Prompt Extractor', desc: 'Extract image prompts from JSON data.', icon: '🖼️' },
@@ -134,7 +138,7 @@ export default function App() {
                   { id: 'clips' as AppView, label: 'Clip Finder', desc: 'Search a Japanese word, keep real clips of native speakers saying it, and export the subtitle JSON.', icon: '🔎' },
                   { id: 'subtitles' as AppView, label: 'Subtitle Studio', desc: 'Karaoke-style Japanese subtitles with furigana, romaji, Bangla + tap-to-sync timing.', icon: '💬' },
                   { id: 'kanji' as AppView, label: 'Kanji Mind Map', desc: 'One kanji, eight words — animated map with quiz + Reel/FB/YouTube video export.', icon: '🧠' },
-                  { id: 'newpage' as AppView, label: 'Word Reel Preview', desc: 'Live preview of the word-of-the-day reel design (1080×1920) with theme picker.', icon: '📽️' },
+                  { id: 'newpage' as AppView, label: 'Word Reel Preview', desc: 'Live preview of the word-of-the-day reel design (1080×1920) with theme picker.', icon: '📺' },
                 ].map(tool => (
                   <button key={tool.id} className="home-card" onClick={() => handleChangeView(tool.id)}>
                     <div className="home-card-icon">{tool.icon}</div>
@@ -146,6 +150,9 @@ export default function App() {
             </div>
           )}
 
+          <ErrorBoundary>
+            {view === 'presentation' && <PresentationStudio />}
+          </ErrorBoundary>
           <ErrorBoundary>
             {view === 'json-import' && <JsonImporter onImport={handleJsonImport} />}
           </ErrorBoundary>
