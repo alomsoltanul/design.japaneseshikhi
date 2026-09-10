@@ -59,6 +59,48 @@ export function PresentationStudio() {
     setActiveIdx(prev => Math.max(prev - 1, 0))
   }, [])
 
+  const enterFullscreen = useCallback(() => {
+    setIsPresenting(true)
+    const el = document.documentElement
+    if (el.requestFullscreen && !document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {
+        // Fallback to overlay if browser blocks requestFullscreen
+      })
+    }
+  }, [])
+
+  const exitFullscreen = useCallback(() => {
+    setIsPresenting(false)
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {})
+    }
+  }, [])
+
+  const toggleFullscreen = useCallback(() => {
+    if (isPresenting || document.fullscreenElement) {
+      exitFullscreen()
+    } else {
+      enterFullscreen()
+    }
+  }, [isPresenting, enterFullscreen, exitFullscreen])
+
+  // Sync with browser native fullscreen events (e.g. user hits Esc)
+  useEffect(() => {
+    const handleFsChange = () => {
+      if (!document.fullscreenElement) {
+        setIsPresenting(false)
+      } else {
+        setIsPresenting(true)
+      }
+    }
+    document.addEventListener('fullscreenchange', handleFsChange)
+    document.addEventListener('webkitfullscreenchange', handleFsChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange)
+      document.removeEventListener('webkitfullscreenchange', handleFsChange)
+    }
+  }, [])
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -73,15 +115,15 @@ export function PresentationStudio() {
         handlePrevSlide()
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
-        setIsPresenting(prev => !prev)
+        toggleFullscreen()
       } else if (e.key === 'Escape' && isPresenting) {
-        setIsPresenting(false)
+        exitFullscreen()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleNextSlide, handlePrevSlide, isPresenting])
+  }, [handleNextSlide, handlePrevSlide, isPresenting, toggleFullscreen, exitFullscreen])
 
   // Mouse tracking for laser pointer
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -353,7 +395,7 @@ export function PresentationStudio() {
           {/* Present Fullscreen */}
           <button
             className="ps-btn ps-btn-present"
-            onClick={() => setIsPresenting(true)}
+            onClick={enterFullscreen}
             type="button"
             title="Full-screen Presentation Mode (F)"
           >
@@ -585,7 +627,7 @@ export function PresentationStudio() {
             </button>
             <button
               className="ps-btn"
-              onClick={() => setIsPresenting(false)}
+              onClick={exitFullscreen}
               type="button"
               title="Exit fullscreen (Esc)"
             >
