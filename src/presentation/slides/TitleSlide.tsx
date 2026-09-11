@@ -77,16 +77,16 @@ export function TitleSlide({ slide }: { slide: TitleSlideType }) {
         {slide.bulletPoints && slide.bulletPoints.length > 0 && (
           <div
             style={{
-              background: '#14172b',
-              border: '1.5px solid rgba(100, 115, 165, 0.24)',
+              background: '#000000',
+              border: '2px solid rgba(255, 255, 255, 0.22)',
               borderRadius: 20,
               padding: '24px 44px',
               marginTop: 12,
               display: 'flex',
               flexDirection: 'column',
-              gap: 14,
+              gap: 16,
               textAlign: 'left',
-              maxWidth: 880,
+              maxWidth: 900,
             }}
           >
             {slide.bulletPoints.map((pt, i) => (
@@ -95,10 +95,10 @@ export function TitleSlide({ slide }: { slide: TitleSlideType }) {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 14,
-                  fontSize: 24,
-                  color: '#e5e7eb',
-                  fontWeight: 500,
+                  gap: 16,
+                  fontSize: 28,
+                  color: '#ffffff',
+                  fontWeight: 600,
                 }}
               >
                 <span style={{ color: brandColor, fontWeight: 800 }}>✓</span>

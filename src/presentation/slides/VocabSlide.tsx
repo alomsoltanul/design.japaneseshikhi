@@ -32,32 +32,32 @@ export function VocabSlide({ slide }: { slide: VocabSlideType }) {
             <div
               key={item.id || idx}
               style={{
-                background: '#14172b',
-                border: '1.5px solid rgba(100, 115, 165, 0.24)',
+                background: '#000000',
+                border: '2px solid rgba(255, 255, 255, 0.22)',
                 borderRadius: 16,
-                padding: '18px 24px',
+                padding: '20px 26px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 8,
+                gap: 10,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                  <span style={{ fontSize: 30, fontWeight: 800, color: '#ffffff' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+                  <span style={{ fontSize: 34, fontWeight: 800, color: '#ffffff' }}>
                     {item.word}
                   </span>
                   {item.furigana && (
-                    <span style={{ fontSize: 18, color: '#ff4757', fontWeight: 600 }}>
+                    <span style={{ fontSize: 20, color: '#ff4757', fontWeight: 700 }}>
                       [{item.furigana}]
                     </span>
                   )}
                   {item.romaji && (
-                    <span style={{ fontSize: 16, fontStyle: 'italic', color: '#9ea5c7' }}>
+                    <span style={{ fontSize: 18, fontStyle: 'italic', color: '#e2e8f0' }}>
                       {item.romaji}
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#ff4757' }}>
+                <div style={{ fontSize: 24, fontWeight: 700, color: '#ff4757' }}>
                   {item.meaning}
                 </div>
               </div>
@@ -65,20 +65,21 @@ export function VocabSlide({ slide }: { slide: VocabSlideType }) {
               {item.example && (
                 <div
                   style={{
-                    background: 'rgba(0,0,0,0.25)',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: 10,
-                    padding: '10px 14px',
+                    padding: '12px 16px',
                     marginTop: 4,
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 3,
+                    gap: 4,
                   }}
                 >
-                  <div style={{ fontSize: 19, fontWeight: 600, color: '#e5e7eb' }}>
+                  <div style={{ fontSize: 24, fontWeight: 600, color: '#ffffff' }}>
                     {item.example}
                   </div>
                   {item.exampleMeaning && (
-                    <div style={{ fontSize: 15, color: '#a5adc9' }}>
+                    <div style={{ fontSize: 18, color: '#e2e8f0' }}>
                       ↳ {item.exampleMeaning}
                     </div>
                   )}

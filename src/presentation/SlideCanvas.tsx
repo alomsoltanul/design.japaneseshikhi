@@ -79,7 +79,7 @@ export function SlideCanvas({
           position: 'relative',
           overflow: 'hidden',
           borderRadius: 6,
-          background: '#090b14',
+          background: '#000000',
         }}
       >
         <div
