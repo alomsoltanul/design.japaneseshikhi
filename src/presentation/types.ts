@@ -1,4 +1,4 @@
-export type SlideType = 'qa-grid' | 'conversation' | 'title' | 'vocab-list'
+export type SlideType = 'qa-grid' | 'conversation' | 'title' | 'vocab-list' | 'grammar-point'
 
 export interface QACardItem {
   id?: string
@@ -84,7 +84,40 @@ export interface VocabSlide extends BaseSlide {
   items: VocabItem[]
 }
 
-export type Slide = QAGridSlide | ConversationSlide | TitleSlide | VocabSlide
+export interface GrammarFormation {
+  title?: string
+  formula?: string
+  note?: string
+  rules?: Array<{ part: string; connector: string }>
+}
+
+export interface GrammarExampleItem {
+  id?: string
+  label?: string
+  japanese: string
+  romaji?: string
+  ans?: string
+  translation?: string
+}
+
+export interface GrammarException {
+  rule?: string
+  description?: string
+  examples?: GrammarExampleItem[]
+}
+
+export interface GrammarPointSlide extends BaseSlide {
+  type: 'grammar-point'
+  grammarTopic?: string
+  meaning?: string
+  banglaMeaning?: string
+  level?: string
+  formation?: GrammarFormation
+  examples: GrammarExampleItem[]
+  exception?: GrammarException
+}
+
+export type Slide = QAGridSlide | ConversationSlide | TitleSlide | VocabSlide | GrammarPointSlide
 
 export interface PresentationDeck {
   id: string

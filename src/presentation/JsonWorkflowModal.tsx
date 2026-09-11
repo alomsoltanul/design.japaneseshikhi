@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { PresentationDeck, Slide } from './types'
-import { DARE_PRESENTATION_PRESET, NANI_PRESENTATION_PRESET } from './presets'
+import { DARE_PRESENTATION_PRESET, NANI_PRESENTATION_PRESET, NODE_GRAMMAR_PRESET } from './presets'
 
 interface JsonWorkflowModalProps {
   currentDeck: PresentationDeck
@@ -89,7 +89,7 @@ export function JsonWorkflowModal({
           brandColor: currentDeck.brandColor,
           slides: parsed as Slide[],
         }
-      } else if (parsed.type && (parsed.type === 'qa-grid' || parsed.type === 'conversation' || parsed.type === 'title' || parsed.type === 'vocab-list')) {
+      } else if (parsed.type && (parsed.type === 'qa-grid' || parsed.type === 'conversation' || parsed.type === 'title' || parsed.type === 'vocab-list' || parsed.type === 'grammar-point')) {
         // User pasted a single slide
         deck = {
           id: `deck-${Date.now()}`,
@@ -129,7 +129,15 @@ export function JsonWorkflowModal({
         <div className="ps-modal-body">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Load Presets:</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Presets:</span>
+              <button
+                className="ps-btn"
+                style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => handleLoadPreset(NODE_GRAMMAR_PRESET)}
+                type="button"
+              >
+                📗 〜ので Grammar (Proto 1)
+              </button>
               <button
                 className="ps-btn"
                 style={{ fontSize: 12, padding: '4px 10px' }}
@@ -144,7 +152,7 @@ export function JsonWorkflowModal({
                 onClick={() => handleLoadPreset(NANI_PRESENTATION_PRESET)}
                 type="button"
               >
-                💡 なに？ Q&A Preset
+                💡 なに？ Q&amp;A Preset
               </button>
             </div>
 

@@ -4,6 +4,7 @@ import { QAGridSlide } from './slides/QAGridSlide'
 import { ConversationSlide } from './slides/ConversationSlide'
 import { TitleSlide } from './slides/TitleSlide'
 import { VocabSlide } from './slides/VocabSlide'
+import { GrammarSlide } from './slides/GrammarSlide'
 
 interface SlideCanvasProps {
   slide: Slide
@@ -61,6 +62,8 @@ export function SlideCanvas({
         return <TitleSlide slide={slide} />
       case 'vocab-list':
         return <VocabSlide slide={slide} />
+      case 'grammar-point':
+        return <GrammarSlide slide={slide} />
       default:
         return <div style={{ padding: 40 }}>Unknown slide type</div>
     }

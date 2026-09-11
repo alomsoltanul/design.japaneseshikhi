@@ -243,7 +243,103 @@ export const NANI_PRESENTATION_PRESET: PresentationDeck = {
   ],
 }
 
+export const NODE_GRAMMAR_PRESET: PresentationDeck = {
+  id: 'node-grammar-guide',
+  title: '〜ので (node) — Japanese Grammar Guide (Prototype 1)',
+  description: 'Master the Japanese causal particle 〜ので (because / since) with formation rules, examples, and conversation practice.',
+  brand: 'Japanese Shikhi',
+  brandColor: '#E63946',
+  slides: [
+    {
+      id: 'slide-node-grammar-1',
+      type: 'grammar-point',
+      brand: 'Japanese Shikhi',
+      brandColor: '#E63946',
+      keyword: '〜ので',
+      grammarTopic: '〜ので',
+      title: '〜ので (node)',
+      titleHighlight: '〜ので',
+      meaning: 'কারণ / যেহেতু (Because / Since)',
+      level: 'JLPT N5/N4',
+      speakerNotes:
+        'Slide 1 Guide: Explain that 〜node expresses natural reason/cause. Unlike 〜kara, 〜node sounds polite, objective, and less subjective. Emphasize that verbs & i-adjectives take plain form + node, while na-adjectives and nouns take na + node.',
+      formation: {
+        title: "Topic Grammar: How it's made / গঠন প্রণালী",
+        note: 'Example: ので + ..... + です',
+        rules: [
+          { part: '動詞 [普通形]', connector: '+ ので' },
+          { part: 'い形容詞', connector: '+ ので' },
+          { part: 'な形容詞', connector: '+ なので' },
+          { part: '名詞', connector: '+ なので' },
+        ],
+      },
+      examples: [
+        {
+          id: 'ex-1',
+          label: 'れい 1 :',
+          japanese: '雨が降ったので、出かけませんでした。',
+          romaji: 'Ame ga futta node, dekakemasen deshita.',
+          ans: 'Ans: বৃষ্টি পড়ার কারণে, বাইরে যাইনি।',
+        },
+        {
+          id: 'ex-2',
+          label: 'Rei 2 :',
+          japanese: '頭が痛いので、早く寝ます。',
+          romaji: 'Atama ga itai node, hayaku nemasu.',
+          ans: 'Ans: মাথা ব্যথার কারণে, তাড়াতাড়ি ঘুমাবো।',
+        },
+        {
+          id: 'ex-3',
+          label: 'れい 3 :',
+          japanese: 'バスが来なかったので、遅刻しました。',
+          romaji: 'Basu ga konakatta node, chikoku shimashita.',
+          ans: 'Ans: বাস না আসার কারণে, দেরি হয়েছিল।',
+        },
+      ],
+      exception: {
+        rule: 'If any exception: rule.',
+        description: 'な-Adjective ও Noun এর সাথে "だ" না বসে "な" বসবে (যেমন: 暇だ → 暇なので)。',
+        examples: [
+          {
+            id: 'ex-exc-1',
+            label: 'れい 1 :',
+            japanese: '暇なので、友達と映画を見ます。',
+            romaji: 'Hima na node, tomodachi to eiga o mimasu.',
+            ans: 'Ans: অবসর থাকায়, বন্ধুর সাথে সিনেমা দেখছি।',
+          },
+        ],
+      },
+    },
+    {
+      id: 'slide-node-kaiwa-2',
+      type: 'conversation',
+      brand: 'Japanese Shikhi',
+      brandColor: '#E63946',
+      keyword: '〜ので',
+      title: '会話 — 実践練習 (Real Conversation Practice)',
+      subtitle: '',
+      speakerNotes:
+        'Slide 2 Guide: Have students listen to the dialogue and spot the two uses of 〜node ("熱があるので" and "テストがあるので"). Have them shadow Yuki & Haru.',
+      image: {
+        url: '/assets/slides-anime-hallway.png',
+        prompt: 'High school hallway anime scene, two students talking after class',
+      },
+      dialogue: {
+        title: '放課後の会話 (After School Conversation)',
+        lines: [
+          { speaker: 'ユキ', text: 'ハル君、今日は部活に行かないの？' },
+          { speaker: 'ハル', text: 'うん、ちょっと熱があるので、早く帰るよ。' },
+          { speaker: 'ユキ', text: '大丈夫？無理しないでね。' },
+          { speaker: 'ハル', text: 'ありがとう。明日テストがあるので、家で休みます。' },
+          { speaker: 'ユキ', text: 'お大事にね！' },
+        ],
+      },
+    },
+  ],
+}
+
 export const PRESET_LIBRARY: Record<string, PresentationDeck> = {
+  'node-grammar-preset': NODE_GRAMMAR_PRESET,
   'dare-preset': DARE_PRESENTATION_PRESET,
   'nani-preset': NANI_PRESENTATION_PRESET,
 }

@@ -14,10 +14,25 @@
       "Bash(brew uninstall *)",
       "Bash(brew list *)",
       "Bash(brew missing *)",
-      "Bash(brew deps *)"
+      "Bash(brew deps *)",
+      "Bash(ls -la && echo \"---ROOT---\" && ls /Users/alomsoltanul/ | head -50)",
+      "Read(//Users/alomsoltanul/**)",
+      "Bash(mkdir -p /Users/alomsoltanul/design.japaneseshikhi/public/tools && cp /Users/alomsoltanul/Downloads/handoff/learning-reel-studio.html /Users/alomsoltanul/design.japaneseshikhi/public/tools/learning-reel-studio.html && ls -la /Users/alomsoltanul/design.japaneseshikhi/public/tools/ && echo \"---vercel.json---\" && cat /Users/alomsoltanul/design.japaneseshikhi/vercel.json)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git stash *)",
+      "Bash(cp \"/Users/alomsoltanul/Downloads/handoff 2/learning-reel-studio.html\" /Users/alomsoltanul/design.japaneseshikhi/public/tools/learning-reel-studio.html && wc -c /Users/alomsoltanul/design.japaneseshikhi/public/tools/learning-reel-studio.html)",
+      "Bash(git commit -m ' *)",
+      "Bash(vercel list *)",
+      "Bash(awk 'length\\($0\\) > 500 {print NR\": LONG LINE len=\"length\\($0\\)} length\\($0\\) <= 500 {print NR\": \"$0}' learning-reel-studio.html)",
+      "Bash(node -e ' *)",
+      "Bash(mkdir -p /private/tmp/claude-501/-Users-alomsoltanul-design-japaneseshikhi/05e8012d-8c30-47d8-87ee-b9003f88f1bc/scratchpad)",
+      "Bash(vercel inspect *)",
+      "Bash(python3 -c ' *)"
     ],
     "additionalDirectories": [
-      "/Users/alomsoltanul/fish-speech"
+      "/Users/alomsoltanul/fish-speech",
+      "/Users/alomsoltanul/Downloads/handoff",
+      "/Users/alomsoltanul/Downloads/handoff 2"
     ]
   }
 }

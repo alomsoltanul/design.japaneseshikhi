@@ -189,7 +189,61 @@ export function PresentationStudio() {
   // Slide CRUD
   const handleAddSlide = (type: SlideType = 'qa-grid') => {
     let newSlide: Slide
-    if (type === 'conversation') {
+    if (type === 'grammar-point') {
+      newSlide = {
+        id: `slide-${Date.now()}`,
+        type: 'grammar-point',
+        brand: deck.brand,
+        brandColor: deck.brandColor,
+        keyword: '〜ので',
+        grammarTopic: '〜ので',
+        title: '〜ので (node)',
+        titleHighlight: '〜ので',
+        meaning: 'কারণ / যেহেতু (Because / Since)',
+        level: 'JLPT N5/N4',
+        speakerNotes:
+          'Explain the formation rules and examples for 〜ので. Note the difference from 〜から (more objective and polite).',
+        formation: {
+          title: "Topic Grammar: How it's made / গঠন প্রণালী",
+          note: 'Example: ので + ..... + です',
+          rules: [
+            { part: '動詞 [普通形]', connector: '+ ので' },
+            { part: 'い形容詞', connector: '+ ので' },
+            { part: 'な形容詞', connector: '+ なので' },
+            { part: '名詞', connector: '+ なので' },
+          ],
+        },
+        examples: [
+          {
+            id: `ex-${Date.now()}-1`,
+            label: 'れい 1 :',
+            japanese: '雨が降ったので、出かけませんでした。',
+            romaji: 'Ame ga futta node, dekakemasen deshita.',
+            ans: 'Ans: বৃষ্টি পড়ার কারণে, বাইরে যাইনি।',
+          },
+          {
+            id: `ex-${Date.now()}-2`,
+            label: 'Rei 2 :',
+            japanese: '頭が痛いので、早く寝ます。',
+            romaji: 'Atama ga itai node, hayaku nemasu.',
+            ans: 'Ans: মাথা ব্যথার কারণে, তাড়াতাড়ি ঘুমাবো।',
+          },
+        ],
+        exception: {
+          rule: 'If any exception: rule.',
+          description: 'な-Adjective ও Noun এর সাথে "だ" না বসে "な" বসবে (যেমন: 暇だ → 暇なので)。',
+          examples: [
+            {
+              id: `ex-exc-${Date.now()}-1`,
+              label: 'れい 1 :',
+              japanese: '暇なので、友達と映画を見ます。',
+              romaji: 'Hima na node, tomodachi to eiga o mimasu.',
+              ans: 'Ans: অবসর থাকায়, বন্ধুর সাথে সিনেমা দেখছি।',
+            },
+          ],
+        },
+      }
+    } else if (type === 'conversation') {
       newSlide = {
         id: `slide-${Date.now()}`,
         type: 'conversation',
@@ -400,6 +454,7 @@ export function PresentationStudio() {
             value=""
           >
             <option value="" disabled>Load Presets...</option>
+            <option value="node-grammar-preset">📗 〜ので Grammar (Proto 1)</option>
             <option value="dare-preset">🔥 だれ？ 2-Slide Guide</option>
             <option value="nani-preset">💡 なに？ Q&A Guide</option>
           </select>
@@ -465,6 +520,15 @@ export function PresentationStudio() {
           <div className="ps-thumb-header">
             <span>Slides ({deck.slides.length})</span>
             <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                className="ps-btn ps-btn-ghost"
+                style={{ padding: '2px 6px', fontSize: 11 }}
+                onClick={() => handleAddSlide('grammar-point')}
+                title="Add Grammar Point Slide"
+                type="button"
+              >
+                + Grammar
+              </button>
               <button
                 className="ps-btn ps-btn-ghost"
                 style={{ padding: '2px 6px', fontSize: 11 }}
@@ -545,9 +609,17 @@ export function PresentationStudio() {
             ))}
           </div>
 
-          <div className="ps-thumb-footer">
+          <div className="ps-thumb-footer" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <button
               className="ps-btn"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={() => handleAddSlide('grammar-point')}
+              type="button"
+            >
+              + Add Grammar Slide
+            </button>
+            <button
+              className="ps-btn ps-btn-ghost"
               style={{ width: '100%', justifyContent: 'center' }}
               onClick={() => handleAddSlide('qa-grid')}
               type="button"
