@@ -1084,3 +1084,29 @@
   flex-direction: column;
   gap: 4px;
 }
+
+/* ── Facecam 20% Reserved Area Guide ── */
+.ps-facecam-reserved-zone {
+  pointer-events: none;
+}
+
+.ps-facecam-guide-box {
+  width: 100%;
+  height: 280px;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.02);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.ps-present-mode .ps-facecam-guide-box,
+.ps-thumb-preview-box .ps-facecam-guide-box {
+  display: none !important;
+}

@@ -1,6 +1,16 @@
 import type { GrammarPointSlide as GrammarPointSlideType } from '../types'
 
-export function GrammarSlide({ slide }: { slide: GrammarPointSlideType }) {
+interface GrammarSlideProps {
+  slide: GrammarPointSlideType
+  isThumbnail?: boolean
+  isFullscreen?: boolean
+  showFacecamGuide?: boolean
+}
+
+export function GrammarSlide({
+  slide,
+  showFacecamGuide = true,
+}: GrammarSlideProps) {
   const brand = slide.brand || 'Japanese Shikhi'
   const brandColor = slide.brandColor || '#E63946'
   const topic = slide.grammarTopic || slide.keyword || '〜ので'
@@ -12,31 +22,32 @@ export function GrammarSlide({ slide }: { slide: GrammarPointSlideType }) {
   // Auto-adapt grid column style and font sizing based on example count
   const exampleCount = examples.length
   let gridCols = '1fr'
-  let jpFontSize = 36
-  let ansFontSize = 30
-  let romajiFontSize = 22
-  let cardPadding = '20px 28px'
+  let jpFontSize = 34
+  let ansFontSize = 28
+  let romajiFontSize = 21
+  let cardPadding = '18px 26px'
 
-  if (exampleCount === 2) {
-    gridCols = '1fr 1fr'
-    jpFontSize = 34
-    ansFontSize = 28
-    romajiFontSize = 21
-    cardPadding = '18px 24px'
-  } else if (exampleCount === 3 || exampleCount === 4) {
-    gridCols = '1fr 1fr'
-    jpFontSize = 30
+  if (exampleCount <= 2) {
+    // Rei 1 and Rei 2 stacked vertically on the left column
+    gridCols = '1fr'
+    jpFontSize = 32
     ansFontSize = 26
     romajiFontSize = 20
-    cardPadding = '16px 22px'
-  } else if (exampleCount >= 5 && exampleCount <= 6) {
-    gridCols = '1fr 1fr 1fr'
+    cardPadding = '16px 24px'
+  } else if (exampleCount === 3) {
+    gridCols = '1fr'
+    jpFontSize = 28
+    ansFontSize = 24
+    romajiFontSize = 18
+    cardPadding = '14px 20px'
+  } else if (exampleCount === 4) {
+    gridCols = '1fr 1fr'
     jpFontSize = 26
     ansFontSize = 22
-    romajiFontSize = 18
-    cardPadding = '14px 18px'
-  } else if (exampleCount > 6) {
-    gridCols = 'repeat(auto-fit, minmax(380px, 1fr))'
+    romajiFontSize = 17
+    cardPadding = '12px 18px'
+  } else if (exampleCount >= 5) {
+    gridCols = '1fr 1fr'
     jpFontSize = 24
     ansFontSize = 20
     romajiFontSize = 16
@@ -108,162 +119,199 @@ export function GrammarSlide({ slide }: { slide: GrammarPointSlideType }) {
         </div>
       </div>
 
-      {/* ── Main Body ── */}
+      {/* ── Main Body with Left 79% Content Column and Right 21% Free for Facecam ── */}
       <div
         className="ps-slide-body"
         style={{
           display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
+          flexDirection: 'row',
+          gap: 28,
           paddingTop: 20,
           paddingBottom: 32,
           overflowY: 'auto',
         }}
       >
-        {/* 1. Formation Box ("topic Grammar how it made") */}
-        {formation && (
-          <div className="ps-grammar-formation-card">
-            <div className="ps-grammar-formation-header">
-              <span className="ps-grammar-tag">
-                {formation.title || "[ topic Grammar: How it's made / গঠন প্রণালী ]"}
-              </span>
-              {(formation.note || (formation as any).notes) && (
-                <span className="ps-grammar-formation-note">
-                  {formation.note || (formation as any).notes}
+        {/* Left Column (79%): Formation Box + Examples (Rei 1 & Rei 2) + Exception Box */}
+        <div
+          style={{
+            flex: '0 0 79%',
+            maxWidth: '79%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          {/* 1. Formation Box ("topic Grammar how it made") */}
+          {formation && (
+            <div className="ps-grammar-formation-card">
+              <div className="ps-grammar-formation-header">
+                <span className="ps-grammar-tag">
+                  {formation.title || "[ topic Grammar: How it's made / গঠন প্রণালী ]"}
                 </span>
-              )}
-            </div>
+                {(formation.note || (formation as any).notes) && (
+                  <span className="ps-grammar-formation-note">
+                    {formation.note || (formation as any).notes}
+                  </span>
+                )}
+              </div>
 
-            {/* Render structured rules if array is provided */}
-            {formation.rules && formation.rules.length > 0 ? (
-              <div className="ps-grammar-rules-row">
-                {formation.rules.map((rule: any, idx: number) => {
-                  if (typeof rule === 'string') {
+              {/* Render structured rules if array is provided */}
+              {formation.rules && formation.rules.length > 0 ? (
+                <div className="ps-grammar-rules-row">
+                  {formation.rules.map((rule: any, idx: number) => {
+                    if (typeof rule === 'string') {
+                      return (
+                        <div key={idx} className="ps-grammar-rule-pill">
+                          <span className="ps-rule-part">{rule}</span>
+                        </div>
+                      )
+                    }
                     return (
                       <div key={idx} className="ps-grammar-rule-pill">
-                        <span className="ps-rule-part">{rule}</span>
+                        <span className="ps-rule-part">{rule.part}</span>
+                        {rule.connector && <span className="ps-rule-connector">{rule.connector}</span>}
                       </div>
                     )
-                  }
-                  return (
-                    <div key={idx} className="ps-grammar-rule-pill">
-                      <span className="ps-rule-part">{rule.part}</span>
-                      {rule.connector && <span className="ps-rule-connector">{rule.connector}</span>}
-                    </div>
-                  )
-                })}
-              </div>
-            ) : formation.formula ? (
-              <div className="ps-grammar-formula-text">
-                {formation.formula.split('|').map((part, pIdx) => (
-                  <span key={pIdx} className="ps-grammar-rule-pill">
-                    {part.trim()}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {/* 2. Examples Section ("れい 1 :", "Rei 2 :", ...) */}
-        {examples.length > 0 && (
-          <div
-            className="ps-grammar-examples-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: gridCols,
-              gap: 16,
-            }}
-          >
-            {examples.map((ex, idx) => {
-              const ansText = getAnsText(ex)
-              return (
-                <div
-                  key={ex.id || idx}
-                  className="ps-grammar-example-card"
-                  style={{ padding: cardPadding }}
-                >
-                  <div className="ps-grammar-example-header">
-                    <span className="ps-grammar-rei-label">
-                      {ex.label || (idx % 2 === 0 ? `れい ${idx + 1} :` : `Rei ${idx + 1} :`)}
-                    </span>
-                  </div>
-
-                  <div className="ps-grammar-example-content">
-                    <div className="ps-grammar-jp-sentence" style={{ fontSize: jpFontSize }}>
-                      {ex.japanese}
-                    </div>
-                    {ex.romaji && (
-                      <div className="ps-grammar-romaji" style={{ fontSize: romajiFontSize }}>
-                        {ex.romaji}
-                      </div>
-                    )}
-
-                    {ansText && (
-                      <div className="ps-grammar-ans-row">
-                        <span className="ps-grammar-ans-badge" style={{ fontSize: ansFontSize }}>
-                          Ans:
-                        </span>
-                        <span className="ps-grammar-ans-arrow">→</span>
-                        <span className="ps-grammar-ans-text" style={{ fontSize: ansFontSize }}>
-                          {ansText}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  })}
                 </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* 3. Exception Box ("if any exception: rule.") */}
-        {exception && (exception.rule || exception.description || (exception.examples && exception.examples.length > 0)) && (
-          <div className="ps-grammar-exception-card">
-            <div className="ps-grammar-exception-header">
-              <span className="ps-grammar-exception-title">
-                ⚠️ {exception.rule || 'If any exception: rule.'}
-              </span>
-              {exception.description && (
-                <span className="ps-grammar-exception-desc">
-                  {exception.description}
-                </span>
-              )}
+              ) : formation.formula ? (
+                <div className="ps-grammar-formula-text">
+                  {formation.formula.split('|').map((part, pIdx) => (
+                    <span key={pIdx} className="ps-grammar-rule-pill">
+                      {part.trim()}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
+          )}
 
-            {exception.examples && exception.examples.length > 0 && (
-              <div className="ps-grammar-exception-examples">
-                {exception.examples.map((ex, exIdx) => (
-                  <div key={ex.id || exIdx} className="ps-grammar-exception-item">
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                      <span className="ps-grammar-rei-label" style={{ background: 'rgba(244, 162, 97, 0.2)', color: '#f4a261', fontSize: 20 }}>
-                        {ex.label || `れい ${exIdx + 1} :`}
+          {/* 2. Examples Section ("れい 1 :", "Rei 2 :", ...) */}
+          {examples.length > 0 && (
+            <div
+              className="ps-grammar-examples-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: gridCols,
+                gap: 16,
+              }}
+            >
+              {examples.map((ex, idx) => {
+                const ansText = getAnsText(ex)
+                return (
+                  <div
+                    key={ex.id || idx}
+                    className="ps-grammar-example-card"
+                    style={{ padding: cardPadding }}
+                  >
+                    <div className="ps-grammar-example-header">
+                      <span className="ps-grammar-rei-label">
+                        {ex.label || (idx % 2 === 0 ? `れい ${idx + 1} :` : `Rei ${idx + 1} :`)}
                       </span>
-                      <span className="ps-grammar-jp-sentence" style={{ fontSize: 28, color: '#ffffff' }}>
+                    </div>
+
+                    <div className="ps-grammar-example-content">
+                      <div className="ps-grammar-jp-sentence" style={{ fontSize: jpFontSize }}>
                         {ex.japanese}
-                      </span>
+                      </div>
                       {ex.romaji && (
-                        <span className="ps-grammar-romaji" style={{ fontSize: 20, color: '#e2e8f0' }}>
-                          ({ex.romaji})
-                        </span>
+                        <div className="ps-grammar-romaji" style={{ fontSize: romajiFontSize }}>
+                          {ex.romaji}
+                        </div>
+                      )}
+
+                      {ansText && (
+                        <div className="ps-grammar-ans-row">
+                          <span className="ps-grammar-ans-badge" style={{ fontSize: ansFontSize }}>
+                            Ans:
+                          </span>
+                          <span className="ps-grammar-ans-arrow">→</span>
+                          <span className="ps-grammar-ans-text" style={{ fontSize: ansFontSize }}>
+                            {ansText}
+                          </span>
+                        </div>
                       )}
                     </div>
-
-                    {getAnsText(ex) && (
-                      <div className="ps-grammar-ans-row" style={{ marginTop: 6 }}>
-                        <span className="ps-grammar-ans-badge" style={{ color: '#f4a261', fontSize: 26 }}>Ans:</span>
-                        <span className="ps-grammar-ans-arrow" style={{ fontSize: 24 }}>→</span>
-                        <span className="ps-grammar-ans-text" style={{ fontSize: 26, color: '#ffffff' }}>
-                          {getAnsText(ex)}
-                        </span>
-                      </div>
-                    )}
                   </div>
-                ))}
+                )
+              })}
+            </div>
+          )}
+
+          {/* 3. Exception Box ("if any exception: rule.") */}
+          {exception && (exception.rule || exception.description || (exception.examples && exception.examples.length > 0)) && (
+            <div className="ps-grammar-exception-card">
+              <div className="ps-grammar-exception-header">
+                <span className="ps-grammar-exception-title">
+                  ⚠️ {exception.rule || 'If any exception: rule.'}
+                </span>
+                {exception.description && (
+                  <span className="ps-grammar-exception-desc">
+                    {exception.description}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        )}
+
+              {exception.examples && exception.examples.length > 0 && (
+                <div className="ps-grammar-exception-examples">
+                  {exception.examples.map((ex, exIdx) => (
+                    <div key={ex.id || exIdx} className="ps-grammar-exception-item">
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                        <span className="ps-grammar-rei-label" style={{ background: 'rgba(244, 162, 97, 0.2)', color: '#f4a261', fontSize: 20 }}>
+                          {ex.label || `れい ${exIdx + 1} :`}
+                        </span>
+                        <span className="ps-grammar-jp-sentence" style={{ fontSize: 28, color: '#ffffff' }}>
+                          {ex.japanese}
+                        </span>
+                        {ex.romaji && (
+                          <span className="ps-grammar-romaji" style={{ fontSize: 20, color: '#e2e8f0' }}>
+                            ({ex.romaji})
+                          </span>
+                        )}
+                      </div>
+
+                      {getAnsText(ex) && (
+                        <div className="ps-grammar-ans-row" style={{ marginTop: 6 }}>
+                          <span className="ps-grammar-ans-badge" style={{ color: '#f4a261', fontSize: 26 }}>Ans:</span>
+                          <span className="ps-grammar-ans-arrow" style={{ fontSize: 24 }}>→</span>
+                          <span className="ps-grammar-ans-text" style={{ fontSize: 26, color: '#ffffff' }}>
+                            {getAnsText(ex)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right 21% Reserved Free Zone for Facecam */}
+        <div
+          className="ps-facecam-reserved-zone"
+          style={{
+            flex: '0 0 calc(21% - 28px)',
+            maxWidth: 'calc(21% - 28px)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            paddingBottom: 8,
+          }}
+        >
+          {showFacecamGuide && (
+            <div className="ps-facecam-guide-box">
+              <span style={{ fontSize: 26 }}>📹</span>
+              <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em' }}>
+                Facecam Zone
+              </span>
+              <span style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.4)' }}>
+                (20% Free Space)
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

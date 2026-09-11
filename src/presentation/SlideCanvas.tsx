@@ -12,6 +12,7 @@ interface SlideCanvasProps {
   isThumbnail?: boolean
   thumbnailWidth?: number
   isFullscreen?: boolean
+  showFacecamGuide?: boolean
 }
 
 export function SlideCanvas({
@@ -20,6 +21,7 @@ export function SlideCanvas({
   isThumbnail = false,
   thumbnailWidth = 200,
   isFullscreen = false,
+  showFacecamGuide = true,
 }: SlideCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState<number>(isThumbnail ? thumbnailWidth / 1920 : 0.5)
@@ -63,7 +65,14 @@ export function SlideCanvas({
       case 'vocab-list':
         return <VocabSlide slide={slide} />
       case 'grammar-point':
-        return <GrammarSlide slide={slide} />
+        return (
+          <GrammarSlide
+            slide={slide}
+            isThumbnail={isThumbnail}
+            isFullscreen={isFullscreen}
+            showFacecamGuide={!isThumbnail && !isFullscreen && showFacecamGuide}
+          />
+        )
       default:
         return <div style={{ padding: 40 }}>Unknown slide type</div>
     }

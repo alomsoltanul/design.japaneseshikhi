@@ -89,6 +89,7 @@ export function PresentationStudio() {
   const [isNotesOpen, setIsNotesOpen] = useState<boolean>(true)
   const [laserActive, setLaserActive] = useState<boolean>(false)
   const [laserPos, setLaserPos] = useState<{ x: number; y: number }>({ x: -100, y: -100 })
+  const [showFacecamGuide, setShowFacecamGuide] = useState<boolean>(true)
   const [exporting, setExporting] = useState<boolean>(false)
   const [exportStatus, setExportStatus] = useState<string>('')
   const [offscreenSlideIdx, setOffscreenSlideIdx] = useState<number | null>(null)
@@ -632,7 +633,11 @@ export function PresentationStudio() {
         {/* Center Presentation Stage */}
         <main className="ps-center-stage">
           {currentSlide && (
-            <SlideCanvas slide={currentSlide} canvasRef={activeCanvasRef} />
+            <SlideCanvas
+              slide={currentSlide}
+              canvasRef={activeCanvasRef}
+              showFacecamGuide={showFacecamGuide}
+            />
           )}
 
           {/* Bottom Bar: Slide Controls & Speaker Notes Toggle */}
@@ -667,6 +672,14 @@ export function PresentationStudio() {
                   ⏳ {exportStatus || 'Processing...'}
                 </span>
               )}
+
+              <div
+                className={`ps-laser-toggle${showFacecamGuide ? ' active' : ''}`}
+                onClick={() => setShowFacecamGuide(prev => !prev)}
+                title="Toggle 20% Facecam area visual guide"
+              >
+                <span>📹</span> Facecam Guide
+              </div>
 
               <div
                 className={`ps-laser-toggle${laserActive ? ' active' : ''}`}
@@ -735,7 +748,7 @@ export function PresentationStudio() {
             }}
             onMouseMove={handleMouseMove}
           >
-            <SlideCanvas slide={currentSlide} isFullscreen />
+            <SlideCanvas slide={currentSlide} isFullscreen showFacecamGuide={false} />
 
             {/* Laser Pointer Dot in Fullscreen */}
             {laserActive && (
@@ -803,6 +816,7 @@ export function PresentationStudio() {
           <SlideCanvas
             slide={deck.slides[offscreenSlideIdx]}
             canvasRef={offscreenCanvasRef}
+            showFacecamGuide={false}
           />
         </div>
       )}
