@@ -118,31 +118,48 @@ export function PresentationStudio() {
     setActiveIdx(prev => Math.max(prev - 1, 0))
   }, [])
 
-  const enterFullscreen = useCallback(() => {
+  const [isNativeFs, setIsNativeFs] = useState<boolean>(false)
+
+  const enterFullscreen = useCallback((native: boolean | unknown = false) => {
+    const isNative = typeof native === 'boolean' ? native : false
     setIsPresenting(true)
-    requestNativeFullscreen(document.documentElement)
+    if (isNative) {
+      requestNativeFullscreen(document.documentElement)
+      setIsNativeFs(true)
+    }
   }, [])
 
   const exitFullscreen = useCallback(() => {
     setIsPresenting(false)
-    exitNativeFullscreen()
+    if (getFullscreenElement()) {
+      exitNativeFullscreen()
+    }
+    setIsNativeFs(false)
   }, [])
 
   const toggleFullscreen = useCallback(() => {
-    if (isPresenting || getFullscreenElement()) {
+    if (isPresenting) {
       exitFullscreen()
     } else {
-      enterFullscreen()
+      enterFullscreen(false)
     }
   }, [isPresenting, enterFullscreen, exitFullscreen])
 
-  // Sync with browser native fullscreen events (e.g. user hits Esc)
+  const toggleNativeOS = useCallback(() => {
+    if (getFullscreenElement()) {
+      exitNativeFullscreen()
+      setIsNativeFs(false)
+    } else {
+      requestNativeFullscreen(document.documentElement)
+      setIsNativeFs(true)
+    }
+  }, [])
+
+  // Sync with browser native fullscreen events
   useEffect(() => {
     const handleFsChange = () => {
       const fsEl = getFullscreenElement()
-      if (!fsEl) {
-        setIsPresenting(false)
-      }
+      setIsNativeFs(!!fsEl)
     }
     document.addEventListener('fullscreenchange', handleFsChange)
     document.addEventListener('webkitfullscreenchange', handleFsChange)
@@ -505,9 +522,9 @@ export function PresentationStudio() {
           {/* Present Fullscreen */}
           <button
             className="ps-btn ps-btn-present"
-            onClick={enterFullscreen}
+            onClick={() => enterFullscreen(false)}
             type="button"
-            title="Full-screen Presentation Mode (F)"
+            title="Recorder-safe Presentation Mode (F)"
           >
             <span>▶</span> Present (F)
           </button>
@@ -789,10 +806,18 @@ export function PresentationStudio() {
                 🔴
               </button>
               <button
+                className={`ps-btn${isNativeFs ? ' ps-btn-primary' : ''}`}
+                onClick={toggleNativeOS}
+                type="button"
+                title="Toggle Native OS Fullscreen (if not using screen recorder)"
+              >
+                🖥️ {isNativeFs ? 'Window Mode' : 'OS Fullscreen'}
+              </button>
+              <button
                 className="ps-btn"
                 onClick={exitFullscreen}
                 type="button"
-                title="Exit fullscreen (Esc)"
+                title="Exit presentation (Esc)"
               >
                 ✕ Exit
               </button>

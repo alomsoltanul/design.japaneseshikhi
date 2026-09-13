@@ -689,7 +689,7 @@
   width: 100vw;
   height: 100vh;
   background: #000000;
-  z-index: 2147483647;
+  z-index: 9990;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -720,7 +720,7 @@
   gap: 14px;
   opacity: 0;
   transition: opacity 0.25s ease;
-  z-index: 2147483647;
+  z-index: 9995;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75);
 }
 
@@ -737,7 +737,7 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
   box-shadow: 0 0 16px 6px rgba(255, 42, 74, 0.95), 0 0 32px 14px rgba(255, 42, 74, 0.5);
-  z-index: 2147483647;
+  z-index: 9998;
   transition: opacity 0.1s ease;
 }
 
